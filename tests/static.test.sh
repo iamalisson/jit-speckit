@@ -5,7 +5,12 @@
 source "$(dirname "$0")/helpers.sh"
 cd "$ROOT"
 
-workflows="$(find .github/workflows -name '*.yml')"
+# The harness itself: a check must fail when any step fails, and must never end the file.
+harness="$(FAIL=0; check "a failing first step" 'false; true'; check "an exit inside" 'exit 0'; echo "still running")"
+check "the test harness fails a check whose first step fails (not only its last)" 'grep -q "^FAIL - a failing first step" <<<"$harness"'
+check "an exit inside a check ends only that check, never the test file" 'grep -q "^still running$" <<<"$harness"'
+
+workflows="$(find .github/workflows extension/scaffold -name '*.yml' -path '*workflows*')"
 
 check "every action in every workflow is pinned to a full commit SHA" \
   '! grep -hE "uses: [^ ]+@" $workflows | grep -vE "@[0-9a-f]{40}( |$)"'
@@ -36,7 +41,12 @@ check "when Dependabot bumped an action in every workflow, then sync-pins copies
 cp "$copy/.github/workflows/test.yml" "$copy/.github/workflows/other.yml"
 sed -i.bak "s/checkout@$new # v9.9.9/checkout@$old # v4.4.0/" "$copy/.github/workflows/other.yml"
 check "when workflows disagree on an action, then sync-pins refuses and lists both" \
-  'out="$("$copy/bin/sync-pins.sh" 2>&1)"; [[ $? != 0 ]] || exit 1; grep -q "$old" <<<"$out" && grep -q "$new" <<<"$out"'
+  'out="$("$copy/bin/sync-pins.sh" 2>&1)" && exit 1; grep -q "$old" <<<"$out" && grep -q "$new" <<<"$out"'
+
+# The spec-kit version jit-speckit is tested with is written in three places; they must agree.
+sk="$(sed -nE 's/^SPECKIT_VERSION="(v[0-9.]+)".*/\1/p' bin/setup.sh)"
+check "the spec-kit version in setup.sh ($sk) matches the init skill and the README badge" \
+  '[[ -n "$sk" ]] && grep -qF "spec-kit.git@$sk\`" skills/init/SKILL.md && grep -qF "spec--kit-$sk-" README.md && grep -qF "alt=\"spec-kit $sk\"" README.md'
 
 refs=docs/references.yaml
 check "every reference has a title, url, use_when and key" \

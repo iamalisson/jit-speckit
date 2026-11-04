@@ -9,7 +9,20 @@ JIT_EXT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 die() { echo "jit: $*" >&2; exit 1; }
 
 # Run every script from the repository root.
-jit_cd_root() { cd "$(git rev-parse --show-toplevel 2>/dev/null)" || die "not inside a git repository"; }
+# A spec-kit project in a subfolder of a bigger repo is refused, not half-supported: git hooks and
+# CI live at the repository root, so jit's files would land in the wrong place.
+jit_cd_root() {
+  local top d
+  top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "not inside a git repository"
+  d="$(pwd -P)" # physical, like git's top level (macOS /tmp is a symlink)
+  while [[ "$d" != "$top" && "$d" == "$top"/* ]]; do
+    if [[ -d "$d/.specify" ]]; then
+      die "spec-kit is set up in ${d#"$top"/}/, a subfolder of the repository; jit-speckit needs it at the repository root ($top)"
+    fi
+    d="$(dirname "$d")"
+  done
+  cd "$top" || die "cannot enter $top"
+}
 
 # cfg <key> <default>: read a flat `key: value` line from the config file. A quoted value is
 # taken as is ("Sprint #3" or 'Sprint #3'); an unquoted one ends at a ` #` comment.
@@ -69,8 +82,13 @@ base_branch() {
 
 # Long-lived branches that only change through pull requests.
 protected_branches() {
-  local level; level="$(jit_level)"
+  local level c; level="$(jit_level)"
   echo "$(default_branch) $(base_branch)"
+  # main/master are release branches in every jit flow, whatever the remote calls its default
+  # (a repo whose first push was develop has GitHub's default set to develop).
+  for c in main master; do
+    if git show-ref --verify --quiet "refs/heads/$c" || git show-ref --verify --quiet "refs/remotes/origin/$c"; then echo "$c"; fi
+  done
   if [[ "$level" != lite ]]; then echo develop; fi
   if [[ "$level" == full ]]; then echo staging; fi
 }
@@ -80,7 +98,7 @@ feature_dir() {
   local d="" f=.specify/feature.json num matches
   # On a task branch (<prefix>/NNN-tNNN-...), the branch says which feature it belongs to. That
   # wins, so a worktree never acts on whatever feature the main checkout moved on to.
-  num="$(git branch --show-current 2>/dev/null | sed -nE 's#^[^/]+/([0-9]{3})-t[0-9]{3}-.*#\1#p')"
+  num="$(git branch --show-current 2>/dev/null | sed -nE "s#^[^/]+/($FEATURE_KEY_RE)-t[0-9]{3,}-.*#\\1#p")"
   if [[ -n "$num" ]]; then
     matches="$(find specs -mindepth 1 -maxdepth 1 -type d -name "$num-*" 2>/dev/null)"
     if [[ -n "$matches" && "$(wc -l <<<"$matches")" -eq 1 ]]; then echo "$matches"; return; fi
@@ -100,7 +118,7 @@ task_issue() { sed -nE 's/.* — #([0-9]+)[[:space:]]*$/\1/p' <<<"$1"; }
 
 # Task description without checkbox, ID, [P]/[USn] markers or the issue link.
 task_desc() {
-  sed -E 's/^- \[.\] T[0-9]{3} //; s/^(\[P\] )?(\[US[0-9]+\] )?//; s/ — #[0-9]+[[:space:]]*$//' <<<"$1"
+  sed -E 's/^- \[.\] T[0-9]{3,} //; s/^(\[P\] )?(\[US[0-9]+\] )?//; s/ — #[0-9]+[[:space:]]*$//' <<<"$1"
 }
 
 # "Completed when:" sub-bullet of a task, if the task has one.
@@ -109,6 +127,15 @@ task_desc() {
 infra_files() {
   git ls-files --cached --others --exclude-standard 2>/dev/null | grep -E '(^|/)(Dockerfile[^/]*|[^/]+\.tf)$' || true
 }
+
+# task_summary <task line>: the description without its file list, for titles and branch names.
+# Cuts at " in `path`" or at " in some/path…" (spec-kit writes the paths either way).
+task_summary() { task_desc "$1" | sed -E 's/ in `.*//; s/ in [^ ]*[/][^ ]*.*//'; }
+
+# feature_key <feature dir or name>: its number, as spec-kit names features: a sequential prefix
+# of 3+ digits (001-search -> 001) or a timestamp (20261104-153000-search -> 20261104-153000).
+FEATURE_KEY_RE='[0-9]{8}-[0-9]{6}|[0-9]{3,}'
+feature_key() { basename "$1" | sed -nE "s/^($FEATURE_KEY_RE)-.*/\1/p"; }
 
 # A wrapped sub-bullet (continuation lines indented deeper) is joined into one line.
 task_field() {

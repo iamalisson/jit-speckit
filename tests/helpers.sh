@@ -8,8 +8,13 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 FAIL=0
 
+# Each check runs in a subshell with set -e: an `exit` inside it can't end the test file, and in
+# "a; b" a failing a fails the check (not just b).
+# (bash ignores set -e inside an `if` condition, even in a subshell: so run it as a plain command.)
 check() { # check "<when..., then...>" <command string>
-  if eval "$2" >/dev/null 2>&1; then echo "ok   - $1"; else echo "FAIL - $1"; FAIL=1; fi
+  local rc
+  set +e; (set -e; eval "$2") >/dev/null 2>&1; rc=$?; set -e
+  if ((rc == 0)); then echo "ok   - $1"; else echo "FAIL - $1"; FAIL=1; fi
 }
 
 # fails_with <text> <cmd...>: the command fails and its output mentions <text>.

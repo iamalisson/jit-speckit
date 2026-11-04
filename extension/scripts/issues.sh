@@ -15,7 +15,7 @@ tasks="$fdir/tasks.md"
 [[ -f "$tasks" ]] || die "$tasks not found; run /speckit-tasks first"
 base="$(base_branch)"
 feature="$(basename "$fdir")"
-num="${feature%%-*}"
+num="$(feature_key "$feature")"
 
 IFS=',' read -ra labels <<<"$(cfg issue_labels "type:task")"
 if ! $dry; then
@@ -25,11 +25,11 @@ label_args=(); for l in ${labels[@]+"${labels[@]}"}; do if [[ -n "$l" ]]; then l
 
 created=0; skipped=0
 while IFS= read -r line; do
-  id="$(sed -E 's/^- \[.\] (T[0-9]{3}) .*/\1/' <<<"$line")"
+  id="$(sed -E 's/^- \[.\] (T[0-9]{3,}) .*/\1/' <<<"$line")"
   if [[ -n "$(task_issue "$line")" ]]; then skipped=$((skipped + 1)); continue; fi
 
   desc="$(task_desc "$line")"
-  title="[$num] $id: $(sed 's/ in `.*//' <<<"$desc")"
+  title="[$num] $id: $(task_summary "$line")"
   [[ ${#title} -gt 120 ]] && title="${title:0:117}..."
   comes="$(task_field "$fdir" "$id" "Comes from")"
   what="$(task_field "$fdir" "$id" "What")"
@@ -54,6 +54,6 @@ while IFS= read -r line; do
   add_meta issue "$url"
   echo "$id → #$n"
   created=$((created + 1))
-done < <(grep -E '^- \[.\] T[0-9]{3} ' "$tasks")
+done < <(grep -E '^- \[.\] T[0-9]{3,} ' "$tasks")
 
 echo "CREATED=$created SKIPPED=$skipped"

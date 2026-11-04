@@ -15,13 +15,21 @@ exit 0
 EOF
   chmod +x "$TMP/tools/$t"
 done
-mkdir -p "$TMP/none"; for t in git bash; do ln -s "$(command -v "$t")" "$TMP/none/$t"; done # only these, wherever they live
+# A PATH with every system tool except the scanners (and the tools that could fetch them), so the
+# result never depends on what this machine has installed.
+mkdir -p "$TMP/none"
+for f in /usr/local/bin/* /usr/bin/* /bin/*; do
+  name="${f##*/}"
+  case "$name" in gitleaks|osv-scanner|semgrep|zizmor|trivy|uv|uvx|pipx|docker|podman) continue ;; esac
+  [[ -e "$TMP/none/$name" || -L "$TMP/none/$name" ]] || ln -s "$f" "$TMP/none/$name"
+done
+ln -sf "$(command -v git)" "$TMP/none/git"; ln -sf "$(command -v bash)" "$TMP/none/bash"
 
 new_repo standard
 mkdir -p .github/workflows; echo "on: push" > .github/workflows/ci.yml
 git add -A; git commit --quiet -m wf
 
-out="$(PATH="$TMP/none:/usr/bin:/bin" bash "$scan")"
+out="$(PATH="$TMP/none" bash "$scan")"
 check "when no scanner is installed, then each is reported missing with how to install it" \
   'grep -q "^gitleaks *missing *install:" <<<"$out" && grep -q "^semgrep *missing" <<<"$out" && grep -q "^zizmor *missing" <<<"$out"'
 check "then the report directory lives inside .git, never in the working tree" \

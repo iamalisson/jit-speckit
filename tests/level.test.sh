@@ -28,6 +28,8 @@ check "when Claude settings exist without attribution (a team that discloses AI 
   'out="$("$l" lite)"; [[ "$(cat .claude/settings.json)" == "{}" && "$out" != *"attribution"* ]]'
 "$l" standard >/dev/null
 check "when going up to standard, then CI is never overwritten if it already exists" '[[ "$(cat .github/workflows/ci.yml)" == "# mine" ]]'
+check "then every Dependabot entry waits 7 days before proposing a release (zizmor dependabot-cooldown)" \
+  'n=$(grep -c "package-ecosystem:" .github/dependabot.yml); [[ $n -gt 0 && "$(grep -c "default-days: 7" .github/dependabot.yml)" == "$n" ]]'
 check "then dependabot covers the detected stacks and targets develop" \
   'grep -q "package-ecosystem: cargo" .github/dependabot.yml && grep -q "package-ecosystem: npm" .github/dependabot.yml && grep -q "target-branch: develop" .github/dependabot.yml'
 check "then the stack idioms and test command come from the manifests" \
@@ -57,6 +59,12 @@ rm -rf Dockerfile services terraform
 "$l" full >/dev/null
 check "when going up to full, then staging is created on origin" 'git ls-remote --exit-code origin staging'
 check "then SECURITY.md, CODEOWNERS and the release workflow exist" '[[ -f SECURITY.md && -f .github/CODEOWNERS && -f .github/workflows/release.yml ]]'
+
+cp .specify/memory/constitution.md "$TMP/const.bak"
+sed -i.bak '/<!-- jit:end -->/d' .specify/memory/constitution.md; echo "my own principle" >> .specify/memory/constitution.md
+check "when the jit:end marker is missing, then it refuses and keeps the user's text" \
+  'fails_with "no '"'"'<!-- jit:end -->'"'"'" "$l" lite && grep -q "my own principle" .specify/memory/constitution.md'
+cp "$TMP/const.bak" .specify/memory/constitution.md
 
 out="$("$l" lite)"
 check "when going back down to lite, then no file is deleted and it says so" \
@@ -89,7 +97,8 @@ check "then it also runs weekly, for new CVEs in unchanged dependencies" 'grep -
 check "then standard has no SAST job (that is full)" '! grep -q "semgrep scan" .github/workflows/security.yml'
 check "then every action in generated workflows is pinned to a full commit SHA" \
   '! grep -hE "uses: [^ ]+@" .github/workflows/*.yml | grep -vE "@[0-9a-f]{40}( |$)"'
-check "then checkout never keeps the token on disk" '! grep -A2 "actions/checkout@" .github/workflows/ci.yml | grep "persist-credentials: true"'
+check "then every checkout says persist-credentials: false (the default keeps the token on disk)" \
+  'n=$(grep -c "actions/checkout@" .github/workflows/ci.yml); [[ $n -gt 0 && "$(grep -A2 "actions/checkout@" .github/workflows/ci.yml | grep -c "persist-credentials: false")" == "$n" ]]'
 rm .github/workflows/security.yml
 "$l" full >/dev/null
 check "when set to full, then semgrep with the OWASP rules is part of the security workflow" 'grep -q "semgrep==.*--config p/owasp-top-ten" .github/workflows/security.yml'
@@ -100,5 +109,20 @@ git config core.hooksPath .husky
 out="$("$l" standard --no-branches)"
 check "when the repo already uses its own hooks (husky), then they are not replaced and it says how to add ours" \
   '[[ "$(git config core.hooksPath)" == .husky ]] && grep -q "secrets.sh staged" <<<"$out"'
+
+# `gh repo create --clone`: an origin, but no commits yet.
+git init --quiet --bare "$TMP/empty-origin.git"; git clone --quiet "$TMP/empty-origin.git" "$TMP/empty" 2>/dev/null
+cd "$TMP/empty"; git config user.email t@t; git config user.name t
+mkdir -p .specify/extensions/jit && ln -s "$ROOT/extension/scripts" .specify/extensions/jit/scripts
+check "when the repo has an origin but no commits yet, then setup succeeds and says the branches come later" \
+  'out="$("$l" standard 2>&1)" && grep -q "develop not created yet (no commits)" <<<"$out" && [[ -f .specify/memory/constitution.md ]]'
+
+# Committed locally, nothing pushed yet: setup must not push local (unscanned) commits anywhere.
+git init --quiet --bare "$TMP/unpushed-origin.git"; git clone --quiet "$TMP/unpushed-origin.git" "$TMP/unpushed" 2>/dev/null
+cd "$TMP/unpushed"; git config user.email t@t; git config user.name t
+mkdir -p .specify/extensions/jit && ln -s "$ROOT/extension/scripts" .specify/extensions/jit/scripts
+echo x > a.txt; git add a.txt; git commit --quiet --no-verify -m local
+check "when the default branch isn't on origin yet, then setup pushes nothing and says to push it first" \
+  'out="$("$l" standard 2>&1)" && grep -q "origin/develop not created yet" <<<"$out" && [[ -z "$(git ls-remote --heads origin)" ]]'
 
 exit "$FAIL"

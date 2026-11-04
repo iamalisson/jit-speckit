@@ -7,7 +7,7 @@ set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
 task="${1:-}"
-[[ "$task" =~ ^T[0-9]{3}$ ]] || die "usage: branch.sh T001 (exactly one task ID)"
+[[ "$task" =~ ^T[0-9]{3,}$ ]] || die "usage: branch.sh T001 (exactly one task ID)"
 jit_cd_root
 
 fdir="$(feature_dir)"
@@ -34,8 +34,8 @@ if [[ "$(jit_level)" == full ]]; then
     || die "level 'full' requires /speckit-analyze on the current tasks.md before implementing"
 fi
 
-num="$(basename "$fdir" | cut -d- -f1)"
-slug="$(task_desc "$line" | sed 's/ in `.*//' | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9\n' '-' | tr -s '-' | sed 's/^-//; s/-$//' | cut -d- -f1-4)"
+num="$(feature_key "$fdir")"
+slug="$(task_summary "$line" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9\n' '-' | tr -s '-' | sed 's/^-//; s/-$//' | cut -d- -f1-4)"
 branch="$(cfg branch_prefix feat)/$num-$(tr '[:upper:]' '[:lower:]' <<<"$task")-$slug"
 
 if [[ "$(git branch --show-current)" != "$branch" ]]; then
@@ -46,5 +46,10 @@ if [[ "$(git branch --show-current)" != "$branch" ]]; then
   else git switch --quiet --no-track -c "$branch" "$from"
   fi
 fi
+
+# spec-kit's own /speckit-implement reads only this file (git-ignored, so a new worktree has none):
+# point it at the task's feature, so jit and spec-kit always work on the same one.
+mkdir -p .specify
+printf '{ "feature_directory": "%s" }\n' "$fdir" > .specify/feature.json
 
 echo "BRANCH=$branch ISSUE=$issue TASK=$task BASE=$base"

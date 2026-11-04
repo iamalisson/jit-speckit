@@ -1,24 +1,31 @@
 #!/usr/bin/env bash
 # Fast secret check, run by the git pre-commit and pre-push hooks.
 #   secrets.sh staged            check what is about to be committed
-#   secrets.sh range <from> <to> check the commits about to be pushed
+#   secrets.sh range <from> <to> check every commit in from..to, one by one (a secret added and
+#                                removed again in the same push is still caught)
+#   secrets.sh range - <to>      check every commit reachable from <to> that no remote has yet
 # Refuses secret-bearing files (.env, private keys, credential files) and secret-looking added
 # lines. Uses gitleaks when installed; the built-in patterns below always run too.
 # A line can be allowed on purpose with a trailing comment containing "jit:allow-secret".
-# Exits 1 with a redacted list of findings; 0 when clean.
+# Exits 1 with findings as file:line and the kind of secret, never the secret itself; 0 when clean.
 set -euo pipefail
 # shellcheck source=lib.sh
 source "$(dirname "$0")/lib.sh"
 jit_cd_root
 
 mode="${1:-staged}"
+# The diff format is pinned, whatever the user's git config says: color.ui=always or
+# diff.noprefix would otherwise hide every added line from the parser below. Merge commits are
+# diffed against their first parent, so lines added while resolving a merge are scanned too.
+fmt=(--no-color --no-ext-diff --src-prefix=a/ --dst-prefix=b/)
 case "$mode" in
-  staged) files="$(git diff --cached --name-only --diff-filter=ACMR)"
-          diff="$(git diff --cached --unified=0 --diff-filter=ACMR)" ;;
-  range) [[ -n "${2:-}" && -n "${3:-}" ]] || die "usage: secrets.sh range <from> <to>"
-         files="$(git diff --name-only --diff-filter=ACMR "$2" "$3")"
-         diff="$(git diff --unified=0 --diff-filter=ACMR "$2" "$3")" ;;
-  *) die "usage: secrets.sh staged | secrets.sh range <from> <to>" ;;
+  staged) files="$(git diff --cached --no-color --name-only --diff-filter=ACMR)"
+          diff="$(git diff --cached "${fmt[@]}" --unified=0 --diff-filter=ACMR)" ;;
+  range) [[ -n "${2:-}" && -n "${3:-}" ]] || die "usage: secrets.sh range <from|-> <to>"
+         if [[ "$2" == - ]]; then revs=("$3" --not --remotes); else revs=("$2..$3"); fi
+         files="$(git log --no-color --diff-merges=first-parent --name-only --format= --diff-filter=ACMR "${revs[@]}" | sort -u)"
+         diff="$(git log -p "${fmt[@]}" --diff-merges=first-parent --unified=0 --format= --diff-filter=ACMR "${revs[@]}")" ;;
+  *) die "usage: secrets.sh staged | secrets.sh range <from|-> <to>" ;;
 esac
 
 findings=()
@@ -35,45 +42,50 @@ while IFS= read -r f; do
 done <<<"$files"
 
 # Added lines that look like credentials (provider formats first, then generic assignments).
-patterns=(
-  'AKIA[0-9A-Z]{16}'                                   # AWS access key
-  'gh[pousr]_[A-Za-z0-9]{36,}'                         # GitHub token
-  'github_pat_[A-Za-z0-9_]{60,}'                       # GitHub fine-grained token
-  'glpat-[A-Za-z0-9_-]{20,}'                           # GitLab token
-  'xox[abprs]-[A-Za-z0-9-]{10,}'                       # Slack token
-  'sk_live_[A-Za-z0-9]{20,}'                           # Stripe live key
-  'AIza[0-9A-Za-z_-]{35}'                              # Google API key
-  'sk-ant-[A-Za-z0-9_-]{20,}'                          # Anthropic key
-  'sk-(proj-)?[A-Za-z0-9_-]{40,}'                      # OpenAI key
-  'SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}'           # SendGrid key
-  '-----BEGIN ([A-Z]+ )?PRIVATE KEY-----'              # private key
-  '(postgres|postgresql|mysql|mongodb(\+srv)?|redis|amqp)://[^:/@ ]+:[^@ ]{3,}@' # URL with password
-  '(password|passwd|secret|api_?key|access_?token|auth_?token|client_?secret)["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"'$<{ ]{8,}["'"'"']'
-)
-current=""
-while IFS= read -r line; do
-  case "$line" in
-    "+++ b/"*) current="${line#+++ b/}"; continue ;;
-    "+++"*|"---"*) continue ;;
-    +*) ;;
-    *) continue ;;
-  esac
-  added="${line#+}"
-  [[ "$added" == *jit:allow-secret* ]] && continue
-  for p in "${patterns[@]}"; do
-    if grep -qiE -e "$p" <<<"$added"; then
-      shown="$(sed -E 's/(["'"'"'=:][[:space:]]*.{0,4})[^"'"'"' ]{4,}/\1****/' <<<"$added" | cut -c1-80)"
-      findings+=("$current: looks like a secret: $shown")
-      break
-    fi
+names=(); patterns=()
+add() { names+=("$1"); patterns+=("$2"); }
+add "AWS access key"          'AKIA[0-9A-Z]{16}'
+add "GitHub token"            'gh[pousr]_[A-Za-z0-9]{36,}'
+add "GitHub fine-grained token" 'github_pat_[A-Za-z0-9_]{60,}'
+add "GitLab token"            'glpat-[A-Za-z0-9_-]{20,}'
+add "Slack token"             'xox[abprs]-[A-Za-z0-9-]{10,}'
+add "Stripe live key"         'sk_live_[A-Za-z0-9]{20,}'
+add "Google API key"          'AIza[0-9A-Za-z_-]{35}'
+add "Anthropic key"           'sk-ant-[A-Za-z0-9_-]{20,}'
+add "OpenAI key"              'sk-(proj-)?[A-Za-z0-9_-]{40,}'
+add "SendGrid key"            'SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}'
+add "private key"             '-----BEGIN ([A-Z]+ )?PRIVATE KEY-----'
+add "URL with a password"     '(postgres|postgresql|mysql|mongodb(\+srv)?|redis|amqp)://[^:/@ ]+:[^@ ]{3,}@'
+add "hard-coded credential"   '(password|passwd|secret|api_?key|access_?token|auth_?token|client_?secret)["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"'$<{ ]{8,}["'"'"']'
+
+tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+printf '%s\n' "${patterns[@]}" > "$tmp/patterns"
+# One line per added line: where it is (meta) and what it says (text), in the same order.
+# Lines marked jit:allow-secret are blanked, so they never match.
+awk -v meta="$tmp/meta" -v text="$tmp/text" '
+  /^\+\+\+ b\// { file = substr($0, 7); next }
+  /^(\+\+\+|---)/ { next }
+  /^@@/ { split($3, n, ","); line = substr(n[1], 2) + 0; next }
+  /^\+/ { s = substr($0, 2); if (index(s, "jit:allow-secret")) s = ""
+           print file ":" line > meta; print s > text; line++ }
+' <<<"$diff"
+touch "$tmp/meta" "$tmp/text"
+# One grep over every added line. Only matching line numbers come back: never the text.
+while IFS= read -r n; do
+  where="$(sed -n "${n}p" "$tmp/meta")"; text="$(sed -n "${n}p" "$tmp/text")"
+  kind="secret"
+  for k in "${!patterns[@]}"; do
+    if grep -qiE -e "${patterns[$k]}" <<<"$text"; then kind="${names[$k]}"; break; fi
   done
-done <<<"$diff"
+  findings+=("$where: possible $kind")
+done < <(grep -niE -f "$tmp/patterns" "$tmp/text" | cut -d: -f1 || true)
 
 if command -v gitleaks >/dev/null; then
   if [[ "$mode" == staged ]]; then
     gitleaks git --pre-commit --staged --redact --no-banner >/dev/null 2>&1 || findings+=("gitleaks: secrets found (run: gitleaks git --pre-commit --staged --redact -v)")
   else
-    gitleaks git --log-opts="$2..$3" --redact --no-banner >/dev/null 2>&1 || findings+=("gitleaks: secrets found (run: gitleaks git --log-opts=\"$2..$3\" --redact -v)")
+    opts="$2..$3"; [[ "$2" == - ]] && opts="$3 --not --remotes"
+    gitleaks git --log-opts="$opts" --redact --no-banner >/dev/null 2>&1 || findings+=("gitleaks: secrets found (run: gitleaks git --log-opts=\"$opts\" --redact -v)")
   fi
 fi
 

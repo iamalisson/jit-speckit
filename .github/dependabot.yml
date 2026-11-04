@@ -5,4 +5,5 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+    cooldown: { default-days: 7 } # a release must be a week old first
     groups: { actions: { patterns: ["*"] } }

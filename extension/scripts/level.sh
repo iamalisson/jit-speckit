@@ -16,6 +16,13 @@ level="${1:-}"; branches=true
 case "$level" in lite|standard|full) ;; *) die "usage: level.sh <lite|standard|full> [--no-branches]" ;; esac
 jit_cd_root
 
+# Never guess where a damaged block ends: replacing from jit:start to EOF would delete the user's
+# text. Checked first, before anything is changed.
+const=".specify/memory/constitution.md"
+if [[ -f "$const" ]] && grep -q '<!-- jit:start' "$const" && ! grep -q '<!-- jit:end -->' "$const"; then
+  die "$const has '<!-- jit:start' but no '<!-- jit:end -->'; restore the end marker, then run again"
+fi
+
 previous="$(cfg level none)"
 cfg_set level "$level"
 grep -qE '^base_branch:' "$JIT_CONFIG" || cfg_set base_branch auto
@@ -38,16 +45,22 @@ if $branches; then
   if [[ "$level" == full ]]; then need+=(staging); fi
   has_origin=false; git remote get-url origin >/dev/null 2>&1 && has_origin=true
   for b in ${need[@]+"${need[@]}"}; do
-    if $has_origin; then
+    if ! git rev-parse --verify --quiet HEAD >/dev/null; then
+      echo "branch: $b not created yet (no commits); run /jit-speckit:level again after the first commit"
+    elif $has_origin; then
       git fetch --quiet origin 2>/dev/null || true
       if ! git show-ref --verify --quiet "refs/remotes/origin/$b"; then
-        # --no-verify: this only gives an existing remote commit a new branch name; nothing new is sent.
-        git push --quiet --no-verify origin "refs/remotes/origin/$(default_branch):refs/heads/$b" 2>/dev/null \
-          || git push --quiet --no-verify origin "$(default_branch):refs/heads/$b"
-        echo "branch: created origin/$b from $(default_branch)"
+        if git show-ref --verify --quiet "refs/remotes/origin/$(default_branch)"; then
+          # --no-verify is safe only here: this names a commit that is already on origin, so
+          # nothing new (and nothing unscanned) leaves the machine.
+          git push --quiet --no-verify origin "refs/remotes/origin/$(default_branch):refs/heads/$b"
+          echo "branch: created origin/$b from origin/$(default_branch)"
+        else
+          echo "branch: origin/$b not created yet ($(default_branch) isn't on origin); push $(default_branch) first, then run /jit-speckit:level again"
+        fi
       fi
     elif ! git show-ref --verify --quiet "refs/heads/$b"; then
-      if git rev-parse --verify --quiet HEAD >/dev/null; then git branch "$b"; echo "branch: created $b"; fi
+      git branch "$b"; echo "branch: created $b"
     fi
   done
 fi
@@ -241,7 +254,7 @@ infra_dirs() {
   while IFS= read -r dir; do
     [[ -n "$dir" ]] || continue
     dir="${dir#.}"; dir="${dir#/}"
-    printf '  - package-ecosystem: %s\n    directory: "/%s"\n    schedule:\n      interval: weekly\n    target-branch: %s\n' "$1" "$dir" "$(base_branch)"
+    printf '  - package-ecosystem: %s\n    directory: "/%s"\n    schedule:\n      interval: weekly\n    cooldown:\n      default-days: 7\n    target-branch: %s\n' "$1" "$dir" "$(base_branch)"
   done < <(infra_files | grep -E "$2" | sed -E 's#^#./#; s#/[^/]*$##' | sort -u)
 }
 
@@ -265,7 +278,9 @@ dependabot_yaml() {
   local dir
   for eco in $(ecosystems); do
     dir=/
-    printf '  - package-ecosystem: %s\n    directory: "%s"\n    schedule:\n      interval: weekly\n    target-branch: %s\n    open-pull-requests-limit: 5\n    groups:\n      minor-and-patch:\n        update-types: [minor, patch]\n' "$eco" "$dir" "$(base_branch)"
+    # cooldown: a release must be a week old before Dependabot proposes it (time for a malicious
+    # upload to be found and pulled); zizmor's dependabot-cooldown audit requires it.
+    printf '  - package-ecosystem: %s\n    directory: "%s"\n    schedule:\n      interval: weekly\n    cooldown:\n      default-days: 7\n    target-branch: %s\n    open-pull-requests-limit: 5\n    groups:\n      minor-and-patch:\n        update-types: [minor, patch]\n' "$eco" "$dir" "$(base_branch)"
   done
   # Base images and Terraform providers, in every folder that has them.
   infra_dirs docker '(^|/)Dockerfile[^/]*$'

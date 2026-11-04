@@ -17,12 +17,22 @@ check "when only .env.example is staged, then it passes" '"$s" staged'
 reset
 
 mkdir -p keys; printf -- '-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n' > keys/deploy; staged keys/deploy
-check "when a private key is staged under any name, then it is refused" 'fails_with "looks like a secret" "$s" staged'
+check "when a private key is staged under any name, then it is refused" 'fails_with "keys/deploy:1: possible private key" "$s" staged'
 reset
 
-printf 'const t = "ghp_%s";\n' "$(printf 'a%.0s' {1..36})" > app.js; staged app.js
-check "when a GitHub token is in an added line, then it is refused" 'fails_with "app.js: looks like a secret" "$s" staged'
-check "then the token itself is not printed" 'out="$("$s" staged 2>&1)"; ! grep -q "aaaaaaaaaaaaaaaaaaaa" <<<"$out"'
+printf 'x\n\nconst t = "ghp_%s";\n' "$(printf 'a%.0s' {1..36})" > app.js; staged app.js
+check "when a GitHub token is in an added line, then it is refused with its file, line and kind" 'fails_with "app.js:3: possible GitHub token" "$s" staged'
+check "then not even part of the token is printed" 'out="$("$s" staged 2>&1)" && exit 1; [[ $out == *refusing* ]] && ! grep -qE "ghp_|aaaa" <<<"$out"'
+reset
+
+printf 'aws_access_key_id = AKIAABCDEFGHIJKLMNOP\npassword = "hunter2hunter2"\n' > settings.ini; staged settings.ini
+check "when an AWS key and a hard-coded password are added, then both are refused, without their values" \
+  'out="$("$s" staged 2>&1)" && exit 1; grep -q "settings.ini:1: possible AWS access key" <<<"$out" && grep -q "settings.ini:2: possible hard-coded credential" <<<"$out" && ! grep -qE "AKIA|hunter2" <<<"$out"'
+reset
+
+seq 1 5000 | sed 's/^/const value_/; s/$/ = 1/' > big.js; staged big.js
+check "when a 5000-line file is staged, then the scan takes under 10 seconds" \
+  'start=$(date +%s); "$s" staged; (( $(date +%s) - start < 10 ))'
 reset
 
 printf 'url = "postgres://app:s3cretpw@db:5432/app"\n' > cfg.toml; staged cfg.toml
@@ -39,12 +49,57 @@ reset
 
 git switch --quiet -c feat/x
 printf 'k = "sk_live_%s"\n' "$(printf 'b%.0s' {1..24})" > pay.rb; git add pay.rb; git commit --quiet --no-verify -m leak
-check "when a commit made with --no-verify is pushed, then the range check finds it" 'fails_with "pay.rb" "$s" range HEAD~1 HEAD'
+check "when a commit made with --no-verify is pushed, then the range check finds it" 'fails_with "pay.rb:1: possible Stripe live key" "$s" range HEAD~1 HEAD'
+
+printf 'ok\n' > pay.rb; git commit --quiet --no-verify -am "remove the key again"
+check "when a secret is added and removed again within one push, then the range check still finds it" \
+  'fails_with "pay.rb:1: possible Stripe live key" "$s" range HEAD~2 HEAD'
+git reset --quiet --hard HEAD~1
 
 zero=0000000000000000000000000000000000000000
 check "when pushing a branch whose commits leak a secret, then pre-push refuses" \
   'fails_with "pay.rb" bash "$SCRIPTS/prepush.sh" <<<"refs/heads/feat/x $(git rev-parse HEAD) refs/heads/feat/x $zero"'
 check "when pushing straight to develop on standard, then pre-push refuses" \
   'fails_with "open a pull request" bash "$SCRIPTS/prepush.sh" <<<"refs/heads/develop $(git rev-parse HEAD~1) refs/heads/develop $(git rev-parse HEAD~1)"'
+
+# Lines added while resolving a merge are part of the push too.
+git switch --quiet -c side; echo side > side.txt; git add side.txt; git commit --quiet --no-verify -m side
+git switch --quiet feat/x; base_before="$(git rev-parse HEAD)"; echo x > x.txt; git add x.txt; git commit --quiet --no-verify -m x
+git merge --quiet --no-commit side >/dev/null 2>&1 || true
+printf 'k = "AKIAABCDEFGHIJKLMNOP"\n' > merged.txt; git add merged.txt; git commit --quiet --no-verify -m "merge side"
+check "when a secret is added while resolving a merge, then the range check finds it" \
+  'fails_with "merged.txt:1: possible AWS access key" "$s" range "$base_before" HEAD'
+
+# The user's git config must not blind the scanner.
+git config color.ui always; git config diff.noprefix true
+check "when git is set to color.ui=always and diff.noprefix, then the scan still finds the secret and its file" \
+  'fails_with "merged.txt:1: possible AWS access key" "$s" range "$base_before" HEAD'
+git config --unset color.ui; git config --unset diff.noprefix
+
+# A first push of a brand-new repo: the root commit itself carries the secret, and no remote has
+# anything yet. Nothing may be skipped.
+mkdir -p "$TMP/fresh" && cd "$TMP/fresh" && git init --quiet && git config user.email t@t && git config user.name t
+mkdir -p .specify/extensions/jit && ln -s "$SCRIPTS" .specify/extensions/jit/scripts
+printf 'key = "sk_live_%s"\n' "$(printf 'c%.0s' {1..24})" > root.rb; git add root.rb; git commit --quiet --no-verify -m root
+check "when the first push of a new repo has a secret in the root commit, then pre-push refuses" \
+  'fails_with "root.rb:1: possible Stripe live key" bash "$SCRIPTS/prepush.sh" <<<"refs/heads/main $(git rev-parse HEAD) refs/heads/main $zero"'
+
+# A brand-new repository on level standard: the remote is empty, so the first push of the setup
+# to the default branch has no PR to go through. It is allowed once, and still scanned.
+git init --quiet --bare "$TMP/empty.git"
+mkdir -p "$TMP/boot" && cd "$TMP/boot" && git init --quiet -b main && git config user.email t@t && git config user.name t
+git remote add origin "$TMP/empty.git"
+mkdir -p .specify/extensions/jit && ln -s "$SCRIPTS" .specify/extensions/jit/scripts
+printf 'level: standard\n' > .specify/extensions/jit/jit-config.yml
+echo setup > README.md; git add README.md; git commit --quiet --no-verify -m setup
+check "when the first push of a new repo goes to its empty remote, then main is allowed once and says so" \
+  'bash "$SCRIPTS/prepush.sh" origin "$TMP/empty.git" <<<"refs/heads/main $(git rev-parse HEAD) refs/heads/main $zero" 2>&1 | grep -q "first push to an empty repository"'
+printf 'k = "sk_live_%s"\n' "$(printf 'd%.0s' {1..24})" > boot.rb; git add boot.rb; git commit --quiet --no-verify -m leak
+check "then that first push is still scanned: a secret in it is refused" \
+  'fails_with "boot.rb:1: possible Stripe live key" bash "$SCRIPTS/prepush.sh" origin "$TMP/empty.git" <<<"refs/heads/main $(git rev-parse HEAD) refs/heads/main $zero"'
+git reset --quiet --hard HEAD~1; git push --quiet --no-verify origin main
+echo more >> README.md; git commit --quiet --no-verify -am more
+check "when the remote already has branches, then pushing straight to main is refused again" \
+  'fails_with "open a pull request" bash "$SCRIPTS/prepush.sh" origin "$TMP/empty.git" <<<"refs/heads/main $(git rev-parse HEAD) refs/heads/main $(git rev-parse HEAD~1)"'
 
 exit "$FAIL"

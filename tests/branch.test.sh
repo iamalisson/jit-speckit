@@ -55,6 +55,11 @@ check "when the level is full and analysis did not run, then it refuses" \
   'fails_with "speckit-analyze" "$b" T001'
 "$SCRIPTS/analyzed.sh" >/dev/null
 check "when the level is full and analysis ran on the current tasks, then it proceeds" '"$b" T001'
+git switch --quiet main
+printf '%s\n' '- [ ] T009 Added after the analysis in `z` — #90' >> specs/001-demo/tasks.md
+git commit --quiet --no-verify -am "tasks changed"; git push --quiet --no-verify origin main:develop
+check "when tasks.md changed after the analysis, then it refuses until analysis runs again" 'fails_with "speckit-analyze" "$b" T001'
+"$SCRIPTS/analyzed.sh" >/dev/null
 
 # Parallel work: a second worktree, as `claude --worktree` makes for a [P] task. It shares the
 # repo but has its own git dir, and none of the untracked files (feature.json is one of them).
@@ -65,6 +70,8 @@ cp .specify/extensions/jit/jit-config.yml "$TMP/wt/.specify/extensions/jit/" # c
 ln -s "$ROOT/extension/scripts" "$TMP/wt/.specify/extensions/jit/scripts"
 check "when a task starts in a fresh worktree on level full, then the analysis done in the main checkout counts" \
   '(cd "$TMP/wt" && [[ ! -f .specify/feature.json ]] && "$b" T002 | grep -q "TASK=T002")'
+check "then the worktree's own feature.json points spec-kit at the same feature" \
+  'grep -q "\"feature_directory\": \"specs/001-demo\"" "$TMP/wt/.specify/feature.json"'
 check "then the worktree is on the task's own branch, and the main checkout is untouched" \
   '[[ "$(git -C "$TMP/wt" branch --show-current)" == feat/001-t002-* && "$(git branch --show-current)" == main ]]'
 mkdir -p specs/002-other; printf '%s\n' '- [ ] T002 Other thing in `o` — #99' > specs/002-other/tasks.md
@@ -85,5 +92,27 @@ git branch --quiet -m main master
 sed -i.bak 's/^level: .*/level: lite/' .specify/extensions/jit/jit-config.yml
 check "when origin/HEAD is unset and the repo uses master, then master is the base (not a missing main)" \
   'out="$("$b" T001)"; grep -q "BASE=master" <<<"$out"'
+
+# The base really is the base: develop and main differ, and a task branch must start from develop.
+cd "$TMP"; rm -rf "$TMP/origin.git" "$TMP/repo"
+new_repo standard
+commit_tasks '- [ ] T001 Thing in `a` — #5'
+git switch --quiet -c tmp origin/develop; echo d > dev-only; git add dev-only; git commit --quiet --no-verify -m dev-only
+git push --quiet --no-verify origin tmp:develop; git switch --quiet main; git branch --quiet -D tmp
+echo m > main-only; git add main-only; git commit --quiet --no-verify -m main-only; git push --quiet --no-verify origin main
+"$b" T001 >/dev/null
+check "when develop and main differ, then the task branch starts from develop, not main" '[[ -f dev-only && ! -f main-only ]]'
+
+# spec-kit's --timestamp numbering: specs/YYYYMMDD-HHMMSS-name.
+git switch --quiet -c ts origin/develop
+mkdir -p specs/20261104-153000-ts; printf '%s\n' '- [ ] T1000 Big list in `b` — #77' > specs/20261104-153000-ts/tasks.md
+git add specs; git commit --quiet --no-verify -m ts; git push --quiet --no-verify origin ts:develop
+echo '{ "feature_directory": "specs/20261104-153000-ts" }' > .specify/feature.json
+out="$("$b" T1000)"
+check "when features use timestamp numbering and the task ID has 4 digits, then the branch carries both" \
+  '[[ "$out" == "BRANCH=feat/20261104-153000-t1000-big-list ISSUE=77 TASK=T1000 BASE=develop" ]]'
+echo '{ "feature_directory": "specs/001-demo" }' > .specify/feature.json
+check "then that branch still resolves to its own timestamp feature" \
+  'bash -c "source \"$SCRIPTS/lib.sh\"; feature_dir" | grep -qx "specs/20261104-153000-ts"'
 
 exit "$FAIL"

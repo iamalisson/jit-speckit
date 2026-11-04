@@ -29,12 +29,12 @@ open_pr() { # open_pr <title> <body>
 case "$mode" in
   task)
     task="${2:-}"; title="${3:-}"; body_file="${4:-}"
-    [[ "$task" =~ ^T[0-9]{3}$ && -n "$title" ]] || die 'usage: pr.sh task T003 "type(scope): summary" [body-file]'
+    [[ "$task" =~ ^T[0-9]{3,}$ && -n "$title" ]] || die 'usage: pr.sh task T003 "type(scope): summary" [body-file]'
     line="$(task_line "$fdir" "$task")"
     issue="$(task_issue "$line")"
     [[ -n "$issue" ]] || die "$task has no issue"
     branch="$(git branch --show-current)"
-    num="$(basename "$fdir" | cut -d- -f1)"
+    num="$(feature_key "$fdir")"
     [[ "$branch" == */"$num-$(tr '[:upper:]' '[:lower:]' <<<"$task")-"* ]] \
       || die "not on $task's branch for feature $num (on '$branch'); run /speckit-implement $task"
     [[ -z "$(git status --porcelain)" ]] || die "uncommitted changes; commit the work first"
@@ -62,12 +62,24 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
   spec)
     feature="$(basename "$fdir")"
     branch="spec/$feature"
-    if [[ "$(git branch --show-current)" != "$branch" ]]; then
-      git switch --quiet "$branch" 2>/dev/null || git switch --quiet -c "$branch"
+    # An open spec PR is updated in place. Otherwise (first time, or a later run such as after
+    # /speckit-converge, when the old spec PR may have been squash-merged) the branch starts
+    # fresh from the base, so the new PR shows only what changed.
+    open="$(gh pr list --head "$branch" --state open --json url --jq '.[0].url // empty' 2>/dev/null || true)"
+    fresh=false
+    if [[ "$(git branch --show-current)" != "$branch" || -z "$open" ]]; then
+      ref="origin/$base"; git rev-parse --verify --quiet "$ref" >/dev/null || ref="$base"
+      # The spec folder's current content travels with us; nothing else is touched.
+      saved="$(mktemp -d)"; cp -R "$fdir" "$saved/"
+      git checkout --quiet -- "$fdir" 2>/dev/null || true; git clean -fdq -- "$fdir"
+      if [[ -n "$open" ]]; then git switch --quiet "$branch"; else git switch --quiet --no-track -C "$branch" "$ref"; fresh=true; fi
+      rm -rf "$fdir"; mkdir -p "$(dirname "$fdir")"; cp -R "$saved/$(basename "$fdir")" "$fdir"; rm -rf "$saved"
     fi
     git add -- "$fdir"
     git diff --cached --quiet || git commit --quiet -m "docs(specs): add $feature spec, plan and tasks"
-    git push --quiet -u origin "$branch"
+    # A fresh branch may replace a stale one left by a merged PR (no PR is open on it); the lease
+    # still refuses if someone pushed to it since we last fetched.
+    if $fresh; then git push --quiet --force-with-lease -u origin "$branch"; else git push --quiet -u origin "$branch"; fi
     issues="$(grep -oE ' — #[0-9]+$' "$fdir/tasks.md" | grep -oE '#[0-9]+' | tr '\n' ' ')"
     open_pr "docs(specs): $feature" "Spec, plan and tasks for \`$feature\`.
 

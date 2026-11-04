@@ -14,19 +14,19 @@ fdir="$(feature_dir)"
 
 # One API call: this feature's task issues (their titles start with "[<feature number>] T"),
 # so a repository with thousands of issues doesn't push old ones out of the result.
-num="$(basename "$fdir" | cut -d- -f1)"
+num="$(feature_key "$fdir")"
 closed=" $(gh issue list --state closed --limit 500 --search "$num in:title" --json number --jq '.[].number' | tr '\n' ' ') "
 
 next=""; done_n=0; total=0
 while IFS= read -r line; do
-  id="$(sed -E 's/^- \[.\] (T[0-9]{3}) .*/\1/' <<<"$line")"
+  id="$(sed -E 's/^- \[.\] (T[0-9]{3,}) .*/\1/' <<<"$line")"
   issue="$(task_issue "$line")"
   total=$((total + 1))
   if [[ -z "$issue" ]]; then state=no-issue
   elif [[ "$closed" == *" $issue "* ]]; then state="done"; done_n=$((done_n + 1))
   else state=open; [[ -n "$next" ]] || next="$id"
   fi
-  echo "$state $id ${issue:+#$issue} $(task_desc "$line" | sed 's/ in `.*//')"
-done < <(grep -E '^- \[.\] T[0-9]{3} ' "$fdir/tasks.md")
+  echo "$state $id ${issue:+#$issue} $(task_summary "$line")"
+done < <(grep -E '^- \[.\] T[0-9]{3,} ' "$fdir/tasks.md")
 
 echo "DONE=$done_n/$total NEXT=$next"

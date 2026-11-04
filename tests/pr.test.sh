@@ -47,6 +47,21 @@ check "then it gets the configured milestone and project" \
 check "when the spec PR step runs again on its branch, then it reuses the branch and the PR" \
   'before="$(grep -c "^pr create" "$GH_LOG")"; "$p" spec && [[ "$(git branch --show-current)" == spec/002-new && "$(grep -c "^pr create" "$GH_LOG")" == "$before" ]]'
 
+# The first spec PR was squash-merged (its branch is now stale), then /speckit-converge added a task.
+git push --quiet --no-verify origin "spec/002-new:refs/heads/tmp-squash"
+git -C "$TMP" clone --quiet "$TMP/origin.git" squash 2>/dev/null
+(cd "$TMP/squash" && git config user.email t@t && git config user.name t && git switch --quiet develop \
+  && git checkout --quiet origin/tmp-squash -- specs/002-new && git commit --quiet --no-verify -m "docs(specs): 002-new (#20)" \
+  && git push --quiet --no-verify origin develop && git push --quiet --no-verify origin --delete tmp-squash)
+git fetch --quiet origin; rm -f "$GH_PR"; git switch --quiet main
+mkdir -p specs/002-new; git checkout --quiet origin/develop -- specs/002-new; git reset --quiet
+printf '%s\n' '- [ ] T003 Added by converge in `c` — #13' >> specs/002-new/tasks.md
+"$p" spec >/dev/null
+check "when a later spec PR follows a squash-merged one, then it starts fresh from the base" \
+  'git merge-base --is-ancestor origin/develop HEAD && [[ "$(git branch --show-current)" == spec/002-new ]]'
+check "then the new spec PR carries only what changed: the converge task" \
+  '[[ "$(git diff --name-only origin/develop..HEAD)" == specs/002-new/tasks.md ]] && git diff origin/develop..HEAD | grep -q "^+- \[ \] T003 Added by converge"'
+
 # ── Changing existing tests needs a reason ──
 rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR"
 new_repo standard
