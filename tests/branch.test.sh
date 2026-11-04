@@ -60,6 +60,7 @@ check "when the level is full and analysis ran on the current tasks, then it pro
 git switch --quiet main
 git push --quiet --no-verify origin main:master
 git remote set-head origin --delete >/dev/null 2>&1 || git symbolic-ref --delete refs/remotes/origin/HEAD 2>/dev/null || true
+git -C "$TMP/origin.git" symbolic-ref HEAD refs/heads/master # a remote whose default is master
 git push --quiet --no-verify origin --delete main
 git fetch --quiet --prune origin
 git branch --quiet -m main master
