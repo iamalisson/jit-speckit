@@ -25,7 +25,7 @@ label_args=(); for l in ${labels[@]+"${labels[@]}"}; do if [[ -n "$l" ]]; then l
 
 created=0; skipped=0
 while IFS= read -r line; do
-  id="$(grep -oE 'T[0-9]{3}' <<<"$line" | head -1)"
+  id="$(sed -E 's/^- \[.\] (T[0-9]{3}) .*/\1/' <<<"$line")"
   if [[ -n "$(task_issue "$line")" ]]; then skipped=$((skipped + 1)); continue; fi
 
   desc="$(task_desc "$line")"

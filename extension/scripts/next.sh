@@ -17,7 +17,7 @@ closed=" $(gh issue list --state closed --limit 1000 --json number --jq '.[].num
 
 next=""; done_n=0; total=0
 while IFS= read -r line; do
-  id="$(grep -oE 'T[0-9]{3}' <<<"$line" | head -1)"
+  id="$(sed -E 's/^- \[.\] (T[0-9]{3}) .*/\1/' <<<"$line")"
   issue="$(task_issue "$line")"
   total=$((total + 1))
   if [[ -z "$issue" ]]; then state=no-issue

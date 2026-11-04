@@ -29,6 +29,6 @@ check "when run again, then no issue is created twice" '[[ "$out" == *"CREATED=0
 
 printf '%s\n' '- [ ] T004 Dry task in `x`' >> specs/001-demo/tasks.md
 check "when --dry-run, then nothing is created or written" \
-  '"$i" --dry-run | grep -q "would create" && [[ "$(grep -c "^issue create" "$GH_LOG")" == 2 ]] && ! grep -q "T004.*#" specs/001-demo/tasks.md'
+  'out="$("$i" --dry-run)"; grep -q "would create" <<<"$out" && [[ "$(grep -c "^issue create" "$GH_LOG")" == 2 ]] && ! grep -q "T004.*#" specs/001-demo/tasks.md'
 
 exit "$FAIL"

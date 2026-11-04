@@ -68,7 +68,7 @@ if compgen -G ".github/workflows/*.y*ml" >/dev/null; then
 else report zizmor skipped "no GitHub workflows"; fi
 
 # trivy config: only when infrastructure files exist
-if [[ -n "$(git ls-files '*Dockerfile*' '*.tf' '*.yaml' '*.yml' 2>/dev/null | grep -E 'Dockerfile|\.tf$|k8s|kubernetes|helm|deploy' | head -1)" ]]; then
+if [[ -n "$(git ls-files '*Dockerfile*' '*.tf' '*.yaml' '*.yml' 2>/dev/null | grep -m1 -E 'Dockerfile|\.tf$|k8s|kubernetes|helm|deploy' || true)" ]]; then
   if command -v trivy >/dev/null; then
     if trivy config --exit-code 1 --severity HIGH,CRITICAL --format json --output "$dir/trivy.json" . >/dev/null 2>&1; then
       report trivy ok "no high/critical misconfiguration"

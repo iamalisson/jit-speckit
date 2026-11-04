@@ -31,7 +31,7 @@ check "when the agent CLI is missing, then setup still succeeds and warns about 
 check "when set up, then the four hooks are registered" \
   'for h in after_tasks after_analyze before_implement after_implement; do grep -q "^  $h:" .specify/extensions.yml || exit 1; done'
 check "then spec-kit registers the hook commands as skills" '[[ -d .claude/skills/speckit-jit-branch && -d .claude/skills/speckit-jit-issues ]]'
-check "then the preset templates win over the core ones" 'specify preset resolve tasks-template | grep -q "jit"'
+check "then the preset templates win over the core ones" 'out="$(specify preset resolve tasks-template)"; grep -q "from: jit" <<<"$out"'
 check "then the constitution starts from the jit template with a standard block" \
   'grep -q "\[PROJECT_NAME\] Constitution" .specify/memory/constitution.md && grep -q "level: standard" .specify/memory/constitution.md'
 check "then develop exists on origin and CI was scaffolded" 'git ls-remote --exit-code origin develop && [[ -f .github/workflows/ci.yml ]]'

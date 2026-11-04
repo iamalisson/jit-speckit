@@ -22,7 +22,7 @@ reset
 
 printf 'const t = "ghp_%s";\n' "$(printf 'a%.0s' {1..36})" > app.js; staged app.js
 check "when a GitHub token is in an added line, then it is refused" 'fails_with "app.js: looks like a secret" "$s" staged'
-check "then the token itself is not printed" '! "$s" staged 2>&1 | grep -q "aaaaaaaaaaaaaaaaaaaa"'
+check "then the token itself is not printed" 'out="$("$s" staged 2>&1)"; ! grep -q "aaaaaaaaaaaaaaaaaaaa" <<<"$out"'
 reset
 
 printf 'url = "postgres://app:s3cretpw@db:5432/app"\n' > cfg.toml; staged cfg.toml

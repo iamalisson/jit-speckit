@@ -66,7 +66,7 @@ check "then it also runs weekly, for new CVEs in unchanged dependencies" 'grep -
 check "then standard has no SAST job (that is full)" '! grep -q "semgrep scan" .github/workflows/security.yml'
 check "then every action in generated workflows is pinned to a full commit SHA" \
   '! grep -hE "uses: [^ ]+@" .github/workflows/*.yml | grep -vE "@[0-9a-f]{40}( |$)"'
-check "then checkout never keeps the token on disk" '! grep -A2 "actions/checkout@" .github/workflows/ci.yml | grep -q "persist-credentials: true"'
+check "then checkout never keeps the token on disk" '! grep -A2 "actions/checkout@" .github/workflows/ci.yml | grep "persist-credentials: true"'
 rm .github/workflows/security.yml
 "$l" full >/dev/null
 check "when set to full, then semgrep with the OWASP rules is part of the security workflow" 'grep -q "semgrep==.*--config p/owasp-top-ten" .github/workflows/security.yml'

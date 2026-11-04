@@ -38,7 +38,7 @@ git switch --quiet main
 sed -i.bak 's/^level: .*/level: lite/' .specify/extensions/jit/jit-config.yml
 "$b" T002 >/dev/null || true
 check "when the level is lite, then the base is the default branch" \
-  '"$b" T001 | grep -q "BASE=main"'
+  'out="$("$b" T001)"; grep -q "BASE=main" <<<"$out"'
 
 git switch --quiet main
 mkdir -p specs/002-new

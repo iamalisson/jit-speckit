@@ -14,7 +14,7 @@ jit_cd_root() { cd "$(git rev-parse --show-toplevel 2>/dev/null)" || die "not in
 # cfg <key> <default>: read a flat `key: value` line from the config file.
 cfg() {
   local v=""
-  [[ -f "$JIT_CONFIG" ]] && v="$(sed -nE "s/^$1:[[:space:]]*\"?([^\"#]*)\"?.*$/\1/p" "$JIT_CONFIG" | head -1 | sed 's/[[:space:]]*$//')"
+  [[ -f "$JIT_CONFIG" ]] && v="$(sed -nE "/^$1:/{s/^$1:[[:space:]]*\"?([^\"#]*)\"?.*$/\1/;s/[[:space:]]*$//;p;q;}" "$JIT_CONFIG")"
   echo "${v:-$2}"
 }
 
@@ -65,7 +65,7 @@ feature_dir() {
 }
 
 # The task line for an ID, e.g. "- [ ] T003 [P] [US1] Do x in src/x.py — #12".
-task_line() { grep -E "^- \[.\] $2 " "$1/tasks.md" | head -1; }
+task_line() { grep -m1 -E "^- \[.\] $2 " "$1/tasks.md" || true; }
 
 # The issue number linked on a task line ("— #12" at the end), or empty.
 task_issue() { sed -nE 's/.* — #([0-9]+)[[:space:]]*$/\1/p' <<<"$1"; }
