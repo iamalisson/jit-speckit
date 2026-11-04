@@ -35,12 +35,13 @@ if $branches; then
   if [[ "$level" != lite ]]; then need+=(develop); fi
   if [[ "$level" == full ]]; then need+=(staging); fi
   has_origin=false; git remote get-url origin >/dev/null 2>&1 && has_origin=true
-  for b in "${need[@]}"; do
+  for b in ${need[@]+"${need[@]}"}; do
     if $has_origin; then
       git fetch --quiet origin 2>/dev/null || true
       if ! git show-ref --verify --quiet "refs/remotes/origin/$b"; then
-        git push --quiet origin "refs/remotes/origin/$(default_branch):refs/heads/$b" 2>/dev/null \
-          || git push --quiet origin "$(default_branch):refs/heads/$b"
+        # --no-verify: this only gives an existing remote commit a new branch name; nothing new is sent.
+        git push --quiet --no-verify origin "refs/remotes/origin/$(default_branch):refs/heads/$b" 2>/dev/null \
+          || git push --quiet --no-verify origin "$(default_branch):refs/heads/$b"
         echo "branch: created origin/$b from $(default_branch)"
       fi
     elif ! git show-ref --verify --quiet "refs/heads/$b"; then
@@ -50,9 +51,9 @@ if $branches; then
 fi
 
 # ── Stack facts ──────────────────────────────────────────────────────────────
-mapfile -t stacks < <("$JIT_EXT_DIR/scripts/detect-stack.sh")
+stacks=(); while IFS= read -r s; do stacks+=("$s"); done < <(bash "$JIT_EXT_DIR/scripts/detect-stack.sh")
 idioms=""; tests=()
-for s in "${stacks[@]}"; do
+for s in ${stacks[@]+"${stacks[@]}"}; do
   case "$s" in
     rust) idioms+=$'- Rust: `cargo fmt` and `cargo clippy -- -D warnings` clean; `Result` with `?`, no `unwrap` outside tests and startup.\n'
           tests+=("cargo test --all") ;;
@@ -66,7 +67,7 @@ for s in "${stacks[@]}"; do
           tests+=("go test ./...") ;;
   esac
 done
-[[ -n "$idioms" ]] || idioms=$'- [STACK_IDIOMS: formatter, linter and idioms for this stack; run /jit-speckit-adopt]\n'
+[[ -n "$idioms" ]] || idioms=$'- [STACK_IDIOMS: formatter, linter and idioms for this stack; run /jit-speckit:adopt]\n'
 test_cmd="[TEST_COMMAND]"
 if ((${#tests[@]})); then test_cmd="$(printf '%s && ' "${tests[@]}")"; test_cmd="${test_cmd% && }"; fi
 
@@ -77,7 +78,7 @@ render() {
   t="${t//\{\{TEST_COMMAND\}\}/$test_cmd}"; t="${t//\{\{STACK_IDIOMS\}\}/${idioms%$'\n'}}"
   printf '%s\n' "$t"
 }
-block="<!-- jit:start (managed by /jit-speckit-level; edit outside this block) -->"$'\n'
+block="<!-- jit:start (managed by /jit-speckit:level; edit outside this block) -->"$'\n'
 block+="## Defaults (jit-speckit, level: $level)"$'\n'
 for l in "${levels[@]}"; do block+=$'\n'"$(render "$JIT_EXT_DIR/levels/$l.md")"$'\n'; done
 block+="<!-- jit:end -->"
@@ -95,85 +96,129 @@ B="$block" awk '
 echo "constitution: jit block set to '$level' in $const"
 
 # ── Scaffold ─────────────────────────────────────────────────────────────────
+# shellcheck source=pins.sh
+source "$JIT_EXT_DIR/scripts/pins.sh"
+
 put() { # put <dest> (content on stdin): write only if missing
   if [[ -e "$1" ]]; then cat >/dev/null; echo "kept:    $1"; return; fi
   mkdir -p "$(dirname "$1")"; cat > "$1"; echo "created: $1"
 }
 
+branch_list() { # the long-lived branches workflows run on
+  printf '%s' "$(default_branch)"
+  if [[ $level != lite ]]; then printf ', develop'; fi
+  if [[ $level == full ]]; then printf ', staging'; fi
+}
+
+checkout_step() { printf '      - uses: %s\n        with:\n          persist-credentials: false\n' "$PIN_CHECKOUT"; }
+
 ci_yaml() {
-  printf 'name: CI\n\non:\n  push:\n    branches: [%s]\n  pull_request:\n\npermissions:\n  contents: read\n\njobs:\n' \
-    "$(default_branch)$([[ $level != lite ]] && echo ", develop")$([[ $level == full ]] && echo ", staging")"
+  printf 'name: CI\n\non:\n  push:\n    branches: [%s]\n  pull_request:\n\npermissions:\n  contents: read\n\njobs:\n' "$(branch_list)"
   ((${#stacks[@]})) || printf '  checks:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          echo "jit: no stack detected. Replace this job with your lint, test and build commands." && exit 1\n'
-  for s in "${stacks[@]}"; do
+  for s in ${stacks[@]+"${stacks[@]}"}; do
     case "$s" in
-      rust) cat <<'EOF'
-  rust:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo fmt --all -- --check
-      - run: cargo clippy --all-targets -- -D warnings
-      - run: cargo test --all
-EOF
-      ;;
+      rust)
+        printf '  rust:\n    runs-on: ubuntu-latest\n    steps:\n'; checkout_step
+        printf '      - uses: %s\n        with:\n          toolchain: stable\n          components: rustfmt, clippy\n' "$PIN_RUST_TOOLCHAIN"
+        printf '      - uses: %s\n' "$PIN_RUST_CACHE"
+        printf '      - run: cargo fmt --all -- --check\n      - run: cargo clippy --all-targets -- -D warnings\n      - run: cargo test --all\n' ;;
       node:*) pm="${s#node:}"
-        printf '  node:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n'
-        if [[ "$pm" == pnpm ]]; then printf '      - uses: pnpm/action-setup@v4\n'; fi
-        printf '      - uses: actions/setup-node@v4\n        with:\n          node-version: 20\n          cache: %s\n' "$pm"
+        printf '  node:\n    runs-on: ubuntu-latest\n    steps:\n'; checkout_step
+        if [[ "$pm" == pnpm ]]; then printf '      - uses: %s\n' "$PIN_PNPM"; fi
+        printf '      - uses: %s\n        with:\n          node-version: 20\n          cache: %s\n' "$PIN_SETUP_NODE" "$pm"
         case "$pm" in pnpm) printf '      - run: pnpm install --frozen-lockfile\n' ;;
                       yarn) printf '      - run: yarn install --frozen-lockfile\n' ;;
                       npm) if [[ -f package-lock.json ]]; then printf '      - run: npm ci\n'; else printf '      - run: npm install\n'; fi ;; esac
         for script in lint typecheck test build; do
           if grep -qE "\"$script\" *:" package.json; then printf '      - run: %s run %s\n' "$pm" "$script"; fi
-        done
-      ;;
-      python:uv) cat <<'EOF'
-  python:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - run: uv sync --all-extras
-      - run: uv run ruff check .
-      - run: uv run pytest
-EOF
-      ;;
-      python:pip) cat <<'EOF'
-  python:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install -e ".[dev]" || pip install -r requirements.txt
-      - run: pip install ruff pytest && ruff check . && pytest
-EOF
-      ;;
-      go) cat <<'EOF'
-  go:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - run: go vet ./...
-      - run: go test ./...
-EOF
-      ;;
+        done ;;
+      python:uv)
+        printf '  python:\n    runs-on: ubuntu-latest\n    steps:\n'; checkout_step
+        printf '      - uses: %s\n      - run: uv sync --all-extras\n      - run: uv run ruff check .\n      - run: uv run pytest\n' "$PIN_SETUP_UV" ;;
+      python:pip)
+        printf '  python:\n    runs-on: ubuntu-latest\n    steps:\n'; checkout_step
+        printf '      - uses: %s\n        with:\n          python-version: "3.12"\n' "$PIN_SETUP_PYTHON"
+        printf '      - run: pip install -e ".[dev]" || pip install -r requirements.txt\n      - run: pip install ruff pytest && ruff check . && pytest\n' ;;
+      go)
+        printf '  go:\n    runs-on: ubuntu-latest\n    steps:\n'; checkout_step
+        printf '      - uses: %s\n        with:\n          go-version-file: go.mod\n      - run: go vet ./...\n      - run: go test ./...\n' "$PIN_SETUP_GO" ;;
     esac
   done
+}
+
+security_yaml() {
+  cat <<EOF
+# Security gate: runs on every pull request, on pushes to long-lived branches, and weekly
+# (new CVEs land in dependencies nobody touched). Tools are pinned and checksum-verified.
+name: Security
+
+on:
+  pull_request:
+  push:
+    branches: [$(branch_list)]
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    name: Secrets (gitleaks, full history)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: $PIN_CHECKOUT
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install gitleaks $GITLEAKS_VERSION (checksum-verified)
+        run: |
+          curl -sSfL -o gitleaks.tgz https://github.com/gitleaks/gitleaks/releases/download/v$GITLEAKS_VERSION/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz
+          echo "$GITLEAKS_SHA256  gitleaks.tgz" | sha256sum -c -
+          tar -xzf gitleaks.tgz gitleaks
+      - run: ./gitleaks git --redact --verbose --no-banner .
+
+  dependencies:
+    name: Dependencies (osv-scanner)
+    runs-on: ubuntu-latest
+    steps:
+$(checkout_step)
+      - name: Install osv-scanner $OSV_VERSION (checksum-verified)
+        run: |
+          curl -sSfL -o osv-scanner https://github.com/google/osv-scanner/releases/download/v$OSV_VERSION/osv-scanner_linux_amd64
+          echo "$OSV_SHA256  osv-scanner" | sha256sum -c -
+          chmod +x osv-scanner
+      - name: Scan every lockfile (exit 128 = no lockfiles)
+        run: ./osv-scanner scan source -r . || { s=\$?; [ "\$s" = 128 ] || exit "\$s"; }
+
+  workflows:
+    name: Workflows (zizmor)
+    runs-on: ubuntu-latest
+    steps:
+$(checkout_step)
+      - uses: $PIN_ZIZMOR
+        with:
+          advanced-security: false
+EOF
+  if [[ $level == full ]]; then
+    cat <<EOF
+
+  code:
+    name: Code (semgrep, OWASP rules)
+    runs-on: ubuntu-latest
+    steps:
+$(checkout_step)
+      - uses: $PIN_SETUP_UV
+      - run: uvx --from semgrep==$SEMGREP_VERSION semgrep scan --config p/default --config p/owasp-top-ten --error --metrics off
+EOF
+  fi
 }
 
 dependabot_yaml() {
   printf 'version: 2\nupdates:\n'
   local eco
-  for eco in github-actions $(for s in "${stacks[@]}"; do case "$s" in rust) echo cargo ;; node:*) echo npm ;; python:uv) echo uv ;; python:pip) echo pip ;; go) echo gomod ;; esac; done); do
+  for eco in github-actions $(for s in ${stacks[@]+"${stacks[@]}"}; do case "$s" in rust) echo cargo ;; node:*) echo npm ;; python:uv) echo uv ;; python:pip) echo pip ;; go) echo gomod ;; esac; done); do
     printf '  - package-ecosystem: %s\n    directory: "/"\n    schedule:\n      interval: weekly\n    target-branch: %s\n    open-pull-requests-limit: 5\n    groups:\n      minor-and-patch:\n        update-types: [minor, patch]\n' "$eco" "$(base_branch)"
   done
 }
@@ -185,11 +230,28 @@ for l in "${levels[@]}"; do
     put "${f#"$src"/}" < "$f"
   done < <(find "$src" -type f | sort)
   case "$l" in
-    standard) ci_yaml | put .github/workflows/ci.yml; dependabot_yaml | put .github/dependabot.yml ;;
+    lite) chmod +x .githooks/* ;;
+    standard) ci_yaml | put .github/workflows/ci.yml
+              security_yaml | put .github/workflows/security.yml
+              dependabot_yaml | put .github/dependabot.yml ;;
     full) owner="$(repo_slug)"; owner="${owner%%/*}"
           printf '# Every change needs a review from an owner.\n* @%s\n' "${owner:-OWNER}" | put .github/CODEOWNERS ;;
   esac
 done
+
+# ── Git hooks ────────────────────────────────────────────────────────────────
+# core.hooksPath is per clone: every teammate's /jit-speckit:init (or this script) sets it.
+hooks_path="$(git config --get core.hooksPath || true)"
+if [[ "$hooks_path" == .githooks ]]; then
+  echo "git hooks: enabled (.githooks)"
+elif [[ -z "$hooks_path" && ! -f .pre-commit-config.yaml && ! -d .husky ]]; then
+  git config core.hooksPath .githooks
+  echo "git hooks: enabled (.githooks: secret check on commit, secret + branch check on push)"
+else
+  echo "git hooks: this repo already has its own (${hooks_path:-pre-commit or husky}); add these lines to it:"
+  echo "  pre-commit: bash .specify/extensions/jit/scripts/secrets.sh staged"
+  echo "  pre-push:   bash .specify/extensions/jit/scripts/prepush.sh \"\$@\""
+fi
 
 if [[ "$previous" == full && "$level" != full ]] || [[ "$previous" == standard && "$level" == lite ]]; then
   echo "note: files added by the higher level were kept; delete any you no longer want"

@@ -10,7 +10,7 @@ any code is touched.
 1. Find the task ID: the single `T###` in the arguments passed to `/speckit-implement`.
    - If there is none, or more than one: **stop the whole implement run**. Tell the user to pass
      exactly one task, e.g. `/speckit-implement T003`. Do not implement anything.
-2. Run `.specify/extensions/jit/scripts/branch.sh <TASK_ID>`.
+2. Run `bash .specify/extensions/jit/scripts/branch.sh <TASK_ID>`.
    - On failure, stop the implement run and show the script's message as is. It explains what is
      missing: the issue, the spec PR, the analysis, or a clean working tree. Never work around
      it: no stash, no reset, no checkout of other files.

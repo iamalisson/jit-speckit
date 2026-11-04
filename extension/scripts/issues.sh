@@ -19,9 +19,9 @@ num="${feature%%-*}"
 
 IFS=',' read -ra labels <<<"$(cfg issue_labels "type:task")"
 if ! $dry; then
-  for l in "${labels[@]}"; do if [[ -n "$l" ]]; then gh label create "$l" >/dev/null 2>&1 || true; fi; done
+  for l in ${labels[@]+"${labels[@]}"}; do if [[ -n "$l" ]]; then gh label create "$l" >/dev/null 2>&1 || true; fi; done
 fi
-label_args=(); for l in "${labels[@]}"; do if [[ -n "$l" ]]; then label_args+=(--label "$l"); fi; done
+label_args=(); for l in ${labels[@]+"${labels[@]}"}; do if [[ -n "$l" ]]; then label_args+=(--label "$l"); fi; done
 
 created=0; skipped=0
 while IFS= read -r line; do
@@ -44,7 +44,7 @@ while IFS= read -r line; do
   body+=$'\n\n---\n'"**Done** = closed by the merged PR (\`Closes #N\`). Start it with \`/speckit-implement $id\`."
 
   if $dry; then echo "would create: $title"; created=$((created + 1)); continue; fi
-  url="$(gh issue create --title "$title" --body "$body" "${label_args[@]}")"
+  url="$(gh issue create --title "$title" --body "$body" ${label_args[@]+"${label_args[@]}"})"
   n="${url##*/}"
   # Write the link back immediately so an interrupted run never creates duplicates.
   L="$line" S=" — #$n" awk '!done && $0 == ENVIRON["L"] { print $0 ENVIRON["S"]; done = 1; next } { print }' \

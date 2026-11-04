@@ -9,18 +9,40 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  linux:
+    name: Linux (bash 5 + real spec-kit)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - name: Install spec-kit (for the end-to-end setup test)
-        run: uv tool install specify-cli --from git+https://github.com/github/spec-kit.git@v1.2.5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+      - name: Install spec-kit (pinned to the version setup.sh targets)
+        run: uv tool install specify-cli --from "git+https://github.com/github/spec-kit.git@$(sed -nE 's/^SPECKIT_VERSION="([^"]+)".*/\1/p' bin/setup.sh)"
       - name: ShellCheck
-        run: shellcheck -S warning -x -P extension/scripts:tests install.sh bin/*.sh extension/scripts/*.sh tests/*.sh
+        run: shellcheck -S warning -x -P extension/scripts:tests bin/*.sh extension/scripts/*.sh tests/*.sh hooks/*.sh extension/scaffold/lite/.githooks/*
+      - name: Validate the Claude Code plugin manifest
+        run: python3 -c "import json; [json.load(open(f)) for f in ('.claude-plugin/plugin.json', '.claude-plugin/marketplace.json', 'hooks/hooks.json')]"
       - name: Tests
         run: |
           git config --global user.email ci@example.com
           git config --global user.name ci
           git config --global init.defaultBranch main
           tests/run.sh
+
+  macos:
+    name: macOS (stock bash 3.2)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Tests on /bin/bash 3.2 (Homebrew's newer bash kept off PATH)
+        env:
+          PATH: /usr/bin:/bin:/usr/sbin:/sbin
+        run: |
+          bash --version | head -1
+          git config --global user.email ci@example.com
+          git config --global user.name ci
+          git config --global init.defaultBranch main
+          bash tests/run.sh

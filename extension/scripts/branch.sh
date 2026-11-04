@@ -20,7 +20,7 @@ base="$(base_branch)"
 git fetch --quiet origin 2>/dev/null || true
 if git show-ref --verify --quiet "refs/remotes/origin/$base"; then from="origin/$base"
 elif git show-ref --verify --quiet "refs/heads/$base"; then from="$base"
-else die "base branch '$base' does not exist; run /jit-speckit-level to set up the branch flow"
+else die "base branch '$base' does not exist; run /jit-speckit:level to set up the branch flow"
 fi
 
 # Task branches start from the base, so the spec has to be merged there first.

@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="230" viewBox="0 0 880 230" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <rect width="880" height="230" rx="14" fill="#ffffff"/>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10z" fill="#59636e"/>
+    </marker>
+  </defs>
+  <!-- brackets -->
+  <path d="M30 52V40H262V52" fill="none" stroke="#59636e" stroke-width="1.5"/>
+  <text x="146" y="30" text-anchor="middle" font-size="13" fill="#59636e" letter-spacing="1">ONCE PER FEATURE</text>
+  <path d="M302 52V40H850V52" fill="none" stroke="#1f6feb" stroke-width="1.5"/>
+  <text x="576" y="30" text-anchor="middle" font-size="13" fill="#1f6feb" letter-spacing="1" font-weight="600">ONCE PER TASK · AUTOMATIC</text>
+  <!-- boxes -->
+  <g font-size="15" text-anchor="middle">
+    <rect x="30" y="66" width="104" height="64" rx="10" fill="#f6f8fa" stroke="#d0d7de"/>
+    <text x="82" y="96" fill="#1f2328" font-weight="600">spec</text>
+    <text x="82" y="116" fill="#59636e" font-size="12">plan</text>
+
+    <rect x="158" y="66" width="104" height="64" rx="10" fill="#f6f8fa" stroke="#d0d7de"/>
+    <text x="210" y="96" fill="#1f2328" font-weight="600">tasks</text>
+    <text x="210" y="116" fill="#59636e" font-size="12">T001 … T00n</text>
+
+    <rect x="302" y="66" width="120" height="64" rx="10" fill="#f6f8fa" stroke="#1f6feb"/>
+    <text x="362" y="96" fill="#1f2328" font-weight="600">issue</text>
+    <text x="362" y="116" fill="#59636e" font-size="12">#12</text>
+
+    <rect x="446" y="66" width="128" height="64" rx="10" fill="#f6f8fa" stroke="#1f6feb"/>
+    <text x="510" y="96" fill="#1f2328" font-weight="600">branch</text>
+    <text x="510" y="116" fill="#59636e" font-size="12">feat/001-t003-…</text>
+
+    <rect x="598" y="66" width="120" height="64" rx="10" fill="#f6f8fa" stroke="#1f6feb"/>
+    <text x="658" y="96" fill="#1f2328" font-weight="600">pull request</text>
+    <text x="658" y="116" fill="#59636e" font-size="12">Closes #12</text>
+
+    <rect x="742" y="66" width="108" height="64" rx="10" fill="#1f6feb"/>
+    <text x="796" y="96" fill="#ffffff" font-weight="700">merged</text>
+    <text x="796" y="116" fill="#ffffff" font-size="12">issue closed</text>
+  </g>
+  <!-- arrows -->
+  <g stroke="#59636e" stroke-width="1.5" marker-end="url(#a)">
+    <line x1="134" y1="98" x2="154" y2="98"/>
+    <line x1="262" y1="98" x2="298" y2="98"/>
+    <line x1="422" y1="98" x2="442" y2="98"/>
+    <line x1="574" y1="98" x2="594" y2="98"/>
+    <line x1="718" y1="98" x2="738" y2="98"/>
+  </g>
+  <!-- commands -->
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#59636e">
+    <text x="30" y="168">/speckit-specify · /speckit-plan · /speckit-tasks</text>
+    <text x="850" y="168" text-anchor="end">/jit-speckit-next   (or /speckit-implement T003)</text>
+  </g>
+  <text x="440" y="206" text-anchor="middle" font-size="13" fill="#59636e">Defaults sized to the project: lite · standard · full</text>
+</svg>

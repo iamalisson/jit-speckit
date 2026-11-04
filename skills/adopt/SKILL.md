@@ -1,11 +1,11 @@
 ---
-name: jit-speckit-adopt
-description: "Adopt jit-speckit in an existing codebase: read the repo and fill the spec-kit constitution (project, stack, commands, project principles) from what is really there, merging any constitution that already exists. Use when the user says /jit-speckit-adopt or wants spec-kit/jit-speckit on a project that already has code."
+name: adopt
+description: "Adopt jit-speckit in an existing codebase: read the repo and fill the spec-kit constitution (project, stack, commands, project principles) from what is really there, merging any constitution that already exists. Run after /jit-speckit:init on a repo that already has code."
 ---
 
 # Adopt jit-speckit in an existing project
 
-1. If `.specify/extensions/jit/` does not exist, run the `/jit-speckit-init` skill first, then
+1. If `.specify/extensions/jit/` does not exist, run `/jit-speckit:init` first, then
    come back here.
 2. **Read the project; don't guess.** Look at:
    - the manifests (`Cargo.toml`, `package.json` and lockfile, `pyproject.toml`, `go.mod`, …);

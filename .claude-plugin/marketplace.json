@@ -1,0 +1,14 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "jit-speckit",
+  "description": "Spec Kit, with the boring parts done: one task = one issue = one branch = one PR.",
+  "owner": { "name": "iamalisson", "url": "https://github.com/iamalisson" },
+  "plugins": [
+    {
+      "name": "jit-speckit",
+      "description": "Every task gets an issue, a branch and a PR; every project gets defaults sized to its complexity.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}

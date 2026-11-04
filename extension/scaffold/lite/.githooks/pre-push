@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# jit-speckit: before anything leaves this machine, re-check every pushed commit for secrets
+# (this also catches commits made with --no-verify), and keep base branches PR-only.
+set -euo pipefail
+s=.specify/extensions/jit/scripts/prepush.sh
+[ -f "$s" ] || { echo "jit: $s missing; push check skipped (CI still checks)" >&2; exit 0; }
+exec bash "$s" "$@"

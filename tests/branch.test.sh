@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2016  # checks are strings evaluated by check()
+# shellcheck disable=SC2016,SC2034  # checks are strings evaluated by check()
 # shellcheck source=helpers.sh
 source "$(dirname "$0")/helpers.sh"
 b="$SCRIPTS/branch.sh"

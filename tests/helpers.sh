@@ -29,14 +29,15 @@ case "$1 $2" in
   "issue create") n=$(( $(cat "$GH_N" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$GH_N"
                   echo "https://github.com/acme/app/issues/$n" ;;
   "label create") exit 0 ;;
-  "pr view") [[ -f "$GH_PR" ]] && cat "$GH_PR" || exit 1 ;;
+  "pr list") [[ -f "$GH_PR" ]] && cat "$GH_PR"; exit 0 ;;
   "pr create") echo "https://github.com/acme/app/pull/99" | tee "$GH_PR" ;;
+  "issue list") cat "$GH_CLOSED" 2>/dev/null; exit 0 ;;
   "repo view") exit 1 ;;
   *) exit 0 ;;
 esac
 EOF
   chmod +x "$TMP/bin/gh"
-  export PATH="$TMP/bin:$PATH" GH_LOG="$TMP/gh.log" GH_N="$TMP/gh.n" GH_PR="$TMP/gh.pr"
+  export PATH="$TMP/bin:$PATH" GH_LOG="$TMP/gh.log" GH_N="$TMP/gh.n" GH_PR="$TMP/gh.pr" GH_CLOSED="$TMP/gh.closed"
 }
 
 # new_repo <level>: repo at $TMP/repo with origin, extension linked, an active feature 001-demo.
@@ -46,7 +47,8 @@ new_repo() {
   cd "$TMP/repo"
   git config user.email t@t; git config user.name t; git config commit.gpgsign false
   mkdir -p .specify/extensions specs/001-demo
-  mkdir -p .specify/extensions/jit && printf 'level: %s\nbase_branch: auto\nbranch_prefix: feat\nissue_labels: "type:task"\n' "$1" > .specify/extensions/jit/jit-config.yml
+  mkdir -p .specify/extensions/jit && ln -s "$ROOT/extension/scripts" .specify/extensions/jit/scripts # as spec-kit installs it
+  printf 'level: %s\nbase_branch: auto\nbranch_prefix: feat\nissue_labels: "type:task"\n' "$1" > .specify/extensions/jit/jit-config.yml
   echo '{ "feature_directory": "specs/001-demo" }' > .specify/feature.json
   # Local test state stays out of git so config edits never dirty the tree.
   printf '.specify/\n*.bak\n' > .gitignore

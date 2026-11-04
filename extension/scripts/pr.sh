@@ -18,7 +18,7 @@ mode="${1:-}"
 
 open_pr() { # open_pr <title> <body>
   local url
-  url="$(gh pr view --json url --jq .url 2>/dev/null || true)"
+  url="$(gh pr list --head "$(git branch --show-current)" --state open --json url --jq '.[0].url // empty' 2>/dev/null || true)"
   if [[ -z "$url" ]]; then
     url="$(gh pr create --base "$base" --head "$(git branch --show-current)" --title "$1" --body "$2")"
   fi

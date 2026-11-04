@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2016  # checks are strings evaluated by check()
+# shellcheck disable=SC2016,SC2034  # checks are strings evaluated by check()
 # shellcheck source=helpers.sh
 source "$(dirname "$0")/helpers.sh"
 fake_gh
@@ -49,5 +49,33 @@ check "when the constitution has no jit block, then it is inserted before Govern
 rm Cargo.toml package.json .github/workflows/ci.yml
 "$l" standard --no-branches >/dev/null
 check "when no stack is detected, then CI is a clearly marked placeholder" 'grep -q "no stack detected" .github/workflows/ci.yml'
+
+# Security scaffolding, pinning and git hooks (fresh repo).
+rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"
+new_repo lite
+printf '{"scripts":{"test":"x"}}\n' > package.json
+"$l" lite >/dev/null
+check "when set to lite, then the git hooks are installed, executable and enabled" \
+  '[[ -x .githooks/pre-commit && -x .githooks/pre-push && "$(git config core.hooksPath)" == .githooks ]]'
+check "then lite has no security workflow yet" '[[ ! -f .github/workflows/security.yml ]]'
+"$l" standard >/dev/null
+check "when set to standard, then the security workflow scans secrets, dependencies and workflows" \
+  'grep -q "gitleaks git --redact" .github/workflows/security.yml && grep -q "osv-scanner scan source" .github/workflows/security.yml && grep -q "zizmorcore/zizmor-action@" .github/workflows/security.yml'
+check "then downloaded scanners are checksum-verified" '[[ "$(grep -c "sha256sum -c -" .github/workflows/security.yml)" == 2 ]]'
+check "then it also runs weekly, for new CVEs in unchanged dependencies" 'grep -q "cron:" .github/workflows/security.yml'
+check "then standard has no SAST job (that is full)" '! grep -q "semgrep scan" .github/workflows/security.yml'
+check "then every action in generated workflows is pinned to a full commit SHA" \
+  '! grep -hE "uses: [^ ]+@" .github/workflows/*.yml | grep -vE "@[0-9a-f]{40}( |$)"'
+check "then checkout never keeps the token on disk" '! grep -A2 "actions/checkout@" .github/workflows/ci.yml | grep -q "persist-credentials: true"'
+rm .github/workflows/security.yml
+"$l" full >/dev/null
+check "when set to full, then semgrep with the OWASP rules is part of the security workflow" 'grep -q "semgrep==.*--config p/owasp-top-ten" .github/workflows/security.yml'
+
+rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"
+new_repo standard
+git config core.hooksPath .husky
+out="$("$l" standard --no-branches)"
+check "when the repo already uses its own hooks (husky), then they are not replaced and it says how to add ours" \
+  '[[ "$(git config core.hooksPath)" == .husky ]] && grep -q "secrets.sh staged" <<<"$out"'
 
 exit "$FAIL"

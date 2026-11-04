@@ -48,6 +48,15 @@ base_branch() {
   fi
 }
 
+# Long-lived branches that only change through pull requests.
+protected_branches() {
+  local level; level="$(jit_level)"
+  echo "$(default_branch) $(base_branch)"
+  if [[ "$level" != lite ]]; then echo develop; fi
+  if [[ "$level" == full ]]; then echo staging; fi
+}
+is_protected() { [[ " $(protected_branches | tr '\n' ' ') " == *" $1 "* ]]; }
+
 feature_dir() {
   local d
   d="$(sed -n 's/.*"feature_directory": *"\([^"]*\)".*/\1/p' .specify/feature.json 2>/dev/null)"
