@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "23 5 * * 1" # weekly: the macOS job below
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -30,8 +33,32 @@ jobs:
           git config --global init.defaultBranch main
           tests/run.sh
 
+  bash32:
+    name: Linux (bash 3.2 + busybox, macOS-like shell)
+    runs-on: ubuntu-latest
+    # The official bash 3.2 image: the same bash version macOS ships, with busybox tools
+    # (closer to BSD than GNU). Pinned by digest.
+    container: bash:3.2@sha256:b6252c62fc86114f93f02104a486c71e6569371d95950ea7479a2ffd6b47f16a
+    steps:
+      - name: Install git
+        run: apk add --no-cache git
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Tests on bash 3.2
+        run: |
+          bash --version | head -1
+          git config --global --add safe.directory '*'
+          git config --global user.email ci@example.com
+          git config --global user.name ci
+          git config --global init.defaultBranch main
+          bash tests/run.sh
+
   macos:
-    name: macOS (stock bash 3.2)
+    name: macOS (stock bash 3.2, BSD tools)
+    # Weekly and on demand: hosted macOS runners are often unavailable, and a job waiting for one
+    # should not block every push. bash 3.2 itself is covered on every push by the job above.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
