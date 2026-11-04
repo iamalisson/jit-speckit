@@ -22,14 +22,16 @@
 ---
 
 [GitHub Spec Kit](https://github.com/github/spec-kit) turns a feature idea into a spec, a plan and a
-task list. jit-speckit plugs into it and handles everything around the code:
+task list, and Claude writes the code. jit-speckit plugs into it and handles everything around
+that code:
 
 - every task gets a GitHub issue, its own branch and its own pull request;
 - secrets are refused at commit and push, and every pull request passes a security gate;
 - the project's constitution starts with security, testing and simplicity defaults, sized to how
   serious the project is.
 
-You keep writing specs and code. The rest happens on its own, the same way every time.
+You plan the feature and review the work. Claude writes the code, and jit-speckit does the rest
+the same way every time.
 
 ## Install
 
@@ -48,8 +50,34 @@ installs spec-kit for you if it's missing.
 
 | Your project | Run | Then |
 |---|---|---|
+| **New, from scratch** (empty folder) | `/jit-speckit:new` | nothing: you pick the stack and architecture together with Claude, and get a small, secure, tested starter with CI (plus infrastructure as code if you deploy now) |
 | **New** (empty folder or fresh repo) | `/jit-speckit:init` | `/speckit-constitution`, to describe the project |
 | **Existing** (has code, no spec-kit yet) | `/jit-speckit:init` | nothing: it reads your code and fills the constitution for you |
+
+`new` doesn't decide the critical things for you. It asks who the project is for, whether it
+handles personal data or money, where it runs, and so on. Then it recommends the simplest option
+that fits, and lets you argue. If your plan skips something important (tests, logging, error
+handling, backups) or takes a known risk (secrets in files, weak password storage,
+microservices for an MVP), it tells you why and offers the fix. For the serious risks it won't
+continue until you explicitly accept them.
+
+There is no prebuilt code to go stale: `new` builds the starter fresh, for any stack, with
+today's versions, by following three short files:
+- **[GUIDELINES.md](docs/GUIDELINES.md)**: start simple, well done and secure, and add
+  complexity only when a real need shows up. Its
+  [Starter checklist](docs/GUIDELINES.md#starter-checklist) is what every new project gets:
+  - validated config and graceful shutdown;
+  - one error type whose 500s carry an `error_id` that's in the logs;
+  - JSON logs with request IDs, plus body-size and timeout limits and a health check;
+  - tests at three levels, and CI with a dependency audit;
+  - a locked-down container and a dev container.
+- **[GUARDRAILS.md](docs/GUARDRAILS.md)**: the common, costly mistakes and how to catch them,
+  each backed by evidence.
+- **[references.yaml](docs/references.yaml)**: the primary source to check for each topic,
+  so choices follow current practice, not habits from five years ago.
+
+`new` isn't done until the starter's own checks pass and a mutation-testing run shows its tests
+fail when the code is wrong.
 
 `init` asks one question: how serious the project is (**lite**, **standard** or **full**, see
 [Levels](#levels)). It changes nothing in your code and commits nothing; you review the setup and
@@ -67,6 +95,11 @@ commit it.
 | **Once per task** | `/jit-speckit:next` | progress, then the next open task: **its branch → code → checks → review → PR** |
 | | merge the PR | the issue closes |
 
+The spec PR and the task PRs are separate on purpose: task branches start from the base branch
+and need `tasks.md` there, and each task PR stays small and closes one issue. See
+**[examples/](examples/)** for one feature walked through from spec to merged PRs, with the
+real issue and PR bodies.
+
 When `/jit-speckit:next` says every task is done, the feature is finished. Run
 `/jit-speckit:security` before you release it.
 
@@ -81,7 +114,7 @@ When `/jit-speckit:next` says every task is done, the feature is finished. Run
 | **every command Claude runs** | blocks `--no-verify`, `git add -A`, commits on base branches and pushes to them |
 | **every push** | re-checks every outgoing commit, including ones made with `--no-verify` |
 | **before each PR** | scanners on the changed files, `/security-review`, `/code-review` |
-| **every PR, and weekly** | CI gate: Gitleaks, OSV-Scanner and zizmor (Semgrep with the OWASP rules on `full`), all pinned and checksum-verified |
+| **every PR, and weekly** | CI gate: Gitleaks, OSV-Scanner and zizmor (Semgrep with the OWASP rules on `full`; trivy on Dockerfiles and Terraform when the project has them), all pinned and checksum-verified |
 | **before a release** | `/jit-speckit:security`, the full audit |
 
 `/jit-speckit:security` maps your attack surface, runs the best open-source scanners, then
@@ -102,7 +135,7 @@ files.
 | For | prototypes, solo work | products, small teams | production, money, personal data |
 | Branches | `feat/*` → `main` | `feat/*` → `develop` → `main` | `feat/*` → `develop` → `staging` → `main` |
 | Constitution defaults | KISS, secrets, tests for logic, task = issue = PR | + security baseline, stack idioms, dependency policy, integration tests | + threat model per feature, data integrity, observability, releases |
-| Added to the repo | git hooks, PR template | + CI for your stack, security CI, Dependabot | + Semgrep in CI, CODEOWNERS, SECURITY.md, release workflow |
+| Added to the repo | git hooks, PR template, `.claude/settings.json` (no AI attribution) | + CI for your stack, security CI, Dependabot | + Semgrep in CI, CODEOWNERS, SECURITY.md, release workflow |
 | Before each PR | asks first | review at `/code-review medium` | review at `/code-review high`, and evidence is required |
 | `/speckit-analyze` | optional | optional | required before any task |
 
@@ -116,16 +149,18 @@ and the constitution. Existing files are never overwritten.
 | **Plan mode** (`Shift+Tab`) | thinking out loud before `/speckit-specify` or during `/speckit-clarify`. Not for `/speckit-plan`, which writes files that plan mode blocks. |
 | **`/code-review`** | before each PR, automatically. Run `/code-review ultra` yourself before merging a large or risky change (cloud, billed). |
 | **`/security-review`** | before each PR, automatically, and inside `/jit-speckit:security` |
-| **Worktrees** | tasks marked `[P]` can run in parallel: open another session with `claude --worktree` and run `/speckit-implement T00X` there. Each one gets its own branch and PR. |
+| **Worktrees** | tasks marked `[P]` can run in parallel: open another session with `claude --worktree` and run `/speckit-implement T00X` there. Each one gets its own branch and PR. The active feature, the `/speckit-analyze` record and the security reports are shared by every worktree, so `full` works there too. |
 
 ## What happens automatically
 
 | After / before | jit-speckit |
 |---|---|
-| after `/speckit-tasks` | one issue per task, `— #N` written on each task line, the spec PR opened |
+| after `/speckit-tasks` | the plan is **grounded in the real code** (every symbol a task removes is searched for, every quickstart command is read, every data write names its target), then one issue per task, `— #N` written on each task line, the spec PR opened |
 | after `/speckit-analyze` | records the analysis (level `full` needs it before tasks start) |
 | before `/speckit-implement` | refuses without exactly one task, an issue, the merged spec and a clean tree; otherwise switches to `feat/<feature>-t00x-<slug>` |
 | after `/speckit-implement` | checks, commit, security scan, reviews, push, PR with `Closes #N` |
+| every issue and PR | assigned to you; given the milestone and project if configured (a failure only warns); no AI attribution lines; long output folded into `<details>` |
+| a task PR that changes existing tests | refused unless the body has a `## Test changes` section saying why. New tests need no explanation; weakening one does |
 
 These are spec-kit hooks, so you never type them. If you skip one, run it yourself:
 `/speckit-jit-issues`, `/speckit-jit-pr`.
@@ -140,6 +175,20 @@ These are spec-kit hooks, so you never type them. If you skip one, run it yourse
 | `base_branch` | `auto` | the branch task PRs target: `main` on lite, `develop` otherwise |
 | `branch_prefix` | `feat` | task branches are named `<prefix>/<feature>-<task>-<slug>` |
 | `issue_labels` | `type:task` | comma-separated labels for task issues |
+| `milestone` | *(empty)* | milestone for task issues and PRs, by name; empty means none |
+| `project` | *(empty)* | GitHub project (title) to add task issues and PRs to; needs `gh auth refresh -s project` |
+
+## Help
+
+`/jit-speckit:help` shows every command, level and setting. Ask it anything:
+`/jit-speckit:help why is the spec a separate PR?`
+
+## Notes
+
+- **AI attribution:** `.claude/settings.json` turns off the "Generated with Claude Code" and
+  `Co-Authored-By` lines for everyone on the project. If your team or a policy requires AI
+  disclosure, delete its `attribution` block: jit-speckit then keeps those lines, and never asks
+  for the block back.
 
 ## Uninstall
 
