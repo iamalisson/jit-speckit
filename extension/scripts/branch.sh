@@ -28,7 +28,7 @@ git cat-file -e "$from:$fdir/tasks.md" 2>/dev/null \
   || die "$fdir/tasks.md is not on '$base' yet; merge the spec PR first"
 
 if [[ "$(jit_level)" == full ]]; then
-  marker="$(git rev-parse --git-dir)/jit-analyzed/$(basename "$fdir")"
+  marker="$(git rev-parse --git-common-dir)/jit-analyzed/$(basename "$fdir")"
   want="$(git show "$from:$fdir/tasks.md" | sha256)"
   [[ -f "$marker" && "$(cat "$marker")" == "$want" ]] \
     || die "level 'full' requires /speckit-analyze on the current tasks.md before implementing"

@@ -5,8 +5,8 @@ description: "Adopt jit-speckit in an existing codebase: read the repo and fill 
 
 # Adopt jit-speckit in an existing project
 
-1. If `.specify/extensions/jit/` does not exist, run `/jit-speckit:init` first, then
-   come back here.
+1. If `.specify/extensions/jit/` does not exist, stop and ask the user to run
+   `/jit-speckit:init` first (only the user can run it), then `/jit-speckit:adopt` again.
 2. **Read the project; don't guess.** Look at:
    - the manifests (`Cargo.toml`, `package.json` and lockfile, `pyproject.toml`, `go.mod`, …);
    - the CI workflows and the task runner (`justfile`, `Makefile`, `package.json` scripts);

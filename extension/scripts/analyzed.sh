@@ -7,7 +7,7 @@ source "$(dirname "$0")/lib.sh"
 
 jit_cd_root
 fdir="$(feature_dir)"
-dir="$(git rev-parse --git-dir)/jit-analyzed"
+dir="$(git rev-parse --git-common-dir)/jit-analyzed"
 mkdir -p "$dir"
 sha256 < "$fdir/tasks.md" > "$dir/$(basename "$fdir")"
 echo "ANALYZED=$(basename "$fdir")"

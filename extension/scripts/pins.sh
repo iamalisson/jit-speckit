@@ -18,3 +18,8 @@ GITLEAKS_SHA256="551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470e
 OSV_VERSION="2.7.0"
 OSV_SHA256="160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b"     # linux_amd64 binary
 SEMGREP_VERSION="1.183.0"
+# Checksum from the release's own trivy_<v>_checksums.txt: it catches a corrupted download, not a
+# compromised release (trivy's distribution was attacked in March 2026). Bump only to releases
+# that have been out for a few weeks.
+TRIVY_VERSION="0.76.0"
+TRIVY_SHA256="e24b1c51293c1b15e4ba8d45bbc7891ba053f90278ec2698f3562c993e145fe7" # Linux-64bit tarball

@@ -11,10 +11,18 @@ die() { echo "jit: $*" >&2; exit 1; }
 # Run every script from the repository root.
 jit_cd_root() { cd "$(git rev-parse --show-toplevel 2>/dev/null)" || die "not inside a git repository"; }
 
-# cfg <key> <default>: read a flat `key: value` line from the config file.
+# cfg <key> <default>: read a flat `key: value` line from the config file. A quoted value is
+# taken as is ("Sprint #3" or 'Sprint #3'); an unquoted one ends at a ` #` comment.
 cfg() {
   local v=""
-  [[ -f "$JIT_CONFIG" ]] && v="$(sed -nE "/^$1:/{s/^$1:[[:space:]]*\"?([^\"#]*)\"?.*$/\1/;s/[[:space:]]*$//;p;q;}" "$JIT_CONFIG")"
+  if [[ -f "$JIT_CONFIG" ]]; then
+    v="$(sed -nE "/^$1:/{
+      s/^$1:[[:space:]]*//
+      /^\"/{ s/^\"([^\"]*)\".*$/\1/; p; q; }
+      /^'/{ s/^'([^']*)'.*$/\1/; p; q; }
+      s/[[:space:]]+#.*$//; s/[[:space:]]*$//; p; q
+    }" "$JIT_CONFIG")"
+  fi
   echo "${v:-$2}"
 }
 
@@ -30,6 +38,11 @@ cfg_set() {
 }
 
 jit_level() { cfg level standard; }
+
+# Paths that hold tests, across the stacks jit-speckit supports.
+# shellcheck disable=SC2034  # used by pr.sh
+TEST_PATH_RE='(^|/)(tests?|__tests__|spec)/|[._-](test|spec)\.[a-z]+$|(^|/)test_[^/]*\.py$'
+
 
 # The repository's default branch: origin/HEAD when set, otherwise whichever of main/master
 # really exists (origin/HEAD is often unset when the remote was added by hand).
@@ -64,8 +77,17 @@ protected_branches() {
 is_protected() { [[ " $(protected_branches | tr '\n' ' ') " == *" $1 "* ]]; }
 
 feature_dir() {
-  local d
-  d="$(sed -n 's/.*"feature_directory": *"\([^"]*\)".*/\1/p' .specify/feature.json 2>/dev/null)"
+  local d="" f=.specify/feature.json num matches
+  # On a task branch (<prefix>/NNN-tNNN-...), the branch says which feature it belongs to. That
+  # wins, so a worktree never acts on whatever feature the main checkout moved on to.
+  num="$(git branch --show-current 2>/dev/null | sed -nE 's#^[^/]+/([0-9]{3})-t[0-9]{3}-.*#\1#p')"
+  if [[ -n "$num" ]]; then
+    matches="$(find specs -mindepth 1 -maxdepth 1 -type d -name "$num-*" 2>/dev/null)"
+    if [[ -n "$matches" && "$(wc -l <<<"$matches")" -eq 1 ]]; then echo "$matches"; return; fi
+  fi
+  # A new worktree has no untracked files: fall back to the main worktree's active feature.
+  [[ -f "$f" ]] || f="$(git rev-parse --git-common-dir)/../.specify/feature.json"
+  d="$(sed -n 's/.*"feature_directory": *"\([^"]*\)".*/\1/p' "$f" 2>/dev/null)"
   [[ -n "$d" && -d "$d" ]] || die "no active feature (.specify/feature.json); run /speckit-specify first"
   echo "$d"
 }
@@ -82,11 +104,21 @@ task_desc() {
 }
 
 # "Completed when:" sub-bullet of a task, if the task has one.
+# infra_files: tracked and new (not ignored) Dockerfiles and Terraform files, one per line.
+# The single answer to "does this project have infrastructure?", for CI, Dependabot and scans.
+infra_files() {
+  git ls-files --cached --others --exclude-standard 2>/dev/null | grep -E '(^|/)(Dockerfile[^/]*|[^/]+\.tf)$' || true
+}
+
+# A wrapped sub-bullet (continuation lines indented deeper) is joined into one line.
 task_field() {
   awk -v id="$2" -v key="$3" '
     $0 ~ "^- \\[.\\] " id " " { inside = 1; next }
     inside && /^- \[/ { exit }
-    inside && index($0, "  - " key ":") == 1 { sub("^  - " key ":[[:space:]]*", ""); print; exit }
+    found && /^    +[^ -]/ { sub(/^ +/, ""); value = value " " $0; next }
+    found { exit }
+    inside && index($0, "  - " key ":") == 1 { sub("^  - " key ":[[:space:]]*", ""); value = $0; found = 1 }
+    END { if (found) print value }
   ' "$1/tasks.md"
 }
 
@@ -98,4 +130,21 @@ repo_slug() {
   s="$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null || true)"
   [[ -n "$s" ]] || s="$(git remote get-url origin 2>/dev/null | sed -nE 's#.*github\.com[:/]([^/]+/[^/.]+)(\.git)?$#\1#p' || true)"
   echo "$s"
+}
+
+# add_meta <issue|pr> <url>: assign the user, and set the configured milestone and project.
+# Runs after creation, one edit per item, and only warns: optional metadata never stops a run
+# halfway (a bot token that can't be assigned, a closed milestone, a token without project scope).
+add_meta() {
+  local kind="$1" url="$2" m p err i
+  m="$(cfg milestone "")"; p="$(cfg project "")"
+  local a=(--add-assignee @me)
+  [[ -n "$m" ]] && a+=(--milestone "$m")
+  [[ -n "$p" ]] && a+=(--add-project "$p")
+  for ((i = 0; i < ${#a[@]}; i += 2)); do
+    if ! err="$(gh "$kind" edit "$url" "${a[i]}" "${a[i+1]}" 2>&1 >/dev/null)"; then
+      echo "jit: warning: could not set ${a[i]#--} '${a[i+1]}' on $url: ${err:-unknown error}" >&2
+      if [[ "${a[i]}" == --add-project ]]; then echo "jit: (project access needs: gh auth refresh -s project)" >&2; fi
+    fi
+  done
 }

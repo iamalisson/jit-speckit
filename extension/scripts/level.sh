@@ -21,6 +21,8 @@ cfg_set level "$level"
 grep -qE '^base_branch:' "$JIT_CONFIG" || cfg_set base_branch auto
 grep -qE '^branch_prefix:' "$JIT_CONFIG" || cfg_set branch_prefix feat
 grep -qE '^issue_labels:' "$JIT_CONFIG" || cfg_set issue_labels '"type:task"'
+grep -qE '^milestone:' "$JIT_CONFIG" || cfg_set milestone '""'
+grep -qE '^project:' "$JIT_CONFIG" || cfg_set project '""'
 echo "level: $previous → $level"
 
 case "$level" in
@@ -125,7 +127,9 @@ ci_yaml() {
       node:*) pm="${s#node:}"
         printf '  node:\n    runs-on: ubuntu-latest\n    steps:\n'; checkout_step
         if [[ "$pm" == pnpm ]]; then printf '      - uses: %s\n' "$PIN_PNPM"; fi
-        printf '      - uses: %s\n        with:\n          node-version: 20\n          cache: %s\n' "$PIN_SETUP_NODE" "$pm"
+        # The project's pinned Node, else the current LTS (never a hard-coded major that goes EOL).
+        nv="node-version: lts/*"; for f in .node-version .nvmrc; do if [[ -f $f ]]; then nv="node-version-file: $f"; break; fi; done
+        printf '      - uses: %s\n        with:\n          %s\n          cache: %s\n' "$PIN_SETUP_NODE" "$nv" "$pm"
         case "$pm" in pnpm) printf '      - run: pnpm install --frozen-lockfile\n' ;;
                       yarn) printf '      - run: yarn install --frozen-lockfile\n' ;;
                       npm) if [[ -f package-lock.json ]]; then printf '      - run: npm ci\n'; else printf '      - run: npm install\n'; fi ;; esac
@@ -201,6 +205,22 @@ $(checkout_step)
         with:
           advanced-security: false
 EOF
+  if [[ -n "$(infra_files)" ]]; then
+    cat <<EOF
+
+  infra:
+    name: Dockerfiles and Terraform (trivy config)
+    runs-on: ubuntu-latest
+    steps:
+$(checkout_step)
+      - name: Install trivy $TRIVY_VERSION (checksum-verified)
+        run: |
+          curl -sSfL -o trivy.tgz https://github.com/aquasecurity/trivy/releases/download/v$TRIVY_VERSION/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz
+          echo "$TRIVY_SHA256  trivy.tgz" | sha256sum -c -
+          tar -xzf trivy.tgz trivy
+      - run: ./trivy config --exit-code 1 --severity HIGH,CRITICAL .
+EOF
+  fi
   if [[ $level == full ]]; then
     cat <<EOF
 
@@ -213,6 +233,16 @@ $(checkout_step)
       - run: uvx --from semgrep==$SEMGREP_VERSION semgrep scan --config p/default --config p/owasp-top-ten --error --metrics off
 EOF
   fi
+}
+
+# infra_dirs <ecosystem> <regex>: one Dependabot entry per folder holding matching infra files.
+infra_dirs() {
+  local dir
+  while IFS= read -r dir; do
+    [[ -n "$dir" ]] || continue
+    dir="${dir#.}"; dir="${dir#/}"
+    printf '  - package-ecosystem: %s\n    directory: "/%s"\n    schedule:\n      interval: weekly\n    target-branch: %s\n' "$1" "$dir" "$(base_branch)"
+  done < <(infra_files | grep -E "$2" | sed -E 's#^#./#; s#/[^/]*$##' | sort -u)
 }
 
 # Kept out of $( ... ): bash 3.2 (macOS) misparses a case pattern's ")" inside a command substitution.
@@ -232,9 +262,14 @@ ecosystems() {
 dependabot_yaml() {
   printf 'version: 2\nupdates:\n'
   local eco
+  local dir
   for eco in $(ecosystems); do
-    printf '  - package-ecosystem: %s\n    directory: "/"\n    schedule:\n      interval: weekly\n    target-branch: %s\n    open-pull-requests-limit: 5\n    groups:\n      minor-and-patch:\n        update-types: [minor, patch]\n' "$eco" "$(base_branch)"
+    dir=/
+    printf '  - package-ecosystem: %s\n    directory: "%s"\n    schedule:\n      interval: weekly\n    target-branch: %s\n    open-pull-requests-limit: 5\n    groups:\n      minor-and-patch:\n        update-types: [minor, patch]\n' "$eco" "$dir" "$(base_branch)"
   done
+  # Base images and Terraform providers, in every folder that has them.
+  infra_dirs docker '(^|/)Dockerfile[^/]*$'
+  infra_dirs terraform '\.tf$'
 }
 
 for l in "${levels[@]}"; do

@@ -21,6 +21,7 @@ open_pr() { # open_pr <title> <body>
   url="$(gh pr list --head "$(git branch --show-current)" --state open --json url --jq '.[0].url // empty' 2>/dev/null || true)"
   if [[ -z "$url" ]]; then
     url="$(gh pr create --base "$base" --head "$(git branch --show-current)" --title "$1" --body "$2")"
+    add_meta pr "$url"
   fi
   echo "PR=$url"
 }
@@ -33,7 +34,9 @@ case "$mode" in
     issue="$(task_issue "$line")"
     [[ -n "$issue" ]] || die "$task has no issue"
     branch="$(git branch --show-current)"
-    [[ "$branch" == *"-$(tr '[:upper:]' '[:lower:]' <<<"$task")-"* ]] || die "not on $task's branch (on '$branch'); run /speckit-implement $task"
+    num="$(basename "$fdir" | cut -d- -f1)"
+    [[ "$branch" == */"$num-$(tr '[:upper:]' '[:lower:]' <<<"$task")-"* ]] \
+      || die "not on $task's branch for feature $num (on '$branch'); run /speckit-implement $task"
     [[ -z "$(git status --porcelain)" ]] || die "uncommitted changes; commit the work first"
     git fetch --quiet origin "$base" 2>/dev/null || true
     [[ -n "$(git log --oneline "origin/$base..HEAD" 2>/dev/null || git log --oneline -1)" ]] || die "no commits ahead of $base"
@@ -41,6 +44,16 @@ case "$mode" in
     body=""; [[ -n "$body_file" ]] && body="$(cat "$body_file")"
     if [[ "$(jit_level)" == full ]] && ! grep -qE '^## Evidence' <<<"$body"; then
       die "level 'full' requires an '## Evidence' section in the PR body (test output, screenshots, run links)"
+    fi
+    # A test that changes to fit the code proves nothing: editing, renaming or deleting an
+    # existing test needs a reason a reviewer can check. New tests need none.
+    # --no-renames: a test moved out of a test folder counts as deleted, not as a new file.
+    ref="origin/$base"; git rev-parse --verify --quiet "$ref" >/dev/null || ref="$base"
+    git rev-parse --verify --quiet "$ref" >/dev/null || die "base branch '$base' not found locally or on origin"
+    changed_tests="$(git diff --no-renames --diff-filter=MD --name-only "$ref...HEAD" | grep -E "$TEST_PATH_RE" || true)"
+    if [[ -n "$changed_tests" ]] && ! grep -qE '^## Test changes' <<<"$body"; then
+      die "existing tests were changed: $(tr '\n' ' ' <<<"$changed_tests")
+add a '## Test changes' section to the PR body saying why (spec changed, test was wrong). Never weaken a test to make it pass."
     fi
     grep -qiE "(close[sd]?|fix(e[sd])?|resolve[sd]?) #$issue([^0-9]|$)" <<<"$body" || body+=$'\n\n'"Closes #$issue"
     git push --quiet -u origin "$branch"
@@ -60,7 +73,16 @@ case "$mode" in
 
 **Task issues:** ${issues:-none yet}
 
-Merge this before starting tasks: \`/speckit-implement Tnnn\` branches from \`$base\`, so it needs \`tasks.md\` there."
+Merge this before starting tasks: \`/speckit-implement Tnnn\` branches from \`$base\`, so it needs \`tasks.md\` there.
+
+<details>
+<summary>Why is the spec its own PR?</summary>
+
+- Every task branch starts from \`$base\` and reads its issue from \`tasks.md\` there.
+- Each task PR then stays small, independent and closes exactly one issue.
+- The design gets reviewed before any code is written, while changing it is still cheap.
+
+</details>"
     ;;
   *) die "usage: pr.sh task T003 \"type(scope): summary\" [body-file] | pr.sh spec" ;;
 esac

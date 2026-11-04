@@ -16,7 +16,7 @@ source "$(dirname "$0")/lib.sh"
 jit_cd_root
 
 changed=false; [[ "${1:-}" == --changed ]] && changed=true
-dir="$(git rev-parse --git-dir)/jit-security/$(date +%Y%m%d-%H%M%S)"
+dir="$(git rev-parse --git-common-dir)/jit-security/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$dir"
 
 files=()
@@ -68,7 +68,8 @@ if compgen -G ".github/workflows/*.y*ml" >/dev/null; then
 else report zizmor skipped "no GitHub workflows"; fi
 
 # trivy config: only when infrastructure files exist
-if [[ -n "$(git ls-files '*Dockerfile*' '*.tf' '*.yaml' '*.yml' 2>/dev/null | grep -m1 -E 'Dockerfile|\.tf$|k8s|kubernetes|helm|deploy' || true)" ]]; then
+# (the same Dockerfile/Terraform check as the CI gate, plus Kubernetes manifests)
+if [[ -n "$(infra_files)" || -n "$(git ls-files '*.yaml' '*.yml' 2>/dev/null | grep -E 'k8s|kubernetes|helm' || true)" ]]; then
   if command -v trivy >/dev/null; then
     if trivy config --exit-code 1 --severity HIGH,CRITICAL --format json --output "$dir/trivy.json" . >/dev/null 2>&1; then
       report trivy ok "no high/critical misconfiguration"

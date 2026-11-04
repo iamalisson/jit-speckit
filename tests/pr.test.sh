@@ -20,6 +20,8 @@ out="$("$p" task T001 "feat(search): add search" "$TMP/body.md")"
 check "when the work is committed, then it pushes and opens the PR into the base" \
   '[[ "$out" == "PR=https://github.com/acme/app/pull/99" ]] && git ls-remote --exit-code origin "$(git branch --show-current)" && grep -q -- "--base develop" "$GH_LOG"'
 check "then the body links the issue with Closes #N" 'grep -q "Closes #5" "$GH_LOG"'
+check "then the user is assigned and no milestone or project is guessed" \
+  'grep -q -- "^pr edit https://github.com/acme/app/pull/99 --add-assignee @me" "$GH_LOG" && ! grep -qE -- "--milestone|--add-project" "$GH_LOG"'
 
 out="$("$p" task T001 "feat(search): add search" "$TMP/body.md")"
 check "when the PR already exists, then it is reused, not duplicated" '[[ "$(grep -c "^pr create" "$GH_LOG")" == 1 ]]'
@@ -34,11 +36,50 @@ git switch --quiet main; rm -f "$GH_PR"
 mkdir -p specs/002-new
 printf '%s\n' '- [ ] T001 Thing in `a` — #11' '- [ ] T002 Other in `b` — #12' > specs/002-new/tasks.md
 echo '{ "feature_directory": "specs/002-new" }' > .specify/feature.json
+set_cfg milestone v2; set_cfg project Board
 out="$("$p" spec)"
 check "when opening the spec PR, then the spec folder is committed on spec/<feature>" \
   '[[ "$(git branch --show-current)" == spec/002-new ]] && [[ -z "$(git status --porcelain specs)" ]] && git ls-remote --exit-code origin spec/002-new'
 check "then the spec PR lists the task issues" 'grep -q "#11 #12" "$GH_LOG"'
+check "then it explains, folded away, why the spec is its own PR" 'grep -q "<summary>Why is the spec its own PR?</summary>" "$GH_LOG"'
+check "then it gets the configured milestone and project" \
+  'grep -q -- "^pr edit https://github.com/acme/app/pull/99 --milestone v2$" "$GH_LOG" && grep -q -- "^pr edit https://github.com/acme/app/pull/99 --add-project Board$" "$GH_LOG"'
 check "when the spec PR step runs again on its branch, then it reuses the branch and the PR" \
   'before="$(grep -c "^pr create" "$GH_LOG")"; "$p" spec && [[ "$(git branch --show-current)" == spec/002-new && "$(grep -c "^pr create" "$GH_LOG")" == "$before" ]]'
+
+# ── Changing existing tests needs a reason ──
+rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR"
+new_repo standard
+mkdir -p tests src; echo 'assert 1 == 1' > tests/test_price.py; echo 'x' > src/keep.test.ts
+commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
+"$SCRIPTS/branch.sh" T001 >/dev/null
+printf 'Adds search.\n' > "$TMP/plain.md"
+
+echo 'assert True' > tests/test_price.py; git commit --quiet -am "feat: weaken"
+check "when an existing test is edited and the body says nothing, then it refuses and names the file" \
+  'fails_with "tests/test_price.py" "$p" task T001 "feat(search): add search" "$TMP/plain.md"'
+check "then nothing was pushed" '! git ls-remote --exit-code origin "$(git branch --show-current)"'
+
+git rm --quiet src/keep.test.ts; git commit --quiet -m "chore: drop test"
+check "when an existing test is deleted, then it refuses too" 'fails_with "src/keep.test.ts" "$p" task T001 "feat(search): add search" "$TMP/plain.md"'
+
+printf 'Adds search.\n\n## Test changes\n\nThe spec changed the price rule (FR-002).\n' > "$TMP/why.md"
+check "when the body explains the test changes, then the PR opens" '"$p" task T001 "feat(search): add search" "$TMP/why.md" | grep -q "^PR="'
+
+git push --quiet origin --delete "$(git branch --show-current)" 2>/dev/null || true; git reset --quiet --hard origin/develop; rm -f "$GH_PR"
+mkdir -p attic; git mv tests/test_price.py attic/price_checks.py; git commit --quiet -m "chore: move"
+check "when a test is moved out of the test folders, then it counts as deleted and is refused" \
+  'fails_with "tests/test_price.py" "$p" task T001 "feat(search): add search" "$TMP/plain.md"'
+
+git branch --quiet develop origin/develop # the base exists locally...
+git remote set-url origin "$TMP/no-such-remote.git"; git update-ref -d refs/remotes/origin/develop # ...but not on origin
+check "when origin cannot be reached, then the check still runs against the local base branch" \
+  'fails_with "existing tests were changed" "$p" task T001 "feat(search): add search" "$TMP/plain.md"'
+git remote set-url origin "$TMP/origin.git"; git fetch --quiet origin; git branch --quiet -D develop
+
+# A fresh branch for this scenario: drop the pushed one and start again from the base.
+git push --quiet origin --delete "$(git branch --show-current)" 2>/dev/null || true; git reset --quiet --hard origin/develop; rm -f "$GH_PR"
+echo 'assert 2 == 2' > tests/test_new.py; git add tests/test_new.py; git commit --quiet -m "test: add"
+check "when only new tests are added, then no explanation is needed" '"$p" task T001 "feat(search): add search" "$TMP/plain.md" | grep -q "^PR="'
 
 exit "$FAIL"

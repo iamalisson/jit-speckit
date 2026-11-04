@@ -56,6 +56,24 @@ check "when the level is full and analysis did not run, then it refuses" \
 "$SCRIPTS/analyzed.sh" >/dev/null
 check "when the level is full and analysis ran on the current tasks, then it proceeds" '"$b" T001'
 
+# Parallel work: a second worktree, as `claude --worktree` makes for a [P] task. It shares the
+# repo but has its own git dir, and none of the untracked files (feature.json is one of them).
+git switch --quiet main
+git worktree add --quiet "$TMP/wt" origin/develop 2>/dev/null
+mkdir -p "$TMP/wt/.specify/extensions/jit"
+cp .specify/extensions/jit/jit-config.yml "$TMP/wt/.specify/extensions/jit/" # committed in a real project
+ln -s "$ROOT/extension/scripts" "$TMP/wt/.specify/extensions/jit/scripts"
+check "when a task starts in a fresh worktree on level full, then the analysis done in the main checkout counts" \
+  '(cd "$TMP/wt" && [[ ! -f .specify/feature.json ]] && "$b" T002 | grep -q "TASK=T002")'
+check "then the worktree is on the task's own branch, and the main checkout is untouched" \
+  '[[ "$(git -C "$TMP/wt" branch --show-current)" == feat/001-t002-* && "$(git branch --show-current)" == main ]]'
+mkdir -p specs/002-other; printf '%s\n' '- [ ] T002 Other thing in `o` — #99' > specs/002-other/tasks.md
+echo '{ "feature_directory": "specs/002-other" }' > .specify/feature.json # the main checkout moved on
+check "when the main checkout moves to another feature, then the worktree's task branch keeps its own" \
+  '(cd "$TMP/wt" && bash -c "source \"$SCRIPTS/lib.sh\"; feature_dir") | grep -qx "specs/001-demo"'
+echo '{ "feature_directory": "specs/001-demo" }' > .specify/feature.json; rm -rf specs/002-other
+git worktree remove --force "$TMP/wt"
+
 # A repo whose default branch is master and whose origin/HEAD was never set.
 git switch --quiet main
 git push --quiet --no-verify origin main:master

@@ -23,13 +23,22 @@ description: "Task list template for feature implementation"
   line gets ` — #N` appended automatically (jit-speckit).
 - Under each task, add these sub-bullets (they become the issue body):
   - `  - Comes from: <FR-/SC-/story IDs or plan section>`
+  - `  - Impact: <existing code, tests, docs, data files and guards this task must update, found by
+    searching the repo for every symbol, table, file and route it adds, renames or removes>`
   - `  - Completed when: <a verifiable check: a command that passes, an output, a screenshot>`
+- **Ground every task in the real code, not in memory.** Before writing a task, search the repo
+  for what it touches. If a task removes or renames something, list every reference to it,
+  including in tests and in the other tasks. Copy a test's expected values in as literals, never
+  imported from the code under test, or the test moves with the bug. A step that writes data
+  (migrations, scripts) names its target environment and how it refuses production.
 
 Example:
 
 ```text
 - [ ] T005 [P] [US1] Validate the signup email in src/auth/validate.py
   - Comes from: FR-002
+  - Impact: `signup()` in src/auth/routes.py calls it; tests/auth/test_signup.py expects the old
+    message "invalid email" and must be updated in this task
   - Completed when: `pytest tests/auth/test_validate.py` passes, including empty and malformed emails
 ```
 

@@ -34,11 +34,13 @@ while IFS= read -r line; do
   comes="$(task_field "$fdir" "$id" "Comes from")"
   what="$(task_field "$fdir" "$id" "What")"
   done_when="$(task_field "$fdir" "$id" "Completed when")"
+  impact="$(task_field "$fdir" "$id" "Impact")"
   body="**Feature:** \`$feature\` · **Task:** $id in [\`tasks.md\`](../blob/$base/$tasks)
 
 **Task:** $desc"
   [[ -n "$comes" ]] && body+=$'\n\n'"**Comes from:** $comes"
   [[ -n "$what" ]] && body+=$'\n\n'"**What:** $what"
+  [[ -n "$impact" ]] && body+=$'\n\n'"**Impact:** $impact"
   [[ -n "$done_when" ]] || done_when="_its tests pass and the change is verified as plan.md describes._"
   body+=$'\n\n'"**Completed when:** $done_when"
   body+=$'\n\n---\n'"**Done** = closed by the merged PR (\`Closes #N\`). Start it with \`/speckit-implement $id\`."
@@ -49,6 +51,7 @@ while IFS= read -r line; do
   # Write the link back immediately so an interrupted run never creates duplicates.
   L="$line" S=" — #$n" awk '!done && $0 == ENVIRON["L"] { print $0 ENVIRON["S"]; done = 1; next } { print }' \
     "$tasks" > "$tasks.tmp" && mv "$tasks.tmp" "$tasks"
+  add_meta issue "$url"
   echo "$id → #$n"
   created=$((created + 1))
 done < <(grep -E '^- \[.\] T[0-9]{3} ' "$tasks")

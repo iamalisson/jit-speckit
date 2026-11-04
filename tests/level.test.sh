@@ -10,14 +10,22 @@ new_repo lite
 cp "$ROOT/preset/templates/constitution-template.md" .specify/memory/constitution.md 2>/dev/null \
   || { mkdir -p .specify/memory; cp "$ROOT/preset/templates/constitution-template.md" .specify/memory/constitution.md; }
 printf '[workspace]\n' > Cargo.toml; printf '{"packageManager":"pnpm@9.0.0","scripts":{"lint":"x","test":"y"}}\n' > package.json
+# An install from before these keys existed: level.sh must add them.
+sed -i.bak '/^milestone:/d; /^project:/d' .specify/extensions/jit/jit-config.yml
 
 "$l" lite >/dev/null
 check "when set to lite, then only the PR template is scaffolded" \
   '[[ -f .github/pull_request_template.md && ! -f .github/workflows/ci.yml && ! -f .github/dependabot.yml ]]'
 check "then the constitution has one jit block for lite" '[[ "$(blocks)" == 1 ]] && grep -q "level: lite" .specify/memory/constitution.md'
 check "then the branch flow targets main" 'grep -qF "feat/* → main" .specify/memory/constitution.md'
+check "then an older config gains empty milestone and project keys (nothing is guessed)" \
+  'grep -qx "milestone: \"\"" .specify/extensions/jit/jit-config.yml && grep -qx "project: \"\"" .specify/extensions/jit/jit-config.yml'
+check "then Claude settings drop AI attribution from commits and PRs" 'grep -q "\"attribution\"" .claude/settings.json'
 
 mkdir -p .github/workflows; echo "# mine" > .github/workflows/ci.yml
+echo '{}' > .claude/settings.json
+check "when Claude settings exist without attribution (a team that discloses AI use), then they are kept and nobody nags" \
+  'out="$("$l" lite)"; [[ "$(cat .claude/settings.json)" == "{}" && "$out" != *"attribution"* ]]'
 "$l" standard >/dev/null
 check "when going up to standard, then CI is never overwritten if it already exists" '[[ "$(cat .github/workflows/ci.yml)" == "# mine" ]]'
 check "then dependabot covers the detected stacks and targets develop" \
@@ -28,8 +36,23 @@ check "then the block is replaced, not duplicated" '[[ "$(blocks)" == 1 ]] && gr
 
 rm .github/workflows/ci.yml
 "$l" standard >/dev/null
+check "when there is no Dockerfile or Terraform, then the security CI has no infra scan" '! grep -q "trivy" .github/workflows/security.yml'
 check "when CI is missing, then it is generated with rust and pnpm jobs" \
   'grep -q "cargo clippy --all-targets" .github/workflows/ci.yml && grep -q "pnpm install --frozen-lockfile" .github/workflows/ci.yml && grep -q "pnpm run lint" .github/workflows/ci.yml'
+check "then the Node CI uses the current LTS, not a hard-coded major" 'grep -q "node-version: lts/\*" .github/workflows/ci.yml'
+check "when the project pins Node, then CI uses that file" \
+  '(echo 26 > .node-version; rm .github/workflows/ci.yml; "$l" standard >/dev/null; grep -q "node-version-file: .node-version" .github/workflows/ci.yml; s=$?; rm .node-version; exit $s)'
+
+rm -f .github/workflows/security.yml .github/dependabot.yml
+mkdir -p services/api terraform/envs/prod
+printf 'FROM scratch\n' > Dockerfile; printf 'FROM scratch\n' > services/api/Dockerfile.prod
+echo 'terraform {}' > terraform/envs/prod/main.tf
+"$l" standard >/dev/null
+check "when a Dockerfile and Terraform exist, then the security CI scans them with checksum-verified trivy" \
+  'grep -q "trivy config --exit-code 1 --severity HIGH,CRITICAL" .github/workflows/security.yml && grep -q "sha256sum -c" .github/workflows/security.yml'
+check "then Dependabot updates every folder with a Dockerfile, and every folder with Terraform" \
+  '[[ "$(grep -A1 "package-ecosystem: docker" .github/dependabot.yml | grep -c "directory:")" == 2 ]] && grep -q "directory: \"/\"" .github/dependabot.yml && grep -q "directory: \"/services/api\"" .github/dependabot.yml && grep -A1 "package-ecosystem: terraform" .github/dependabot.yml | grep -q "directory: \"/terraform/envs/prod\""'
+rm -rf Dockerfile services terraform
 
 "$l" full >/dev/null
 check "when going up to full, then staging is created on origin" 'git ls-remote --exit-code origin staging'
