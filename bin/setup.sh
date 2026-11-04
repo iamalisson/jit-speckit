@@ -25,7 +25,8 @@ mkdir -p "$dir" && cd "$dir"
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { git init --quiet -b main && echo "git: initialized"; }
 
 if [[ ! -d .specify/templates ]]; then
-  specify init --here --force --non-interactive --integration "$integration" >/dev/null
+  # --ignore-agent-tools: the agent CLI may be installed later (or not at all, e.g. in CI).
+  specify init --here --force --non-interactive --ignore-agent-tools --integration "$integration" >/dev/null
   echo "spec-kit: initialized ($integration)"
 fi
 

@@ -14,7 +14,7 @@ echo '{"name":"app","scripts":{"test":"echo ok"}}' > package.json
 git add -A; git commit --quiet -m init; git branch -M main; git push --quiet origin main
 git remote set-head origin main >/dev/null 2>&1 || true
 
-"$ROOT/bin/setup.sh" . --level standard >/dev/null
+if ! out="$("$ROOT/bin/setup.sh" . --level standard 2>&1)"; then echo "FAIL - setup.sh failed:"; echo "$out"; exit 1; fi
 check "when set up, then the four hooks are registered" \
   'for h in after_tasks after_analyze before_implement after_implement; do grep -q "^  $h:" .specify/extensions.yml || exit 1; done'
 check "then spec-kit registers the hook commands as skills" '[[ -d .claude/skills/speckit-jit-branch && -d .claude/skills/speckit-jit-issues ]]'
