@@ -1,0 +1,26 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install spec-kit (for the end-to-end setup test)
+        run: uv tool install specify-cli --from git+https://github.com/github/spec-kit.git@v1.2.5
+      - name: ShellCheck
+        run: shellcheck -S warning -x -P extension/scripts:tests install.sh bin/*.sh extension/scripts/*.sh tests/*.sh
+      - name: Tests
+        run: |
+          git config --global user.email ci@example.com
+          git config --global user.name ci
+          git config --global init.defaultBranch main
+          tests/run.sh
