@@ -215,10 +215,24 @@ EOF
   fi
 }
 
+# Kept out of $( ... ): bash 3.2 (macOS) misparses a case pattern's ")" inside a command substitution.
+ecosystems() {
+  echo github-actions
+  for s in ${stacks[@]+"${stacks[@]}"}; do
+    case "$s" in
+      rust) echo cargo ;;
+      node:*) echo npm ;;
+      python:uv) echo uv ;;
+      python:pip) echo pip ;;
+      go) echo gomod ;;
+    esac
+  done
+}
+
 dependabot_yaml() {
   printf 'version: 2\nupdates:\n'
   local eco
-  for eco in github-actions $(for s in ${stacks[@]+"${stacks[@]}"}; do case "$s" in rust) echo cargo ;; node:*) echo npm ;; python:uv) echo uv ;; python:pip) echo pip ;; go) echo gomod ;; esac; done); do
+  for eco in $(ecosystems); do
     printf '  - package-ecosystem: %s\n    directory: "/"\n    schedule:\n      interval: weekly\n    target-branch: %s\n    open-pull-requests-limit: 5\n    groups:\n      minor-and-patch:\n        update-types: [minor, patch]\n' "$eco" "$(base_branch)"
   done
 }

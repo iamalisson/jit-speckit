@@ -15,7 +15,7 @@ exit 0
 EOF
   chmod +x "$TMP/tools/$t"
 done
-mkdir -p "$TMP/none"; ln -s "$(command -v git)" "$TMP/none/git"
+mkdir -p "$TMP/none"; for t in git bash; do ln -s "$(command -v "$t")" "$TMP/none/$t"; done # only these, wherever they live
 
 new_repo standard
 mkdir -p .github/workflows; echo "on: push" > .github/workflows/ci.yml
