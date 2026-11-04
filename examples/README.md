@@ -26,7 +26,7 @@ issue gets it too.
 | `/jit-speckit:next` | shows `0/3 done`, then starts T001: branch `feat/001-t001-add-the-price-query` from `develop`, code, tests, security scan, `/code-review`, commit, push, and [PR #24](github/task-pr-T001.md) with `Closes #21` | review PR #24, merge it (issue #21 closes) |
 | `/jit-speckit:next` | `1/3 done`, then T002 → PR #25, `Closes #22` | review, merge |
 | `/jit-speckit:next` | `2/3 done`, then T003 → PR #26, `Closes #23` | review, merge |
-| `/jit-speckit:next` | `3/3 done`: the feature is finished | `/jit-speckit:security` before you release |
+| `/jit-speckit:next` | `3/3 done`, and it suggests `/speckit-converge` | run it: it compares the merged code with the spec. Nothing left, so the feature is finished; `/jit-speckit:security` before you release |
 
 T003 is marked `[P]` (parallel), so you could run it at the same time as T002 in another session
 (`claude --worktree`, then `/speckit-implement T003`).
@@ -64,9 +64,9 @@ that you click open. See [`github/task-pr-T001.md`](github/task-pr-T001.md).
 
 ## Starting from zero
 
-This example adds a feature to an existing project. To start a project from an empty folder, run
-`/jit-speckit:new`: you choose the stack and architecture together with Claude, and it builds a
-small, tested starter by following the
-[Starter checklist](../docs/GUIDELINES.md#starter-checklist).
+This example adds a feature to an existing project. To start from an empty folder, run
+`/jit-speckit:new`. You choose the stack together with Claude; it sets up the tooling (no
+application code) by following the [Starter checklist](../docs/GUIDELINES.md#starter-checklist),
+then suggests a foundation spec as your first `/speckit-specify`.
 
 Stuck? `/jit-speckit:help`, or `/jit-speckit:help <your question>`.

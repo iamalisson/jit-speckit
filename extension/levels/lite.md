@@ -21,4 +21,6 @@
 
 - One task = one issue = one branch = one pull request. A task is done when its issue is closed
   by the merged PR (`Closes #N`); a ticked checkbox alone is not done.
+- Features go through specs and tasks. A small fix (a typo, a one-line bug, a dependency bump)
+  goes on a normal branch and PR: no spec or issue needed, but the hooks and CI still apply.
 - Branch flow: `{{BRANCH_FLOW}}`, always through a pull request.

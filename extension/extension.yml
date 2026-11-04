@@ -38,6 +38,10 @@ hooks:
     command: speckit.jit.issues
     optional: false
     description: "Create one GitHub issue per task"
+  after_converge:
+    command: speckit.jit.issues
+    optional: false
+    description: "Create issues for the tasks /speckit-converge added"
   after_analyze:
     command: speckit.jit.analyzed
     optional: false

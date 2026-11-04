@@ -1,7 +1,8 @@
 # Project guidelines
 
-The rules every project started with `/jit-speckit:new` is built on, and the ones the agent
-follows whenever it adds to one. They are short on purpose. If a rule doesn't help, drop it. The
+How `/jit-speckit:new` sets a project up, and what its first spec should cover. `/jit-speckit:new`
+reads this file. On later features the agent follows the project's constitution, so `new` and
+`adopt` copy the rules that matter for this project into its "Project principles". They are short on purpose. If a rule doesn't help, drop it. The
 mistakes to catch are in `GUARDRAILS.md`. Before deciding anything on a listed topic, check its
 primary source in `references.yaml`.
 
@@ -166,33 +167,52 @@ none: it makes people trust the code.
 
 ## Starter checklist
 
-What `/jit-speckit:new` builds, for any stack. It is small on purpose: only what every project
-needs before its first spec. No feature code; features come through `/speckit-specify`.
+`/jit-speckit:new` writes **no application code**. Every line of behavior arrives through a spec,
+like any feature. It does two things:
 
-**Every starter has:**
-- **one entry point** that reads and validates its config once (bad config exits 1 with a
-  message naming the variable), starts, and shuts down cleanly on SIGTERM and Ctrl-C;
+### 1. Project setup (what `/jit-speckit:new` does)
+
+The tooling, so the first spec starts on a green, safe base:
+- **the stack's own project tool** (`cargo init`, `uv init --app --package`, `pnpm init`, `go mod
+  init`) with the current stable or LTS version pinned (`rust-toolchain.toml`,
+  `.python-version`, `.node-version`, `go.mod`). Pick the newest version that the key tools and
+  libraries already support, not a release from the last few weeks: new language versions take
+  time to get wheels, binaries and linter support. Remove the tool's placeholder code ("Hello
+  from …") down to an empty entry point, and say in the README that features come with specs;
+- **dev tools, current and idiomatic:** formatter, linter (warnings are errors), type checker,
+  test runner, mutation-testing tool, dependency audit; each one configured, none of them
+  replaced by an outdated habit (see `references.yaml`);
+- **supply chain:** a committed lockfile installed `--locked`/`--frozen-lockfile`, a release
+  cooldown where the package manager supports one, and no dependency that isn't needed yet;
+- **CI** (`.github/workflows/ci.yml`): format, lint, types, tests, the audit, a job timeout,
+  stale runs cancelled, every action pinned to a commit SHA, and a check that the tests left no
+  files behind;
+- **a `.devcontainer/`** with a pinned image and no unverified third-party features;
+- **for a service only:** a multi-stage Dockerfile on a minimal non-root base with an explicit
+  `USER`, and a `compose.yaml` binding to `127.0.0.1` with `read_only`, `cap_drop: [ALL]` and
+  `no-new-privileges`;
+- **a README** with a **Check** section: read-only commands that exit, the same ones CI runs;
+- **`.gitignore`** for the stack, `.env` and every tool's output folder.
+
+The checks run once, on the empty project, so the setup itself is proven to work.
+
+### 2. The foundation spec (suggested as the first `/speckit-specify`)
+
+What every project needs before its first real feature. It is written as a spec, so it gets
+tasks, issues, reviewed PRs and tests like everything else:
+- **config** from the environment, validated once at startup (bad config exits 1 and names the
+  variable); graceful shutdown on SIGTERM and Ctrl-C;
 - **one error type** with a single mapping to the outside: client errors keep their message;
   anything else is logged in full under a fresh `error_id`, and the caller gets only "internal
   error" plus that ID;
-- **structured logs** (JSON) with a request ID (kept from the caller's `x-request-id`, or
-  generated, and echoed back), one line per request at info, and credentials and personal data
-  redacted;
-- **limits:** a body size limit (413), a handler timeout that answers 503 (not 408, which
-  clients may retry), and timeouts on every outbound call;
-- **a health check**;
-- **tests at three levels** (see Tests): logic, the interface in memory, and the real program
-  end to end. Plus a mutation-testing run, with every surviving mutant killed or explained;
-- **CI:** format, lint (warnings are errors), types, tests, a dependency audit, a job timeout,
-  stale runs cancelled, and a check that the tests left no files behind;
-- **supply chain:** a committed lockfile installed `--locked`/`--frozen-lockfile`, a release
-  cooldown where the package manager supports one, every CI action pinned to a commit SHA;
-- **for a service:** a multi-stage Dockerfile on a minimal non-root base with an explicit `USER`,
-  and a `compose.yaml` binding to `127.0.0.1` with `read_only`, `cap_drop: [ALL]` and
-  `no-new-privileges`;
-- **a `.devcontainer/`** with a pinned image and no unverified third-party features;
-- **a README** with a **Check** section: read-only commands that exit, the same ones CI runs;
-- **infrastructure only if the user deploys now:** remote state with locking, one name tying
+- **structured logs** (JSON): a request ID taken from the caller's `x-request-id` or generated,
+  then echoed back; one line per request at info; credentials and personal data redacted;
+- **limits:** a body size limit (413), a handler timeout that answers 503 (not 408, which clients
+  may retry), and timeouts on every outbound call;
+- **a health check** (for a service);
+- **tests at three levels** (see Tests): logic, the interface in memory, and the real program end
+  to end, with every surviving mutant killed or explained;
+- **infrastructure, only if the user deploys now:** remote state with locking, one name tying
   resources, registry and state key together, deploys through OIDC (no stored keys), and a
   reviewed plan applied as is.
 

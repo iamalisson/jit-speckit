@@ -1,6 +1,6 @@
 ---
 name: security
-description: "Full security and correctness audit of the current project: attack-surface map, best-in-class scanners (gitleaks, osv-scanner, semgrep, zizmor, trivy), a manual sweep of every OWASP Top 10:2025 and CWE Top 25 category plus business-logic and race-condition flaws, adversarial verification of each finding, and safe tracking and fixing. Use for /jit-speckit:security, before releases, or when the user asks whether the software is secure."
+description: "Full security audit of the project: scanners, a manual OWASP Top 10 and CWE Top 25 sweep, business-logic and race-condition flaws, each finding verified, then tracked and fixed safely. Use for /jit-speckit:security, before a release, or when the user asks whether the software is secure."
 argument-hint: "[quick|full|deep]"
 ---
 

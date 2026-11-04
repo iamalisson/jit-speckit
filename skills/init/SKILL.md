@@ -28,10 +28,20 @@ disable-model-invocation: true
    doesn't want `develop`/`staging` pushed to `origin`. On failure, show the output and stop.
 4. **GitHub protections** (standard and full). Offer each one, explain it in one line, and run
    it only on yes:
-   - Branch protection on the base branches, requiring the `CI` and `Security` checks and a pull
-     request: `gh api -X PUT repos/{owner}/{repo}/branches/<branch>/protection` with
-     `required_status_checks`, `enforce_admins: true`, `required_pull_request_reviews`
-     (1 approval on full, 0 on standard) and `restrictions: null`.
+   - Branch protection on the base branches, requiring a pull request and the checks to pass:
+     `gh api -X PUT repos/{owner}/{repo}/branches/<branch>/protection` with
+     `required_status_checks`, `enforce_admins: true`, `required_pull_request_reviews` and
+     `restrictions: null`.
+     - **Check names are job names, not workflow names.** GitHub matches each required check to
+       a job's `name:`, or to the job's key when it has no name. Read them from the generated
+       `.github/workflows/ci.yml` and `security.yml` (for example `rust`, `Secrets (gitleaks, full
+       history)`). Never use `CI` or `Security`: no job reports under those names, so every PR
+       would wait forever.
+     - **Approvals:** 1 on full, 0 on standard. On full with a single contributor
+       (`git shortlog -sn | wc -l` is 1), say that requiring 1 approval would block their own
+       PRs, and offer 0 until a second person joins.
+   - Private vulnerability reporting (full, or any public repo), so the `SECURITY.md` contact
+     works: `gh api -X PUT repos/{owner}/{repo}/private-vulnerability-reporting`.
    - Secret scanning with push protection:
      `gh api -X PATCH repos/{owner}/{repo} -f security_and_analysis[secret_scanning][status]=enabled -f security_and_analysis[secret_scanning_push_protection][status]=enabled`.
 

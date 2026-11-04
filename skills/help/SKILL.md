@@ -1,16 +1,19 @@
 ---
 name: help
-description: "Explain jit-speckit: the commands, the once-per-feature and once-per-task loop, levels, configuration, security checks, and why the spec PR is separate from the task PRs. Use for /jit-speckit:help, or when the user asks how jit-speckit works or what a command does."
+description: "Explain jit-speckit from its docs: commands, the feature and task loop, levels, configuration, security, and why things work the way they do. Use for /jit-speckit:help or when the user asks how jit-speckit works."
 argument-hint: "[question]"
 ---
 
 # jit-speckit help
 
-The docs are the source of truth. Read them, don't answer from memory:
-`${CLAUDE_PLUGIN_ROOT}/README.md`, `${CLAUDE_PLUGIN_ROOT}/examples/README.md` and, for security
-questions, `${CLAUDE_PLUGIN_ROOT}/docs/security.md`; for starting a project, architecture and
-"is this a good idea?", `${CLAUDE_PLUGIN_ROOT}/docs/GUIDELINES.md` and `docs/GUARDRAILS.md`. For
-"what's the current way to do X?", open the matching source in `docs/references.yaml`.
+The docs are the source of truth. Read them, don't answer from memory, and read only what the
+question needs:
+- the commands, the loop, levels, configuration: `${CLAUDE_PLUGIN_ROOT}/README.md`;
+- why things work the way they do, with a worked feature: `${CLAUDE_PLUGIN_ROOT}/examples/README.md`;
+- security: `${CLAUDE_PLUGIN_ROOT}/docs/security.md`;
+- starting a project, architecture, "is this a good idea?": `${CLAUDE_PLUGIN_ROOT}/docs/GUIDELINES.md`
+  and `${CLAUDE_PLUGIN_ROOT}/docs/GUARDRAILS.md`;
+- "what's the current way to do X?": the matching entry in `${CLAUDE_PLUGIN_ROOT}/docs/references.yaml`.
 
 1. **No argument**: show a short overview.
    - The loop: what you run once per feature, and what you run once per task.

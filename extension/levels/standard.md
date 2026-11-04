@@ -12,7 +12,8 @@
 ### Stack idioms
 
 {{STACK_IDIOMS}}
-- CI runs the formatter, linter, tests and build on every pull request; a red CI blocks the merge.
+- CI runs the formatter, linter, tests (and the build, when the project has one) on every pull
+  request; a red CI blocks the merge.
 
 ### Dependencies
 
@@ -24,8 +25,8 @@
 
 - Flows are tested against real infrastructure in tests (a test database, a local server); only
   external services (payment, email, third-party APIs) are mocked.
-- Every test covers the happy path, expected errors, limits (zero, negative, expired) and
-  unauthorized access (user A touching user B's data).
+- Every test covers the happy path, expected errors and limits (zero, negative, expired); where
+  there are users or tenants, also unauthorized access (user A touching user B's data).
 
 ### Commits and reviews
 

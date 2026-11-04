@@ -24,5 +24,10 @@ provides:
       file: templates/tasks-template.md
       description: "Tasks sized as one issue and one PR, with Comes from / Completed when"
       replaces: tasks-template
+    - type: command
+      name: speckit.implement
+      file: commands/speckit.implement.md
+      description: "Appended to implement: one task per run, no [X] ticks (the issue closing is done)"
+      strategy: append
 
 tags: ["best-practices", "github", "workflow"]

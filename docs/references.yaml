@@ -228,6 +228,24 @@ stacks:
       use_when: automating mouse, keyboard or screen
       key: keep FAILSAFE on with a non-zero PAUSE. X11 only; isolate it behind an interface.
 
+  go:
+    - title: Managing dependencies (Go modules)
+      url: https://go.dev/doc/modules/managing-dependencies
+      use_when: setting up or changing a Go project's dependencies
+      key: go mod init, go get, go mod tidy; commit go.mod and go.sum; the go directive pins the language version.
+    - title: golangci-lint
+      url: https://golangci-lint.run/
+      use_when: configuring lint for a Go project
+      key: one runner for go vet, staticcheck and the rest; configure in .golangci.yml; warnings fail CI.
+    - title: Go vulnerability management (govulncheck)
+      url: https://go.dev/doc/security/vuln/
+      use_when: auditing a Go project's dependencies
+      key: govulncheck ./... reports only vulnerabilities the code actually calls. Run it in CI.
+    - title: Gremlins (mutation testing for Go)
+      url: https://github.com/go-gremlins/gremlins
+      use_when: checking that Go tests really fail when the code is wrong
+      key: gremlins unleash; pre-1.0 and slow-moving, so treat its score as a guide, not a gate.
+
   containers:
     - title: Compose Specification
       url: https://docs.docker.com/reference/compose-file/
