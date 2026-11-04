@@ -1,0 +1,257 @@
+# Primary references jit-speckit checks before deciding how to build something.
+#
+# Not skills and not reading lists: each entry says WHEN to open it. The agent reads the source
+# whenever a decision touches that topic, especially for anything that changes fast (tool
+# versions, idioms), where its own training data may be out of date.
+#
+# Rules for adding an entry:
+#   - primary sources only: the spec, the standard, the official docs, the original author or the
+#     study, not a summary of it (no Wikipedia, no listicles);
+#   - `use_when` is a concrete trigger, not a topic name;
+#   - `key` is at most two lines: what to apply, so the agent knows whether to read further.
+#
+# Fields: title, url, use_when, key.
+
+version: 1
+
+practices:
+  versioning:
+    - title: Semantic Versioning 2.0.0
+      url: https://semver.org/
+      use_when: choosing a version number, a release, or a breaking change in a library or public API
+      key: MAJOR for breaking changes, MINOR for compatible features, PATCH for fixes. 0.y.z means anything may change.
+    - title: Calendar Versioning
+      url: https://calver.org/
+      use_when: versioning an app or service that has no API consumers (releases by date)
+      key: YYYY.MM.MICRO and similar. Fine for apps; libraries should use SemVer.
+    - title: Keep a Changelog
+      url: https://keepachangelog.com/en/1.1.0/
+      use_when: writing release notes or a CHANGELOG.md
+      key: humans first. Added, Changed, Deprecated, Removed, Fixed, Security; an Unreleased section on top.
+    - title: Conventional Commits 1.0.0
+      url: https://www.conventionalcommits.org/en/v1.0.0/
+      use_when: writing a commit message or PR title (jit-speckit uses this format)
+      key: type(scope) then a colon and a summary. feat → MINOR, fix → PATCH, "!" or BREAKING CHANGE → MAJOR.
+
+  delivery:
+    - title: DORA research (State of DevOps)
+      url: https://dora.dev/research/
+      use_when: deciding how to measure or improve delivery (CI/CD, batch size, deploy frequency)
+      key: four keys are deploy frequency, lead time, change failure rate and recovery time. Small batches and fast feedback win.
+    - title: MinimumCD
+      url: https://minimumcd.org/
+      use_when: setting up CI/CD for a new project
+      key: trunk-based, every change through CI, the pipeline decides releasability, production-like test env, on-demand rollback.
+    - title: Trunk Based Development
+      url: https://trunkbaseddevelopment.com/
+      use_when: choosing a branching model
+      key: short-lived branches merged at least daily. jit-speckit lite is this; standard/full add develop/staging as promotion gates, not as places where work lives.
+    - title: Google SRE book
+      url: https://sre.google/sre-book/table-of-contents/
+      use_when: designing health checks, alerting, rollouts, error budgets or postmortems
+      key: most outages come from changes, so roll out progressively, detect fast, and roll back safely. Postmortems are blameless.
+
+  testing:
+    - title: Canon TDD (Kent Beck)
+      url: https://tidyfirst.substack.com/p/canon-tdd
+      use_when: writing tests first, or explaining test-driven development
+      key: list scenarios, then one at a time write a failing test, make it pass, and refactor.
+    - title: The Practical Test Pyramid (Ham Vocke, on martinfowler.com)
+      url: https://martinfowler.com/articles/practical-test-pyramid.html
+      use_when: deciding how many unit, integration and end-to-end tests to write
+      key: many fast unit tests, fewer integration tests, very few end-to-end tests. Test behavior, not implementation.
+    - title: cargo-mutants
+      url: https://mutants.rs/
+      use_when: checking that Rust tests really fail when the code is wrong
+      key: cargo mutants for the whole crate, --in-diff for a PR's changed lines. A missed mutant is an unchecked behavior.
+    - title: mutmut
+      url: https://github.com/boxed/mutmut
+      use_when: checking that Python tests really fail when the code is wrong
+      key: mutmut run, then mutmut results / show. Ignore mutants that only change log or help text.
+    - title: StrykerJS
+      url: https://stryker-mutator.io/docs/stryker-js/introduction/
+      use_when: checking that JavaScript/TypeScript tests really fail when the code is wrong
+      key: the command runner works with node --test. With TypeScript 7 (no JS API until 7.1), point tsconfigFile away from tsconfig.json.
+    - title: Simple Testing Can Prevent Most Critical Failures (Yuan et al., OSDI 2014)
+      url: https://www.usenix.org/conference/osdi14/technical-sessions/presentation/yuan
+      use_when: deciding whether error paths deserve tests
+      key: 92% of catastrophic failures came from mishandled non-fatal errors. Test the error handling.
+
+  architecture:
+    - title: MonolithFirst (Martin Fowler)
+      url: https://martinfowler.com/bliki/MonolithFirst.html
+      use_when: someone proposes microservices or splitting a new system
+      key: start with a well-modularized monolith. Split only along boundaries proven in practice.
+    - title: Architecture Decision Records
+      url: https://adr.github.io/
+      use_when: making a decision that is hard to reverse (stack, database, a new service, a public API)
+      key: a few lines of context, decision and consequences, kept in the repo.
+    - title: The C4 model
+      url: https://c4model.com/
+      use_when: drawing or documenting the architecture
+      key: context, containers, components, code. Usually the first two diagrams are enough.
+    - title: The Twelve-Factor App
+      url: https://12factor.net/
+      use_when: deciding config, logging, processes or dev/prod parity for a service
+      key: config in the environment, logs to stdout, stateless processes, fast startup and graceful shutdown.
+    - title: AWS Well-Architected Framework
+      url: https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html
+      use_when: designing or reviewing anything that runs on AWS
+      key: six pillars; for a start, security, reliability and cost matter most.
+    - title: Timeouts, retries and backoff with jitter (AWS Builders' Library)
+      url: https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/
+      use_when: writing any call to a network service, database or external API
+      key: always set a timeout. Retry only idempotent operations, with capped exponential backoff plus jitter.
+
+  examples:
+    - title: TabNews (production Next.js + PostgreSQL by a small team)
+      url: https://github.com/filipedeschamps/tabnews.com.br
+      use_when: designing errors, validation, migrations or integration tests for a web service
+      key: one error hierarchy with error_id and request_id; allow-listed input and output fields; forward-only migrations; tests over real HTTP against a real database.
+    - title: Polkadot SDK (large professional Rust codebase)
+      url: https://github.com/paritytech/polkadot-sdk
+      use_when: setting Rust lints, panic policy, CI checks or style rules
+      key: no unwrap outside tests, expect states why it can't fail; workspace lints with a reason for each allow; --locked everywhere. Skip their scale-only tooling.
+
+  observability:
+    - title: OpenTelemetry documentation
+      url: https://opentelemetry.io/docs/
+      use_when: adding tracing or metrics, or standardizing log fields across services
+      key: vendor-neutral traces, metrics and logs. Add it when there is more than one service or a latency target.
+
+security:
+  - title: OWASP Top 10:2025
+    url: https://owasp.org/Top10/
+    use_when: designing any feature that takes input, has users, or stores data
+    key: broken access control is #1. 2025 adds supply chain failures (A03) and mishandled exceptional conditions (A10).
+  - title: OWASP Application Security Verification Standard (ASVS)
+    url: https://owasp.org/www-project-application-security-verification-standard/
+    use_when: a feature handles accounts, personal data or money and needs concrete security requirements
+    key: level 1 is the baseline for every app; level 2 for most apps with sensitive data.
+  - title: OWASP Cheat Sheet Series
+    url: https://cheatsheetseries.owasp.org/
+    use_when: implementing auth, sessions, password storage, input validation, file upload, logging and so on
+    key: password storage means Argon2id (or bcrypt). Validate input with allow-lists. Never roll your own crypto.
+  - title: CWE Top 25 Most Dangerous Software Weaknesses
+    url: https://cwe.mitre.org/top25/
+    use_when: reviewing code for security, or explaining a finding
+    key: XSS, SQL injection, CSRF and missing authorization lead the list.
+  - title: OWASP Top 10 for LLM Applications
+    url: https://genai.owasp.org/llm-top-10/
+    use_when: a feature calls an LLM or gives a model tools
+    key: prompt injection, output handled as trusted, excessive agency and unbounded consumption.
+  - title: SLSA (Supply-chain Levels for Software Artifacts)
+    url: https://slsa.dev/
+    use_when: hardening builds, releases or artifact provenance
+    key: builds from version control on a hosted, hardened builder, with signed provenance.
+  - title: OpenSSF Scorecard
+    url: https://scorecard.dev/
+    use_when: judging whether a dependency or this repo follows supply-chain best practices
+    key: checks pinned dependencies, branch protection, token permissions, maintenance and more.
+  - title: Security hardening for GitHub Actions
+    url: https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions
+    use_when: writing or reviewing a GitHub Actions workflow
+    key: pin actions to a full SHA, read-only GITHUB_TOKEN, OIDC over stored keys, no untrusted input in run.
+
+stacks:
+  rust:
+    - title: cargo-deny
+      url: https://embarkstudios.github.io/cargo-deny/
+      use_when: adding a dependency or reviewing the dependency policy of a Rust project
+      key: advisories, a license allow-list, banned sources (no git dependencies). cargo deny check in CI.
+    - title: The Rust API Guidelines
+      url: https://rust-lang.github.io/api-guidelines/
+      use_when: designing a public type, trait or crate API
+      key: naming, conversions (From/TryFrom), error types that implement std::error::Error, documenting panics.
+    - title: Clippy lints
+      url: https://rust-lang.github.io/rust-clippy/master/index.html
+      use_when: deciding which lints to enable or how to fix one
+      key: run `cargo clippy --all-targets -- -D warnings` in CI. Configure in [lints] in Cargo.toml.
+    - title: Cargo Book
+      url: https://doc.rust-lang.org/cargo/
+      use_when: workspaces, features, lints, profiles or publishing
+      key: commit Cargo.lock for binaries. `--locked` in CI.
+    - title: axum documentation
+      url: https://docs.rs/axum/latest/axum/
+      use_when: adding routes, extractors, state or middleware to an axum service
+      key: compose with Router::merge/nest. Middleware comes from tower and tower-http.
+
+  node:
+    - title: Node.js TypeScript support
+      url: https://nodejs.org/api/typescript.html
+      use_when: writing TypeScript for Node or choosing tsconfig options
+      key: Node strips types natively, so there is no enum, no namespaces with code, no parameter properties. Imports need .ts and `import type`.
+    - title: Node.js releases
+      url: https://nodejs.org/en/about/previous-releases
+      use_when: choosing or upgrading the Node version
+      key: production uses an LTS line only. Check end-of-life dates.
+    - title: pnpm supply-chain security
+      url: https://pnpm.io/supply-chain-security
+      use_when: adding a dependency, or allowing a package's install script
+      key: build scripts are blocked by default, with a minimum release age. Review before adding to allowBuilds.
+    - title: Fastify documentation
+      url: https://fastify.dev/docs/latest/
+      use_when: adding routes, plugins, validation, hooks or error handling to a Fastify service
+      key: one plugin per feature. JSON Schema (TypeBox) validates input and serializes output.
+    - title: Node.js test runner
+      url: https://nodejs.org/api/test.html
+      use_when: writing or running tests in a Node project
+      key: node --test finds *.test.ts. Use mock and snapshots; coverage is still experimental.
+    - title: Biome
+      url: https://biomejs.dev/
+      use_when: configuring lint or format for JavaScript/TypeScript
+      key: one tool for formatting and linting. Run `biome ci` in CI.
+
+  python:
+    - title: uv documentation
+      url: https://docs.astral.sh/uv/
+      use_when: any dependency, environment, Python version, script or tool decision in Python
+      key: pyproject.toml + uv.lock, `uv add`, `uv run`, `uv sync --locked`. No requirements.txt, pip or venv by hand.
+    - title: Python Packaging User Guide
+      url: https://packaging.python.org/en/latest/
+      use_when: pyproject.toml metadata, entry points, dependency groups or publishing
+      key: PEP 621 [project] table; PEP 735 [dependency-groups]; PEP 723 inline script metadata.
+    - title: Ruff rules
+      url: https://docs.astral.sh/ruff/rules/
+      use_when: enabling lint rules or fixing a Ruff finding
+      key: ruff replaces flake8, isort, black and most of pylint. Enable rule groups one at a time.
+    - title: Python typing documentation
+      url: https://typing.python.org/en/latest/
+      use_when: annotating code or configuring the type checker
+      key: Protocols for interfaces. Run mypy in strict mode in CI.
+    - title: Playwright best practices (all languages) and Python locators
+      url: https://playwright.dev/docs/best-practices
+      use_when: writing browser automation or browser tests
+      key: role-based locators (https://playwright.dev/python/docs/locators), auto-waiting with expect, no sleeps, isolated contexts, traces on failure.
+    - title: PyAutoGUI documentation
+      url: https://pyautogui.readthedocs.io/en/latest/
+      use_when: automating mouse, keyboard or screen
+      key: keep FAILSAFE on with a non-zero PAUSE. X11 only; isolate it behind an interface.
+
+  containers:
+    - title: Compose Specification
+      url: https://docs.docker.com/reference/compose-file/
+      use_when: writing compose.yaml for local runs or a dev database
+      key: file is compose.yaml with no version key; run with docker compose (v2). Bind ports to 127.0.0.1; read_only, cap_drop ALL, no-new-privileges.
+    - title: Development Containers
+      url: https://containers.dev/
+      use_when: giving every developer and Codespace the same toolchain
+      key: .devcontainer/devcontainer.json with a pinned image; avoid third-party features you can't verify.
+    - title: Dockerfile best practices
+      url: https://docs.docker.com/build/building/best-practices/
+      use_when: writing or reviewing a Dockerfile
+      key: multi-stage builds, minimal base images, non-root user, pin base images, .dockerignore.
+    - title: Distroless images
+      url: https://github.com/GoogleContainerTools/distroless
+      use_when: choosing a runtime base image
+      key: no shell or package manager. Use the :nonroot tags.
+
+  terraform:
+    - title: Terraform style guide
+      url: https://developer.hashicorp.com/terraform/language/style
+      use_when: writing or reviewing Terraform
+      key: terraform fmt and validate in CI, one resource type per concern, variables with descriptions and validation.
+    - title: Terraform S3 backend
+      url: https://developer.hashicorp.com/terraform/language/backend/s3
+      use_when: configuring remote state
+      key: S3 with use_lockfile = true (native locking, no DynamoDB table), versioning and encryption on.
