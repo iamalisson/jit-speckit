@@ -56,4 +56,15 @@ check "when the level is full and analysis did not run, then it refuses" \
 "$SCRIPTS/analyzed.sh" >/dev/null
 check "when the level is full and analysis ran on the current tasks, then it proceeds" '"$b" T001'
 
+# A repo whose default branch is master and whose origin/HEAD was never set.
+git switch --quiet main
+git push --quiet --no-verify origin main:master
+git remote set-head origin --delete >/dev/null 2>&1 || git symbolic-ref --delete refs/remotes/origin/HEAD 2>/dev/null || true
+git push --quiet --no-verify origin --delete main
+git fetch --quiet --prune origin
+git branch --quiet -m main master
+sed -i.bak 's/^level: .*/level: lite/' .specify/extensions/jit/jit-config.yml
+check "when origin/HEAD is unset and the repo uses master, then master is the base (not a missing main)" \
+  'out="$("$b" T001)"; grep -q "BASE=master" <<<"$out"'
+
 exit "$FAIL"

@@ -38,5 +38,7 @@ out="$("$p" spec)"
 check "when opening the spec PR, then the spec folder is committed on spec/<feature>" \
   '[[ "$(git branch --show-current)" == spec/002-new ]] && [[ -z "$(git status --porcelain specs)" ]] && git ls-remote --exit-code origin spec/002-new'
 check "then the spec PR lists the task issues" 'grep -q "#11 #12" "$GH_LOG"'
+check "when the spec PR step runs again on its branch, then it reuses the branch and the PR" \
+  'before="$(grep -c "^pr create" "$GH_LOG")"; "$p" spec && [[ "$(git branch --show-current)" == spec/002-new && "$(grep -c "^pr create" "$GH_LOG")" == "$before" ]]'
 
 exit "$FAIL"

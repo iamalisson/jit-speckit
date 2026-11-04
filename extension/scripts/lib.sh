@@ -31,10 +31,16 @@ cfg_set() {
 
 jit_level() { cfg level standard; }
 
+# The repository's default branch: origin/HEAD when set, otherwise whichever of main/master
+# really exists (origin/HEAD is often unset when the remote was added by hand).
 default_branch() {
-  local b
-  b="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')"
-  echo "${b:-$(git config init.defaultBranch || echo main)}"
+  local b c
+  b="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)"
+  if [[ -n "$b" ]]; then echo "${b#origin/}"; return; fi
+  for c in main master; do
+    if git show-ref --verify --quiet "refs/remotes/origin/$c" || git show-ref --verify --quiet "refs/heads/$c"; then echo "$c"; return; fi
+  done
+  git config init.defaultBranch || echo main
 }
 
 # The branch task PRs target: configured, or derived from the level.

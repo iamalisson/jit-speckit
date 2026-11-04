@@ -11,7 +11,8 @@ jit_cd_root
 cmd="${1:-}"
 block() { echo "jit-speckit guard: $1" >&2; exit 2; }
 # Look at each git invocation separately (commands chained with && ; |).
-segments="$(sed -E 's/(&&|\|\||;|\|)/\n/g' <<<"$cmd")"
+# awk, not sed: BSD sed (macOS) writes a literal "n" for \n in a replacement.
+segments="$(awk '{ gsub(/&&|\|\||;|\|/, "\n"); print }' <<<"$cmd")"
 current="$(git branch --show-current 2>/dev/null || true)"
 
 while IFS= read -r seg; do

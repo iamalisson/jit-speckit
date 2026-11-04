@@ -12,8 +12,10 @@ command -v gh >/dev/null || die "the GitHub CLI (gh) is required: https://cli.gi
 fdir="$(feature_dir)"
 [[ -f "$fdir/tasks.md" ]] || die "$fdir/tasks.md not found; run /speckit-tasks first"
 
-# One API call for every issue state, instead of one call per task.
-closed=" $(gh issue list --state closed --limit 1000 --json number --jq '.[].number' | tr '\n' ' ') "
+# One API call: this feature's task issues (their titles start with "[<feature number>] T"),
+# so a repository with thousands of issues doesn't push old ones out of the result.
+num="$(basename "$fdir" | cut -d- -f1)"
+closed=" $(gh issue list --state closed --limit 500 --search "$num in:title" --json number --jq '.[].number' | tr '\n' ' ') "
 
 next=""; done_n=0; total=0
 while IFS= read -r line; do

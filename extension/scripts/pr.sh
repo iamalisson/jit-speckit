@@ -42,14 +42,16 @@ case "$mode" in
     if [[ "$(jit_level)" == full ]] && ! grep -qE '^## Evidence' <<<"$body"; then
       die "level 'full' requires an '## Evidence' section in the PR body (test output, screenshots, run links)"
     fi
-    grep -qiE "(close[sd]?|fix(e[sd])?|resolve[sd]?) #$issue\b" <<<"$body" || body+=$'\n\n'"Closes #$issue"
+    grep -qiE "(close[sd]?|fix(e[sd])?|resolve[sd]?) #$issue([^0-9]|$)" <<<"$body" || body+=$'\n\n'"Closes #$issue"
     git push --quiet -u origin "$branch"
     open_pr "$title" "$body"
     ;;
   spec)
     feature="$(basename "$fdir")"
     branch="spec/$feature"
-    [[ "$(git branch --show-current)" == "$branch" ]] || git switch --quiet -c "$branch"
+    if [[ "$(git branch --show-current)" != "$branch" ]]; then
+      git switch --quiet "$branch" 2>/dev/null || git switch --quiet -c "$branch"
+    fi
     git add -- "$fdir"
     git diff --cached --quiet || git commit --quiet -m "docs(specs): add $feature spec, plan and tasks"
     git push --quiet -u origin "$branch"
