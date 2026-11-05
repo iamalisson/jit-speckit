@@ -20,11 +20,11 @@ while IFS= read -r line; do
   fi
   [[ "$used" == "$ref" ]] && continue
   NAME="$name" NEW="$used" awk 'index($0, ENVIRON["NAME"] "=\"") == 1 { print ENVIRON["NAME"] "=\"" ENVIRON["NEW"] "\""; next } { print }' \
-    "$pins" > "$pins.tmp" && mv "$pins.tmp" "$pins"
+    "$pins" > "$pins.tmp" && cat "$pins.tmp" > "$pins" && rm "$pins.tmp"  # cat keeps the file mode; mv would not
   # shellcheck disable=SC2086  # paths without spaces
   for f in $(grep -lF "$ref" $scaffold || true); do
     OLD="$ref" NEW="$used" awk '{ while ((i = index($0, ENVIRON["OLD"])) > 0) $0 = substr($0, 1, i - 1) ENVIRON["NEW"] substr($0, i + length(ENVIRON["OLD"])); print }' \
-      "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+      "$f" > "$f.tmp" && cat "$f.tmp" > "$f" && rm "$f.tmp"
   done
   echo "$name: $ref → $used"
   changed=$((changed + 1))

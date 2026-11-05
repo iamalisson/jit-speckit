@@ -38,6 +38,7 @@ new=1111111111111111111111111111111111111111
 find "$copy/.github/workflows" -name '*.yml' -exec sed -i.bak "s/checkout@$old # v[0-9.]*/checkout@$new # v9.9.9/" {} +
 check "when Dependabot bumped an action in every workflow, then sync-pins copies it into pins.sh" \
   '"$copy/bin/sync-pins.sh" | grep -q "SYNCED=1" && grep -qx "PIN_CHECKOUT=\"actions/checkout@$new # v9.9.9\"" "$copy/extension/scripts/pins.sh"'
+check "then sync-pins keeps pins.sh executable (it rewrites in place)" '[[ -x "$copy/extension/scripts/pins.sh" ]]'
 check "then sync-pins also updates the scaffold workflows Dependabot doesn't see" \
   'grep -q "uses: actions/checkout@$new # v9.9.9" "$copy/extension/scaffold/full/.github/workflows/release.yml" && ! grep -rq "checkout@$old" "$copy/extension/scaffold"'
 cp "$copy/.github/workflows/test.yml" "$copy/.github/workflows/other.yml"
