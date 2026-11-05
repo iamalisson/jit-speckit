@@ -44,17 +44,21 @@ metadata:
      the real ones. List the false positives with the reason.
    - `/security-review` on the branch.
 
-   Then fix every **High** and **Medium** finding in the code (a test changes only when the test
-   was wrong: then `## Test changes`, step 2). Commit the fixes (same rules), re-run step 2, and
-   run the review again until it says `ready`, at most three rounds; after that stop and show the
-   user what remains. **Low** findings are fixed or listed with a reason. Skip nothing because
-   the first round was clean: the second round reviews the fixes.
+   Save the report as it came to a file outside the repository (`mktemp`) and record it:
+   `bash .specify/extensions/jit/scripts/review.sh record <file>`. Then fix every **High** and
+   **Medium** finding in the code (a test changes only when the test was wrong: then
+   `## Test changes`, step 2). Commit the fixes (same rules), re-run step 2, and run the review
+   again until it says `ready`, at most three rounds; after that stop and show the user what
+   remains. **Low** findings are fixed or listed with a reason. Skip nothing because the first
+   round was clean: the second round reviews the fixes. This step runs at **every level**: the
+   script in step 6 refuses a PR without a recorded `ready` review for the exact diff, so a
+   commit after the review means one more review.
 5. **PR body**, written to a temporary file. Keep it short to read: what a reviewer needs is
    visible, the rest folds away.
    - one or two sentences on what changed;
    - `## Review`: the reviewer's *What changed* line, each High and Medium finding and the commit
-     that fixed it, the Low ones left with their reason, and the final assessment. On **standard**
-     and **full** the script refuses a body without this section;
+     that fixed it, the Low ones left with their reason, and the final assessment. The script
+     refuses a body without this section, at every level;
    - `## Evidence`: one visible line per result (e.g. "tests 42/42 · lint clean · scanners: no
      findings"), showing the task's *Completed when* is met. On **full** the script refuses a body
      without this section.

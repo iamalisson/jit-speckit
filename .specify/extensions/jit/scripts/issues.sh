@@ -13,6 +13,9 @@ command -v gh >/dev/null || die "the GitHub CLI (gh) is required: https://cli.gi
 fdir="$(feature_dir)"
 tasks="$fdir/tasks.md"
 [[ -f "$tasks" ]] || die "$tasks not found; run /speckit-tasks first"
+# The plan review (/speckit-jit-review, plan mode) has to have read this tasks.md: issue bodies
+# are the task lines, so they are right before any issue exists.
+$dry || bash "$JIT_EXT_DIR/scripts/review.sh" check --plan >/dev/null
 base="$(base_branch)"
 feature="$(basename "$fdir")"
 num="$(feature_key "$feature")"

@@ -110,6 +110,12 @@ feature_dir() {
   echo "$d"
 }
 
+# base_ref: the base branch as a ref to diff against: origin's copy when it exists, else the local one.
+base_ref() {
+  local b; b="$(base_branch)"
+  if git rev-parse --verify --quiet "origin/$b" >/dev/null; then echo "origin/$b"; else echo "$b"; fi
+}
+
 # resolve_feature <NNN | folder name>: the specs/ folder of a feature named by number or folder.
 resolve_feature() {
   local m
