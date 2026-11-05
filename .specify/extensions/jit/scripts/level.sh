@@ -88,11 +88,7 @@ if ((${#tests[@]})); then test_cmd="$(printf '%s && ' "${tests[@]}")"; test_cmd=
 
 # The constitution's Commands line ("build `x` · test `y` · lint `z`"), filled by /jit-speckit:adopt,
 # wins over the stack defaults in the jit block and in the generated CI. A [PLACEHOLDER] is unset.
-const_cmd() {
-  local c; c="$(sed -nE "s/.*\*\*Commands\*\*.*$1 \`([^\`]+)\`.*/\1/p" "$const" 2>/dev/null | head -1)"
-  if [[ -n "$c" && "$c" != \[* ]]; then echo "$c"; fi
-}
-build_c="$(const_cmd build)"; test_c="$(const_cmd test)"; lint_c="$(const_cmd lint)"
+build_c="$(constitution_cmd build)"; test_c="$(constitution_cmd test)"; lint_c="$(constitution_cmd lint)"
 [[ -z "$test_c" ]] || test_cmd="$test_c"
 
 # ── Constitution block ───────────────────────────────────────────────────────

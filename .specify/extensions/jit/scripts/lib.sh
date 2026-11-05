@@ -110,6 +110,23 @@ feature_dir() {
   echo "$d"
 }
 
+# resolve_feature <NNN | folder name>: the specs/ folder of a feature named by number or folder.
+resolve_feature() {
+  local m
+  if [[ -d "specs/$1" ]]; then echo "specs/$1"; return; fi
+  m="$(find specs -mindepth 1 -maxdepth 1 -type d -name "$1-*" 2>/dev/null)"
+  [[ -n "$m" && "$(wc -l <<<"$m")" -eq 1 ]] || die "no single feature matches '$1' in specs/"
+  echo "$m"
+}
+
+# constitution_cmd <build|test|lint|mutate>: that command from the constitution's **Commands**
+# line ("build `x` · test `y` · ..."); empty when unset or still a [PLACEHOLDER].
+constitution_cmd() {
+  local c
+  c="$(sed -nE "s/.*\*\*Commands\*\*.*$1 \`([^\`]+)\`.*/\1/p" .specify/memory/constitution.md 2>/dev/null | head -1)"
+  if [[ -n "$c" && "$c" != \[* ]]; then echo "$c"; fi
+}
+
 # The task line for an ID, e.g. "- [ ] T003 [P] [US1] Do x in src/x.py — #12".
 task_line() { grep -m1 -E "^- \[.\] $2 " "$1/tasks.md" || true; }
 

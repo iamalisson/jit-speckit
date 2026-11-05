@@ -15,7 +15,10 @@ any code is touched.
 1. Find the task ID: the single `T###` in the arguments passed to `/speckit-implement`.
    - If there is none, or more than one: **stop the whole implement run**. Tell the user to pass
      exactly one task, e.g. `/speckit-implement T003`. Do not implement anything.
-2. Run `bash .specify/extensions/jit/scripts/branch.sh <TASK_ID>`.
+   - A feature number or folder in the arguments (`002`, `002-reports`) names the feature; without
+     it, the active one is used. `/speckit-implement 002 T001` is T001 of feature 002.
+2. Run `bash .specify/extensions/jit/scripts/branch.sh [<FEATURE>] <TASK_ID>`. It also pushes a
+   new branch to origin at once, so the task shows as in progress to every clone and worktree.
    - On failure, stop the implement run and show the script's message as is. It explains what is
      missing: the issue, the spec PR, the analysis, or a clean working tree. Never work around
      it: no stash, no reset, no checkout of other files.

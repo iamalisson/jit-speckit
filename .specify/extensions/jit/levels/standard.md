@@ -5,7 +5,8 @@
   prefer short-lived credentials (OIDC) over static keys.
 - Authorization is enforced on the server; the client is never the only barrier. A record's owner
   comes from the authenticated context, never from the request body.
-- Errors shown to users carry a code, not internals; details go to server logs.
+- Errors shown to users carry a status and a code, not internals. Every failure is logged once,
+  as one structured line with the request ID, and never with personal data or secrets.
 - Dependency alerts are triaged: critical and high within a week, by updating or by a written
   dismissal reason.
 
@@ -23,6 +24,9 @@
 
 ### Tests (integration)
 
+- Before each PR, the mutation tool runs on the changed lines (the constitution's `mutate`
+  command). A surviving mutant gets the test that kills it, or one written line in the PR saying
+  why it changes nothing observable.
 - Flows are tested against real infrastructure in tests (a test database, a local server); only
   external services (payment, email, third-party APIs) are mocked.
 - Every test covers the happy path, expected errors and limits (zero, negative, expired); where
