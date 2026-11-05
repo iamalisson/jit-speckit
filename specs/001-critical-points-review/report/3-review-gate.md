@@ -12,7 +12,7 @@ tasks.md "Rules every task follows".
 | P10 | Before every PR, at every level, a fresh agent reviews the whole repository; the PR is refused without a recorded `ready` for the exact diff | limit | the refusal holds: `pr.sh:68` → `review.sh check`, keyed to the patch id of the diff against the base (`review.sh:25-29`); `tests/pr.test.sh:21,45`. What it proves is narrower than the docs say: F3.1 |
 | P11 | No issue is created without a recorded plan review of the current `tasks.md` | limit | `issues.sh:18` refuses without it (`tests/issues.test.sh:20,40`); the same narrowness as P10 (F3.1), and the record covers `plan.md` and `tasks.md` only: F3.2 |
 | P12 | Never opens a PR on red checks | broken | no script runs the checks before a PR; section B: `pr.sh` opens the PR while the project's check fails: F3.3 |
-| P13 | Tests are evidence: a PR that changes existing tests needs `## Test changes`; mutation testing runs on the change | limit | test changes: `pr.sh:57-66` with `TEST_PATH_RE` (`lib.sh:57`) and `--no-renames`; `tests/pr.test.sh:86-111`. Mutation testing only runs when the prompt runs it, and `missing` exits 0: F3.4 |
+| P13 | Tests are evidence: a PR that changes existing tests needs `## Test changes`; mutation testing runs on the change | limit | test changes: `pr.sh:57-66` with `TEST_PATH_RE` (`lib.sh:57`) and `--no-renames`; `tests/pr.test.sh:86-111`, but common test layouts are not recognized: F3.9. Mutation testing only runs when the prompt runs it, and `missing` exits 0: F3.4 |
 | P14 | GitHub Copilot code review is requested on every PR when the account has it | broken | sandbox PR #15: `pr.sh`'s exact call answers `201 Created` with `"requested_reviewers":[]`, and `pr.sh` prints `copilot: code review requested` anyway: F3.5 |
 | P15 | On full, `## Evidence` and `/speckit-analyze` on the current `tasks.md` are required | limit | `pr.sh:52-54` refuses a body without `## Evidence`; `branch.sh:37-42` refuses until the analysis marker matches `tasks.md` on the base; `tests/pr.test.sh:40`, `tests/branch.test.sh:63-70`. But the marker proves even less than the review record: `analyzed.sh:12` writes it with no report at all: F3.8 |
 | P26 | Before each PR, the scanners run on the changed files and `/security-review` runs | limit | asked in `extension/commands/pr.md` step 4 only; `pr.sh` never checks they ran (section B), and a missing scanner is reported as `missing` and exits 0 (`security-scan.sh:32`): F3.6 |
@@ -29,6 +29,10 @@ Also checked, no finding:
   "Emitting the block alone does not run the hook" (`.claude/skills/speckit-implement/SKILL.md:57,209`).
   So the review, the issues and the PR steps run only when the agent follows that line. The
   scripts' refusals (`pr.sh`, `issues.sh`, `branch.sh`) are what hold when it does not.
+- Handed to section 4 (P25, T004), and noted on issue #22: `extension/commands/pr.md:54-56` asks
+  the agent to copy "each High and Medium finding" into the public `## Review`, and a security
+  finding is High (`review.md:78-79`), so a security finding reaches a public PR body through the
+  prompt. F3.1's fix covers it from this side.
 - The plan-review refusal itself: `issues.sh:18` (section 1 left it here). `tests/issues.test.sh:20`
   shows "no independent review" and no issue created.
 
@@ -203,6 +207,28 @@ Also checked, no finding:
   keeps the report next to the hash. Check for `tests/branch.test.sh`: when `analyzed.sh` is run
   with no report, then it refuses and `branch.sh` on full still refuses. It fails today.
 
+### F3.9 · Medium · P13 · common test layouts are not seen as tests, so weakening them needs no explanation
+
+- **verdict**: limit (the docs mislead)
+- **evidence**: `TEST_PATH_RE` (`lib.sh:57`, used at `pr.sh:62` and `mutants.sh:24`) matches
+  lowercase `tests?/`, `__tests__/` and `spec/` folders, `[._-](test|spec).<lowercase ext>` names
+  and `test_*.py`. It misses `app/tests.py` (what Django's `startapp` writes), `Tests/AppTests/*.swift`
+  (SwiftPM, the folder is capitalized), `MyApp.Tests/*.cs` (.NET), `cypress/e2e/*.cy.ts` and
+  `src/Foo.Test.cs`. Section G below: weakening the assertions in `app/tests.py` and
+  `Tests/AppTests/AppTests.swift` opens the PR (`PR=…`) with no `## Test changes`, while the
+  same weakening in `tests/test_a.py` is refused ("existing tests were changed"). `mutants.sh:24`
+  uses the same pattern, so those files are mutated as if they were source.
+  `docs/reference.md:89` says a PR that changes existing tests is "refused unless the body has a
+  `## Test changes` section".
+- **reproduction**: section G below.
+- **exposure**: public.
+- **fix**: widen the pattern and match it case-insensitively:
+  `(^|/)(tests?|__tests__|spec|e2e|cypress)/|(^|/)[^/]*\.tests?/|[._-](test|spec|cy)\.[a-z]+$|(^|/)tests?\.py$|(^|/)test_[^/]*\.py$|Tests?\.[a-z]+$`
+  (with `grep -iE`), and let the constitution add one (`tests: <regex>`) for anything else. Check
+  for `tests/pr.test.sh`: when an existing `app/tests.py` or `Tests/AppTests/AppTests.swift` is
+  edited and the body has no `## Test changes`, then `pr.sh task` refuses and names the file. It
+  fails today.
+
 ### Reproductions
 
 <details>
@@ -283,6 +309,39 @@ echo "== F. level full: the analysis marker without any analysis"
 jit: level 'full' requires /speckit-analyze on the current tasks.md before implementing
 ANALYZED=001-demo
 BRANCH=feat/001-t001-add-search ISSUE=5 TASK=T001 BASE=develop
+```
+
+</details>
+
+<details>
+<summary>Local script G (F3.9) and its output</summary>
+
+```bash
+# T003 reproduction G, run as: bash t003-repro-g.sh <v1.7.2 worktree>
+source "$1/tests/helpers.sh"
+fake_gh; new_repo lite
+[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/jit-speckit ] || exit 1
+mkdir -p app Tests/AppTests tests
+printf 'def test_total():\n    assert total([1, 2]) == 3\n' > app/tests.py
+printf 'func testTotal() { XCTAssertEqual(total([1, 2]), 3) }\n' > Tests/AppTests/AppTests.swift
+printf 'def test_total():\n    assert total([1, 2]) == 3\n' > tests/test_a.py
+commit_tasks '- [ ] T001 Add search — #5'
+"$SCRIPTS/branch.sh" T001 >/dev/null 2>&1
+printf '## Review\n\nnone\n' > "$TMP/body.md"; printf 'Assessment: ready\n' > "$TMP/r.md"
+echo "== G. an existing test weakened in layouts TEST_PATH_RE does not know"
+sed -i 's/== 3/is not None/' app/tests.py; sed -i 's/XCTAssertEqual(total(\[1, 2\]), 3)/XCTAssertTrue(true)/' Tests/AppTests/AppTests.swift
+git commit -q -am "feat: add search"; "$SCRIPTS/review.sh" record "$TMP/r.md" >/dev/null
+"$SCRIPTS/pr.sh" task T001 "feat: add search" "$TMP/body.md" 2>&1 | grep -E '^PR=|existing tests' || true
+echo "== control: the same weakening in tests/test_a.py"
+sed -i 's/== 3/is not None/' tests/test_a.py; git commit -q -am "test: loosen"; "$SCRIPTS/review.sh" record "$TMP/r.md" >/dev/null
+"$SCRIPTS/pr.sh" task T001 "feat: add search" "$TMP/body.md" 2>&1 | head -1 || true
+```
+
+```text
+== G. an existing test weakened in layouts TEST_PATH_RE does not know
+PR=https://github.com/acme/app/pull/99
+== control: the same weakening in tests/test_a.py
+jit: existing tests were changed: tests/test_a.py 
 ```
 
 </details>
