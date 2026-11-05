@@ -71,9 +71,13 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
       ref="origin/$base"; git rev-parse --verify --quiet "$ref" >/dev/null || ref="$base"
       # The spec folder's current content travels with us; nothing else is touched.
       saved="$(mktemp -d)"; cp -R "$fdir" "$saved/"
+      restore() { rm -rf "$fdir"; mkdir -p "$(dirname "$fdir")"; cp -R "$saved/$(basename "$fdir")" "$fdir"; rm -rf "$saved"; }
+      # If anything fails before the restore below (a switch refused because of other local
+      # changes), the folder comes back as it was, instead of surviving only in a temp dir.
+      trap 'restore; echo "jit: the spec folder was put back as it was" >&2' EXIT
       git checkout --quiet -- "$fdir" 2>/dev/null || true; git clean -fdq -- "$fdir"
       if [[ -n "$open" ]]; then git switch --quiet "$branch"; else git switch --quiet --no-track -C "$branch" "$ref"; fresh=true; fi
-      rm -rf "$fdir"; mkdir -p "$(dirname "$fdir")"; cp -R "$saved/$(basename "$fdir")" "$fdir"; rm -rf "$saved"
+      restore; trap - EXIT
     fi
     git add -- "$fdir"
     git diff --cached --quiet || git commit --quiet -m "docs(specs): add $feature spec, plan and tasks"

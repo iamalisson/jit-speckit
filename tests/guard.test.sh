@@ -69,4 +69,13 @@ mkdir -p "$TMP/plain" && git -C "$TMP/plain" init --quiet
 check "when the project does not use jit-speckit, then the hook allows everything" \
   'json "$TMP/plain" "git push origin main" | bash "$shim"'
 
+
+mkdir -p "$TMP/plain/.specify/extensions/jit/scripts"; echo 'exit 0' > "$TMP/plain/.specify/extensions/jit/scripts/guard.sh"
+printf 'level: lite\n' > "$TMP/plain/.specify/extensions/jit/jit-config.yml"
+check "when the repo ships its own guard (stale or tampered), then the plugin's copy decides, not the repo's" \
+  'rc=0; json "$TMP/plain" "git add -A" | bash "$shim" 2>/dev/null || rc=$?; [[ $rc == 2 ]]'
+mkdir -p "$TMP/plain/sub/.specify"
+check "when the guard cannot decide (spec-kit in a subfolder), then it blocks instead of letting the command through" \
+  'rc=0; (cd "$TMP/plain/sub" && "$g" "git status") 2>/dev/null || rc=$?; [[ $rc == 2 ]]'
+
 exit "$FAIL"

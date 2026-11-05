@@ -103,4 +103,15 @@ echo more >> README.md; git commit --quiet --no-verify -am more
 check "when the remote already has branches, then pushing straight to main is refused again" \
   'fails_with "open a pull request" bash "$SCRIPTS/prepush.sh" origin "$TMP/empty.git" <<<"refs/heads/main $(git rev-parse HEAD) refs/heads/main $(git rev-parse HEAD~1)"'
 
+
+# Under the pre-commit framework the hook gets no stdin: the push comes as PRE_COMMIT_* variables
+# (measured with pre-commit 4.7.0 on 2026-11-04: args and stdin empty, one ref, the variables below).
+pc=(env "PRE_COMMIT_TO_REF=$(git rev-parse HEAD)" "PRE_COMMIT_FROM_REF=$(git rev-parse HEAD~1)" PRE_COMMIT_LOCAL_BRANCH=refs/heads/main PRE_COMMIT_REMOTE_BRANCH=refs/heads/main PRE_COMMIT_REMOTE_NAME=origin PRE_COMMIT=1)
+check "when pre-commit runs the push hook (no stdin, PRE_COMMIT_* set), then a push straight to main is still refused" \
+  'fails_with "open a pull request" "${pc[@]}" bash "$SCRIPTS/prepush.sh" </dev/null'
+git switch --quiet -c feat/pc; printf 'k = "sk_live_%s"\n' "$(printf 'e%.0s' {1..24})" > pc.rb; git add pc.rb; git commit --quiet --no-verify -m leak
+pc=(env "PRE_COMMIT_TO_REF=$(git rev-parse HEAD)" "PRE_COMMIT_FROM_REF=$(git rev-parse HEAD~1)" PRE_COMMIT_LOCAL_BRANCH=refs/heads/feat/pc PRE_COMMIT_REMOTE_BRANCH=refs/heads/feat/pc PRE_COMMIT_REMOTE_NAME=origin PRE_COMMIT=1)
+check "then a secret in the pushed commits is found through those variables too" \
+  'fails_with "pc.rb:1: possible Stripe live key" "${pc[@]}" bash "$SCRIPTS/prepush.sh" </dev/null'
+
 exit "$FAIL"

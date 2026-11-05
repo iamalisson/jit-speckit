@@ -41,7 +41,7 @@ In Claude Code:
 /plugin install jit-speckit --marketplace iamalisson/jit-speckit
 ```
 
-<sub>On older Claude Code versions, use two prompts: `/plugin marketplace add iamalisson/jit-speckit`, then `/plugin install jit-speckit@jit-speckit`. Update later from `/plugin`.</sub>
+<sub>Needs Claude Code 2.1.275 or newer; on older versions use two prompts: `/plugin marketplace add iamalisson/jit-speckit`, then `/plugin install jit-speckit@jit-speckit`. Update the plugin from `/plugin`, then run `/jit-speckit:init` once in each project to update its copy of the extension (it keeps the level).</sub>
 
 You also need `git` and the [GitHub CLI](https://cli.github.com), logged in. `/jit-speckit:init`
 installs spec-kit for you if it's missing.
@@ -147,7 +147,12 @@ files.
 | `/speckit-analyze` | optional | optional | required before any task |
 
 Your stack (Rust, Node with npm/pnpm/yarn, Python with uv/pip, Go) is detected and shapes the CI
-and the constitution. Existing files are never overwritten.
+and the constitution; the constitution's **Commands** line, once `/jit-speckit:adopt` fills it,
+is what the generated CI runs. A repo whose workflows already check pull requests gets no second
+CI. Your files are never overwritten: the ones jit-speckit generates carry a
+`# jit-speckit: managed file` first line and are re-created on `/jit-speckit:level`; delete that
+line to make one yours. Repos that run hooks through the pre-commit framework or husky get jit's
+two checks added there.
 
 ## Using Claude Code well
 
