@@ -10,9 +10,9 @@ to `v1.7.2:extension/scripts` (`diff -r`: no output).
 
 | id | promise | verdict | evidence |
 |---|---|---|---|
-| P01 | Every task gets exactly one GitHub issue; an interrupted run never makes duplicates | holds | `issues.sh:54-56` writes `— #N` back right after each `gh issue create`, and `:32` skips linked lines; `tests/issues.test.sh:37` ("when run again, then no issue is created twice"); sandbox: first run `T001 → #11`, `T002 → #12`, `CREATED=2 SKIPPED=0`, second run `CREATED=0 SKIPPED=2` |
+| P01 | Every task gets exactly one GitHub issue; an interrupted run never makes duplicates | limit | an interruption between GitHub creating the issue and the write-back makes a duplicate: F1.7. Otherwise `issues.sh:54-56` writes `— #N` back right after each `gh issue create`, and `:32` skips linked lines; `tests/issues.test.sh:37` ("when run again, then no issue is created twice"); sandbox: first run `T001 → #11`, `T002 → #12`, `CREATED=2 SKIPPED=0`, second run `CREATED=0 SKIPPED=2` |
 | P02 | Every task gets its own branch from the base, refused without one task, an issue, the merged spec and a clean tree; pushed at once as a claim | broken | the refusals hold (`branch.sh:17,22,24,35,50`; `tests/branch.test.sh:38,42-44,57`), but a refused claim push is silent: F1.1 |
-| P03 | Every task gets one PR with `Closes #N`; a task is done when its issue closes | broken | `pr.sh:69` adds `Closes #N`; sandbox PR #14 into `develop` got it and `close-linked-issues.yml` closed #11 within ~10 s ("Closed by #14 (merged into develop)."). But `next` decides "done" by a title search, so a renamed closed issue stays "open": F1.2 |
+| P03 | Every task gets one PR with `Closes #N`; a task is done when its issue closes | broken | `pr.sh:69` adds `Closes #N`; sandbox PR #14 into `develop` got it and `close-linked-issues.yml` closed #11 within ~10 s ("Closed by #14 (merged into develop)."). But `next` decides "done" by a title search, so a renamed closed issue stays "open": F1.2; and on standard and full a failed close is silent: F1.6 |
 | P04 | `/jit-speckit:next` is resumable, never offers a task in progress twice (worktrees too), holds a task until its dependencies close | broken | resume, in progress, worktrees and blocked hold (`next.sh:39-51`; `tests/next.test.sh:26-63`); sandbox: after the claim T001 showed `resume`, after #11 closed `done T001` and T002 went from `blocked` to `open` within ~17 s. Broken through the same title search: F1.2. The dependency hold is in `next` only: F1.3 |
 | P05 | The spec is its own PR; the spec folder is never lost while switching branches | holds | `pr.sh:84-91` copies the folder out and puts it back on any exit (`trap … EXIT`); `tests/pr.test.sh:121`; real runs: this repository's PR #28 (the untracked folders of features 002 and 003 stayed in place) and sandbox PR #13 |
 | P23 | Never commits or pushes for the user outside the documented flows | holds | every commit or push in the shipped scripts: the claim push `branch.sh:56`, the task push `pr.sh:70`, the spec commit and push `pr.sh:94,97`, `develop`/`staging` creation `level.sh:56` (offered with `--no-branches` in `skills/init/SKILL.md` step 3); the prompts commit only in `extension/commands/pr.md` step 3 and in `skills/init/SKILL.md` step 7, which asks first |
@@ -24,6 +24,9 @@ Also checked, no finding:
 - `add_meta` (`lib.sh:185-200`): each failed assignee, milestone or project edit prints
   `jit: warning: could not set …` with `gh`'s own error (`tests/issues.test.sh:57`), so a user can
   tell it never worked (FR-006).
+- The 500-item limit on `gh pr list` (`next.sh:24`): a task beyond it is still seen as in progress
+  through its branch on origin (`next.sh:23,43`), which every started task has (the claim), so only
+  a task whose claim push failed (F1.1) and whose PR is past the 500 newest open ones is missed.
 - The `"$num in:title"` search (`next.sh:31`) matching other features' issues does no harm: a task
   is done only when its own issue number is in the result (`next.sh:39`), and numbers are unique.
 
@@ -58,9 +61,10 @@ Also checked, no finding:
 - **reproduction**: sandbox phase 3 below (rename, close, `next`). With the fake `gh`, the same:
   leave an issue number out of `$GH_CLOSED`.
 - **exposure**: public.
-- **fix**: get each task's state by its issue number, not by search: one
-  `gh issue list --state closed --limit 1000 --json number` without `--search`, or one GraphQL query
-  for the listed numbers. Check for `tests/next.test.sh`: when a closed task issue does not have
+- **fix**: get each task's state by its issue number, not by search: one GraphQL query for the
+  issue numbers listed in `tasks.md` (`repository { i11: issue(number: 11) { state } … }`). A plain
+  `gh issue list --state closed --limit N` without `--search` would only move the limit: older task
+  issues in a repository with more than N closed issues would again count as not done. Check for `tests/next.test.sh`: when a closed task issue does not have
   `[NNN]` in its title, then `next` shows it `done`. It fails today, because the fake `gh` would
   have to be taught the search (assert the call has no `--search`).
 
@@ -95,10 +99,42 @@ Also checked, no finding:
   after the `in-progress T001` line from the earlier run.
 - **note**: `ls-remote … || die "cannot list branches on origin: …"` would say why.
 
+### F1.6 · Medium · P03, P04 · on standard and full, a failed close in `close-linked-issues.yml` is silent
+
+- **verdict**: broken
+- **evidence**: on standard and full the base is `develop`, which GitHub's own `Closes #N` does not
+  act on, so `close-linked-issues.yml` closes the issue. Its step ends in `|| true`
+  (`extension/scaffold/standard/.github/workflows/close-linked-issues.yml:26`), so when
+  `gh issue close` fails the job is green and the issue stays open. Section F below: the step run
+  with a `gh` that answers `HTTP 403: Resource not accessible by integration` exits `rc=0`. One
+  case where the close fails: a task PR from a fork, where GitHub gives `pull_request` workflows a
+  read-only `GITHUB_TOKEN` whatever `permissions:` says (GitHub's "Events that trigger workflows",
+  *Workflows in forked repositories*). That case was not run here; the sandbox has no fork. After
+  the merge the head branch is usually deleted, so `next` sees the task as neither done nor in
+  progress and offers it again (`next.sh:39,43`).
+- **reproduction**: section F of the script below.
+- **exposure**: public.
+- **fix**: drop `|| true`, so a close that fails fails the job, and GitHub shows a red run on the
+  merged PR. Check for `tests/static.test.sh`: when `close-linked-issues.yml` closes an issue, then
+  the `gh issue close` line has no `|| true`. It fails today.
+
+### F1.7 · Low · P01 · an issue created on GitHub whose answer never arrives is created again
+
+- **verdict**: limit
+- **evidence**: `issues.sh:52-56` writes `— #N` only after `gh issue create` returns a URL. If the
+  request reaches GitHub but the client fails (a timeout, Ctrl-C), `set -e` ends the run before the
+  write-back, and the next run creates the task's issue again; nothing looks for an existing
+  `[NNN] Tnnn:` title first. Section G below (a fake `gh` that creates and then fails): the rerun
+  prints `T003 → #2`, and the log has 2 `issue create` calls for T003. Not run against real GitHub.
+  `issues.sh:54` ("so an interrupted run never creates duplicates") and `extension/commands/issues.md:8-9`
+  ("running it again only creates issues for tasks that don't have one yet") hold for every
+  interruption except this window.
+- **note**: before creating, `gh issue list --search "[NNN] Tnnn: in:title"` and reuse a match.
+
 ### Reproductions
 
 <details>
-<summary>Local script (sections A–E) and its output</summary>
+<summary>Local script (sections A–G) and its output</summary>
 
 ```bash
 # T001 reproductions, run as: bash t001-repro.sh <v1.7.2 worktree>
@@ -135,6 +171,21 @@ git push -q origin main:feat/001-t001-first-thing 2>/dev/null; git branch -D -q 
 "$n" | grep T001
 git remote set-url origin "$TMP/nowhere.git"
 "$n" || echo "rc=$?"
+
+echo "== F. the close step of close-linked-issues.yml when gh cannot close the issue"
+git remote set-url origin "$TMP/origin.git"
+printf '#!/bin/sh\necho "HTTP 403: Resource not accessible by integration" >&2; exit 1\n' > "$TMP/bin/gh-fail"
+step="$(sed -n '/run: |/,$p' "$1/extension/scaffold/standard/.github/workflows/close-linked-issues.yml" | sed '1d; s/^          //')"
+(mkdir -p "$TMP/fbin"; cp "$TMP/bin/gh-fail" "$TMP/fbin/gh"; chmod +x "$TMP/fbin/gh"; PATH="$TMP/fbin:$PATH" BODY="Closes #1" REPO=acme/app PR=14 BASE=develop bash -c "$step"); echo "step rc=$?"
+
+echo "== G. issue create reaches GitHub but the client fails, then a rerun"
+printf '%s\n' '- [ ] T003 Third thing' >> specs/001-demo/tasks.md
+printf 'Plan read.\n\nAssessment: ready\n' > "$TMP/plan.md"; "$SCRIPTS/review.sh" record --plan "$TMP/plan.md" >/dev/null
+cp "$TMP/bin/gh" "$TMP/bin/gh-ok"
+printf '#!/usr/bin/env bash\nif [[ "$1 $2" == "issue create" ]]; then echo "$*" >> "$GH_LOG"; echo $(( $(cat "$GH_N" 2>/dev/null || echo 0) + 1 )) > "$GH_N"; echo "timeout awaiting response" >&2; exit 1; fi\nexec "%s" "$@"\n' "$TMP/bin/gh-ok" > "$TMP/bin/gh"; chmod +x "$TMP/bin/gh"
+: > "$GH_LOG"; "$SCRIPTS/issues.sh" || echo "rc=$?"
+cp "$TMP/bin/gh-ok" "$TMP/bin/gh"; "$SCRIPTS/issues.sh"
+echo "issue create calls for T003: $(grep -c '^issue create.*T003' "$GH_LOG")"
 ```
 
 ```text
@@ -160,6 +211,15 @@ rc=1
 in-progress T001 #1 First thing
 resume T002 #2 Second thing (depends on T001)
 rc=128
+== F. the close step of close-linked-issues.yml when gh cannot close the issue
+HTTP 403: Resource not accessible by integration
+step rc=0
+== G. issue create reaches GitHub but the client fails, then a rerun
+timeout awaiting response
+rc=1
+T003 → #2
+CREATED=1 SKIPPED=2
+issue create calls for T003: 2
 ```
 
 </details>
@@ -167,7 +227,9 @@ rc=128
 <details>
 <summary>Sandbox run, feature 099 (real GitHub)</summary>
 
-Phase 1, `bash sandbox-1.sh` from the sandbox clone:
+Phase 1, `bash sandbox-1.sh` from the sandbox clone. The capture of its output lost the first lines
+(the `== issues.sh before any plan review` run and its `rc`, and the `== issues.sh` heading); the
+plan-review refusal is shown by section 3, not here. What was captured:
 
 ```bash
 # T001 real run on the sandbox, phase 1. Run from the sandbox clone: bash sandbox-1.sh
@@ -262,7 +324,15 @@ rc=0
 OPEN
 ```
 
-Then, polling: `issue 11: CLOSED after ~10s`, last comment `Closed by #14 (merged into develop).`
+Then, polling every 10 s with `gh issue view 11 --json state`, and the workflow runs:
+
+```text
+issue 11: CLOSED after ~10s
+2026-11-05T17:18:37Z pull_request in_progress
+2026-11-05T17:17:57Z pull_request completed success
+Closed by #14 (merged into develop).
+```
+
 `next.sh 099` at 17:18:54 UTC: `done T001 #11 …`, `open T002 #12 …`, `DONE=1/2 IN_PROGRESS=0 NEXT=T002`.
 
 Phase 3, the rename (F1.2):
