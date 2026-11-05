@@ -31,6 +31,11 @@ description: "Task list template for feature implementation"
   including in tests and in the other tasks. Copy a test's expected values in as literals, never
   imported from the code under test, or the test moves with the bug. A step that writes data
   (migrations, scripts) names its target environment and how it refuses production.
+- **A new file of a kind the repo already has** (a migration, a workflow, an endpoint, a model)
+  names the newest existing one in *Impact* as the pattern to follow, guards included (for a
+  migration: `has_table`, a seed that skips rows already there). Its *Completed when* exercises
+  the path it runs on in reality, not only a fresh state: a migration is also upgraded from the
+  previous head on a database that already has the model's tables.
 
 Example:
 
