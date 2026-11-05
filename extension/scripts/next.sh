@@ -35,7 +35,7 @@ scan() {
     key="/$num-$(tr '[:upper:]' '[:lower:]' <<<"$id")-"
     TOTAL=$((TOTAL + 1))
     if [[ -z "$issue" ]]; then state=no-issue
-    elif [[ "$closed" == *" $issue "* ]]; then state=done; DONE_N=$((DONE_N + 1))
+    elif [[ "$closed" == *" $issue "* ]]; then state="done"; DONE_N=$((DONE_N + 1))
     elif [[ "$cur" == *"$key"* ]]; then state=resume; resume="${resume:-$id}"
     elif [[ "$checked_out" == *"$key"* ]]; then state=in-progress; BUSY=$((BUSY + 1))
     elif [[ "$local_b" == *"$key"* ]]; then state=resume; resume="${resume:-$id}"
