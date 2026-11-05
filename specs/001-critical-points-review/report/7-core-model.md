@@ -13,9 +13,10 @@ promises, and a verdict. The sources were opened on 2026-11-05.
   an outside definition (the issue closed by the merged PR), which is what makes `/jit-speckit:next`
   resumable and gives the review something to check against (`docs/design.md:6-22`).
 - **Cost per task**: one issue, one claimed branch, one independent review until `ready`, one PR, one
-  CI run and one merge (section 6, per-level table). Measured on T001–T005: 6.0 to 24.2 minutes of
+  CI run and one merge (section 6, per-level table). Measured on T001–T005: 5.8 to 24.2 minutes of
   review per task, and 5 merges into `main` for 5 tasks. On standard and full each task PR lands on
-  `develop` on its own; on lite, each one lands on `main`, which is what the project deploys from.
+  `develop` on its own; on lite, each one lands on `main`, the only long-lived branch lite has
+  (`README.md:120`).
 - **Sources cited** (`docs/design.md:8-17`):
   - SmartBear, "Best practices for peer code review": **partly**. The page says "developers should
     review no more than 200 to 400 lines of code (LOC) at a time" and "beyond 400 LOC, the ability to
@@ -34,9 +35,22 @@ promises, and a verdict. The sources were opened on 2026-11-05.
 - **Simplest model that keeps the same promises**: what the sources support is small *reviews*,
   not small *deploys*. Keep one task = one issue = one branch = one small reviewed PR, and have
   those PRs merge into one branch per feature, with one PR from it into the base. The review stays at
-  task size (Google's ~100 lines, SmartBear's 200–400), a failure still points at one task PR, and
-  "done" is still the issue closed by its merged PR. The base gets each feature once, which matches
-  DORA's batches better than ten partial merges into what deploys. The user chose this on
+  task size (Google's ~100 lines, SmartBear's 200–400), and a failure still points at one task PR.
+  Two promises only survive with two conditions, which the model must carry:
+  - **"done" = the issue closed by its merged PR**: GitHub closes `Closes #N` issues only on a merge
+    into the default branch, and a feature branch is not one. On standard and full,
+    `close-linked-issues.yml` already closes them on any other branch (its condition is
+    `base.ref != default_branch`), but lite writes no workflows (section 4, F4.4). Without that
+    workflow at every level, or the PR script closing the issue itself, `next.sh:39` would never see
+    a task as done on lite, and a task that depends on it would stay blocked until the feature PR
+    merges.
+  - **"one revert removes one task"** (`docs/design.md:18-19`): reverting the feature PR takes the
+    whole feature. A single task can still be reverted from the base only if the feature PR is
+    merged with a merge commit, which keeps each task PR's merge in the base's history; a squashed
+    feature PR loses that.
+
+  With both, the base gets each feature once, which matches DORA's batches better than ten partial
+  merges into it. The user chose this on
   2026-11-05 (draft spec 004, "One feature branch, one feature PR", not merged).
 - **Verdict**: **simplify**. Keep the task-sized PR; change where it merges. Fix `docs/design.md:8-10`
   to say "a SmartBear study of a Cisco team" without the uncited "2,500", and drop or source the
@@ -61,7 +75,11 @@ promises, and a verdict. The sources were opened on 2026-11-05.
   carries only its own change, because the spec is already in the branch it targets. The design is
   still reviewed before code: the plan review (`issues.sh:18`, recorded and required) already gates
   every issue, and the spec, plan and tasks reach the base inside the feature PR, reviewed with the
-  code they produced.
+  code they produced. What changes is who reviews the design first: today the user sees it as a PR
+  before any code exists (`examples/README.md:54-55`); in this model the first reviewer is the
+  agent's plan review, and the user sees the spec on GitHub in the feature branch (any time) and in
+  the feature PR (after the code). A team that wants a human sign-off before code can keep it as a
+  review of the feature branch's first commit, without a merge into the base.
 - **Verdict**: **replace**: the spec as the feature branch's first commit, no separate spec PR into
   the base. Later spec changes go through a small PR into the feature branch.
 
@@ -72,7 +90,7 @@ promises, and a verdict. The sources were opened on 2026-11-05.
   the constitution's defaults, the CI and the review bar.
 - **Cost per task**: section 6's table shows what each level actually changes per task: the branch
   flow, CI (none on lite), `## Evidence` and analysis on full. The most expensive step, the
-  independent review until `ready` (6–24 minutes a task here), is the same at every level. So is the
+  independent review until `ready` (5.8–24.2 minutes a task here), is the same at every level. So is the
   plan review before issues (36 minutes on this feature). Lite, for "prototypes, solo work", pays the
   full review bar but gets no CI and no GitHub protection behind it (section 4, F4.4).
 - **Sources cited**: none. The reason is stated, not sourced.
