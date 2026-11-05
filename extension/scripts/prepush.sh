@@ -12,6 +12,13 @@ jit_cd_root
 zero="0000000000000000000000000000000000000000"
 status=0
 remote="${1:-origin}"
+# Under the pre-commit framework the refs don't arrive on stdin: measured with pre-commit 4.7.0 on
+# 2026-11-04 (tests/secrets.test.sh shows the variables), args and stdin are empty and the push is
+# described by PRE_COMMIT_* variables, one ref only (the last one of a multi-branch push).
+if [[ -n "${PRE_COMMIT_TO_REF:-}" ]]; then
+  remote="${PRE_COMMIT_REMOTE_NAME:-$remote}"
+  exec <<<"${PRE_COMMIT_LOCAL_BRANCH:-HEAD} $PRE_COMMIT_TO_REF ${PRE_COMMIT_REMOTE_BRANCH:-HEAD} ${PRE_COMMIT_FROM_REF:-$zero}"
+fi
 # An empty remote (a brand-new repository) has no branch a pull request could target.
 empty_remote=false
 if [[ -z "$(git ls-remote --heads "$remote" 2>/dev/null)" ]] && git ls-remote "$remote" >/dev/null 2>&1; then empty_remote=true; fi

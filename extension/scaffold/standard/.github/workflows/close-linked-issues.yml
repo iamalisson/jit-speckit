@@ -1,3 +1,4 @@
+# jit-speckit: managed file. /jit-speckit:level re-creates it while this line stays; delete the line to keep your own edits.
 # GitHub only auto-closes "Closes #N" issues when a PR merges into the default branch.
 # Task PRs merge into develop/staging, so this closes them on merge there too.
 name: Close linked issues

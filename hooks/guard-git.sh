@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# Claude Code PreToolUse hook (Bash). Hands git commands to the project's jit guard.
+# Claude Code PreToolUse hook (Bash). Hands git commands to jit's guard.
 # Does nothing outside jit-speckit projects or for commands that don't involve git.
 # Exit 2 blocks the command; the guard's stderr tells Claude why.
+# The guard that runs is this plugin's own copy, never a script from the opened repository: the
+# project only provides its config (level, base branch), so a stale or tampered copy there changes
+# nothing.
 set -uo pipefail
 input="$(cat)"
 field() { # field <name>: a string field from the hook's JSON input
@@ -15,6 +18,6 @@ cmd="$(field command)"
 [[ "$cmd" == *git* ]] || exit 0
 cwd="$(field cwd)"
 root="$(git -C "${cwd:-.}" rev-parse --show-toplevel 2>/dev/null)" || exit 0
-guard="$root/.specify/extensions/jit/scripts/guard.sh"
-[[ -f "$guard" ]] || exit 0
+[[ -d "$root/.specify/extensions/jit" ]] || exit 0
+guard="$(cd "$(dirname "$0")/.." && pwd)/extension/scripts/guard.sh"
 cd "$root" && exec bash "$guard" "$cmd"

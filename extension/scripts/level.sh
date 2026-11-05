@@ -86,6 +86,15 @@ done
 test_cmd="[TEST_COMMAND]"
 if ((${#tests[@]})); then test_cmd="$(printf '%s && ' "${tests[@]}")"; test_cmd="${test_cmd% && }"; fi
 
+# The constitution's Commands line ("build `x` · test `y` · lint `z`"), filled by /jit-speckit:adopt,
+# wins over the stack defaults in the jit block and in the generated CI. A [PLACEHOLDER] is unset.
+const_cmd() {
+  local c; c="$(sed -nE "s/.*\*\*Commands\*\*.*$1 \`([^\`]+)\`.*/\1/p" "$const" 2>/dev/null | head -1)"
+  if [[ -n "$c" && "$c" != \[* ]]; then echo "$c"; fi
+}
+build_c="$(const_cmd build)"; test_c="$(const_cmd test)"; lint_c="$(const_cmd lint)"
+[[ -z "$test_c" ]] || test_cmd="$test_c"
+
 # ── Constitution block ───────────────────────────────────────────────────────
 render() {
   local t; t="$(cat "$1")"
@@ -114,10 +123,23 @@ echo "constitution: jit block set to '$level' in $const"
 # shellcheck source=pins.sh
 source "$JIT_EXT_DIR/scripts/pins.sh"
 
-put() { # put <dest> (content on stdin): write only if missing
-  if [[ -e "$1" ]]; then cat >/dev/null; echo "kept:    $1"; return; fi
-  mkdir -p "$(dirname "$1")"; cat > "$1"; echo "created: $1"
+MARKER="# jit-speckit: managed file. /jit-speckit:level re-creates it while this line stays; delete the line to keep your own edits."
+put() { # put <dest> (content on stdin): write only if missing, or if ours (the marker in its first lines)
+  if [[ -e "$1" ]] && ! head -2 "$1" | grep -qxF "$MARKER"; then cat >/dev/null; echo "kept:    $1"; return; fi
+  local verb=created; [[ -e "$1" ]] && verb=updated
+  mkdir -p "$(dirname "$1")"; cat > "$1.tmp" && mv "$1.tmp" "$1"; echo "$verb: $1"
 }
+# Workflows that already check pull requests and are not ours: then no second CI is generated.
+pr_gate() {
+  local f
+  for f in .github/workflows/*.y*ml; do
+    [[ -f "$f" ]] || continue
+    if head -2 "$f" | grep -qxF "$MARKER"; then continue; fi
+    if grep -qE '^[[:space:]]*pull_request:' "$f"; then echo "$f"; fi
+  done
+  return 0
+}
+run_steps() { local v; for v in "$@"; do if [[ -n "$v" ]]; then printf '      - run: %s\n' "$v"; fi; done; }
 
 branch_list() { # the long-lived branches workflows run on
   printf '%s' "$(default_branch)"
@@ -128,6 +150,7 @@ branch_list() { # the long-lived branches workflows run on
 checkout_step() { printf '      - uses: %s\n        with:\n          persist-credentials: false\n' "$PIN_CHECKOUT"; }
 
 ci_yaml() {
+  printf '%s\n# Commands come from the constitution (**Commands** line); stack defaults fill the gaps.\n' "$MARKER"
   printf 'name: CI\n\non:\n  push:\n    branches: [%s]\n  pull_request:\n\npermissions:\n  contents: read\n\njobs:\n' "$(branch_list)"
   ((${#stacks[@]})) || printf '  checks:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          echo "jit: no stack detected. Replace this job with your lint, test and build commands." && exit 1\n'
   for s in ${stacks[@]+"${stacks[@]}"}; do
@@ -136,7 +159,7 @@ ci_yaml() {
         printf '  rust:\n    runs-on: ubuntu-latest\n    steps:\n'; checkout_step
         printf '      - uses: %s\n        with:\n          toolchain: stable\n          components: rustfmt, clippy\n' "$PIN_RUST_TOOLCHAIN"
         printf '      - uses: %s\n' "$PIN_RUST_CACHE"
-        printf '      - run: cargo fmt --all -- --check\n      - run: cargo clippy --all-targets -- -D warnings\n      - run: cargo test --all\n' ;;
+        run_steps "${lint_c:-cargo fmt --all -- --check && cargo clippy --all-targets -- -D warnings}" "${test_c:-cargo test --all}" "$build_c" ;;
       node:*) pm="${s#node:}"
         printf '  node:\n    runs-on: ubuntu-latest\n    steps:\n'; checkout_step
         if [[ "$pm" == pnpm ]]; then printf '      - uses: %s\n' "$PIN_PNPM"; fi
@@ -146,25 +169,32 @@ ci_yaml() {
         case "$pm" in pnpm) printf '      - run: pnpm install --frozen-lockfile\n' ;;
                       yarn) printf '      - run: yarn install --frozen-lockfile\n' ;;
                       npm) if [[ -f package-lock.json ]]; then printf '      - run: npm ci\n'; else printf '      - run: npm install\n'; fi ;; esac
-        for script in lint typecheck test build; do
-          if grep -qE "\"$script\" *:" package.json; then printf '      - run: %s run %s\n' "$pm" "$script"; fi
-        done ;;
+        nl=""; nb=""
+        for script in lint typecheck; do if grep -qE "\"$script\" *:" package.json; then nl+="$pm run $script && "; fi; done
+        if grep -qE '"build" *:' package.json; then nb="$pm run build"; fi
+        run_steps "${lint_c:-${nl% && }}" "${test_c:-$pm test}" "${build_c:-$nb}" ;;
       python:uv)
         printf '  python:\n    runs-on: ubuntu-latest\n    steps:\n'; checkout_step
-        printf '      - uses: %s\n      - run: uv sync --all-extras\n      - run: uv run ruff check .\n      - run: uv run pytest\n' "$PIN_SETUP_UV" ;;
+        printf '      - uses: %s\n      - run: uv sync --all-extras\n' "$PIN_SETUP_UV"
+        run_steps "${lint_c:-uv run ruff check .}" "${test_c:-uv run pytest}" "$build_c" ;;
       python:pip)
         printf '  python:\n    runs-on: ubuntu-latest\n    steps:\n'; checkout_step
-        printf '      - uses: %s\n        with:\n          python-version: "3.12"\n' "$PIN_SETUP_PYTHON"
-        printf '      - run: pip install -e ".[dev]" || pip install -r requirements.txt\n      - run: pip install ruff pytest && ruff check . && pytest\n' ;;
+        # The project's pinned Python, else the current 3.x (never a hard-coded minor that goes EOL).
+        pv='python-version: "3.x"'; [[ -f .python-version ]] && pv="python-version-file: .python-version"
+        printf '      - uses: %s\n        with:\n          %s\n' "$PIN_SETUP_PYTHON" "$pv"
+        printf '      - run: pip install -e ".[dev]" || pip install -r requirements.txt\n'
+        run_steps "${lint_c:-pip install ruff && ruff check .}" "${test_c:-pip install pytest && pytest}" "$build_c" ;;
       go)
         printf '  go:\n    runs-on: ubuntu-latest\n    steps:\n'; checkout_step
-        printf '      - uses: %s\n        with:\n          go-version-file: go.mod\n      - run: go vet ./...\n      - run: go test ./...\n' "$PIN_SETUP_GO" ;;
+        printf '      - uses: %s\n        with:\n          go-version-file: go.mod\n' "$PIN_SETUP_GO"
+        run_steps "${lint_c:-go vet ./...}" "${test_c:-go test ./...}" "$build_c" ;;
     esac
   done
 }
 
 security_yaml() {
   cat <<EOF
+$MARKER
 # Security gate: runs on every pull request, on pushes to long-lived branches, and weekly
 # (new CVEs land in dependencies nobody touched). Tools are pinned and checksum-verified.
 name: Security
@@ -273,7 +303,7 @@ ecosystems() {
 }
 
 dependabot_yaml() {
-  printf 'version: 2\nupdates:\n'
+  printf '%s\nversion: 2\nupdates:\n' "$MARKER"
   local eco
   local dir
   for eco in $(ecosystems); do
@@ -295,7 +325,9 @@ for l in "${levels[@]}"; do
   done < <(find "$src" -type f | sort)
   case "$l" in
     lite) chmod +x .githooks/* ;;
-    standard) ci_yaml | put .github/workflows/ci.yml
+    standard) gate="$(pr_gate)"
+              if [[ -n "$gate" ]]; then echo "kept:    $(tr '\n' ' ' <<<"$gate")(already checks pull requests; no ci.yml generated)"
+              else ci_yaml | put .github/workflows/ci.yml; fi
               security_yaml | put .github/workflows/security.yml
               dependabot_yaml | put .github/dependabot.yml ;;
     full) owner="$(repo_slug)"; owner="${owner%%/*}"
@@ -305,14 +337,43 @@ done
 
 # ── Git hooks ────────────────────────────────────────────────────────────────
 # core.hooksPath is per clone: every teammate's /jit-speckit:init (or this script) sets it.
+# A repo that already runs its hooks through the pre-commit framework or husky gets jit's two
+# checks added there, so they really run instead of being left as lines to paste.
 hooks_path="$(git config --get core.hooksPath || true)"
+pc_cfg=.pre-commit-config.yaml
+pc_hook() { # pc_hook <indent of "- "> <id> <name> <entry> <stage>
+  local pad; pad="$(printf '%*s' "${#1}" '')"
+  printf '%s%sid: %s\n%s%sname: %s\n%s%sentry: %s\n%s%slanguage: system\n%s%spass_filenames: false\n%s%salways_run: true\n%s%sstages: [%s]\n' \
+    "$pad" "$1" "$2" "$pad" "$pad" "$3" "$pad" "$pad" "$4" "$pad" "$pad" "$pad" "$pad" "$pad" "$pad" "$pad" "$pad" "$5"
+}
 if [[ "$hooks_path" == .githooks ]]; then
   echo "git hooks: enabled (.githooks)"
-elif [[ -z "$hooks_path" && ! -f .pre-commit-config.yaml && ! -d .husky ]]; then
+elif [[ -f "$pc_cfg" ]]; then
+  if grep -q 'scripts/secrets.sh' "$pc_cfg" && grep -q 'scripts/prepush.sh' "$pc_cfg"; then
+    echo "git hooks: already in $pc_cfg"
+  else
+    # The same list indentation as the file's own items, so the appended item stays valid YAML.
+    ind="$(sed -nE 's/^( *- +)repo:.*/\1/p' "$pc_cfg" | head -1)"; [[ -n "$ind" ]] || ind="-   "
+    pad="$(printf '%*s' "${#ind}" '')"
+    grep -q '^repos:' "$pc_cfg" || echo "repos:" >> "$pc_cfg"
+    { echo "${ind}repo: local"; echo "${pad}hooks:"
+      grep -q 'scripts/secrets.sh' "$pc_cfg" || pc_hook "$ind" jit-secrets "jit-speckit secrets (staged)" "bash .specify/extensions/jit/scripts/secrets.sh staged" pre-commit
+      grep -q 'scripts/prepush.sh' "$pc_cfg" || pc_hook "$ind" jit-prepush "jit-speckit push check (secrets in every pushed commit, protected branches)" "bash .specify/extensions/jit/scripts/prepush.sh" pre-push
+    } >> "$pc_cfg"
+    echo "git hooks: added to $pc_cfg (pre-commit framework)"
+  fi
+  [[ -f "$(git rev-parse --git-path hooks)/pre-push" ]] \
+    || echo "git hooks: not active in this clone yet; run: pre-commit install --hook-type pre-commit --hook-type pre-push"
+elif [[ -d .husky ]]; then
+  # husky runs these files as shell scripts, so git's arguments and stdin reach prepush.sh.
+  grep -qs 'scripts/secrets.sh' .husky/pre-commit || echo 'bash .specify/extensions/jit/scripts/secrets.sh staged' >> .husky/pre-commit
+  grep -qs 'scripts/prepush.sh' .husky/pre-push || echo 'bash .specify/extensions/jit/scripts/prepush.sh "$@"' >> .husky/pre-push
+  echo "git hooks: added to .husky/pre-commit and .husky/pre-push"
+elif [[ -z "$hooks_path" ]]; then
   git config core.hooksPath .githooks
   echo "git hooks: enabled (.githooks: secret check on commit, secret + branch check on push)"
 else
-  echo "git hooks: this repo already has its own (${hooks_path:-pre-commit or husky}); add these lines to it:"
+  echo "git hooks: this repo already has its own ($hooks_path); add these lines to it:"
   echo "  pre-commit: bash .specify/extensions/jit/scripts/secrets.sh staged"
   echo "  pre-push:   bash .specify/extensions/jit/scripts/prepush.sh \"\$@\""
 fi

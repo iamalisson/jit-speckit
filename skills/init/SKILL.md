@@ -12,8 +12,9 @@ disable-model-invocation: true
      `uv tool install specify-cli --from git+https://github.com/github/spec-kit.git@v1.2.5`.
      If `uv` is missing too, point to https://docs.astral.sh/uv/ and stop.
    - If `gh auth status` fails, ask the user to run `! gh auth login` and stop.
-2. **Level.** Use the argument if it is `lite`, `standard` or `full`. Otherwise ask with these
-   options, recommending one from what the repo shows:
+2. **Level.** Use the argument if it is `lite`, `standard` or `full`. If the project already has
+   `.specify/extensions/jit/jit-config.yml`, this is an update: keep its `level:` and skip the
+   question. Otherwise ask with these options, recommending one from what the repo shows:
    - **lite**: prototype, solo. `feat/*` → `main`, secret checks on commit and push, core defaults.
    - **standard** (default): a product, maybe a small team. Adds `develop`, CI, a security CI
      gate, Dependabot and the security baseline.
@@ -49,5 +50,7 @@ disable-model-invocation: true
    continue: the local hooks and the CI gate still apply.
 5. **Next.** If the repo already has code, run `/jit-speckit:adopt` now. For a new project, tell
    the user to run `/speckit-constitution`.
-6. Summarize in four lines: the level, the files created or kept, the protections enabled, and
-   the next command. Nothing is committed; the user reviews and commits the setup.
+6. Summarize in four lines: the level, the files created, updated or kept, the protections
+   enabled, and the next command. If the script said the git hooks are "not active in this clone
+   yet", repeat the command it gave: without it, nothing checks commits locally. Nothing is
+   committed; the user reviews and commits the setup.

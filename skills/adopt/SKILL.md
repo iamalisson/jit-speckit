@@ -21,10 +21,10 @@ description: "Adopt jit-speckit in an existing codebase: read the repo and fill 
    - `[PROJECT_PRINCIPLES]`: only rules specific to this codebase that you can point to (layer
      boundaries, where auth lives, how migrations run), each backed by a file path.
 
-   Never edit between `<!-- jit:start` and `<!-- jit:end -->`. If that block still shows
-   `[STACK_IDIOMS…]` or `[TEST_COMMAND]`, re-run
-   `bash .specify/extensions/jit/scripts/level.sh <current level> --no-branches` after the
-   manifests are in place.
+   Never edit between `<!-- jit:start` and `<!-- jit:end -->`. Once the **Commands** line is
+   filled, re-run `bash .specify/extensions/jit/scripts/level.sh <current level> --no-branches`:
+   it rewrites the jit block and the generated CI (`.github/workflows/ci.yml`, while it still
+   carries the `# jit-speckit: managed file` line) with the project's real commands.
 4. **If a constitution already existed** (not the jit template): keep its principles and wording.
    Only add what is missing. List every place where it contradicts a jit default, and ask the
    user which one wins. Don't decide alone.

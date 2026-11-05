@@ -12,6 +12,8 @@ set -uo pipefail
 export LC_ALL=C
 # shellcheck source=lib.sh
 source "$(dirname "$0")/lib.sh"
+# A guard that cannot decide blocks: Claude Code lets the command through on exit 1.
+die() { echo "jit-speckit guard: $*" >&2; exit 2; }
 jit_cd_root
 
 block() { echo "jit-speckit guard: $1" >&2; exit 2; }
