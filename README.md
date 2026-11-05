@@ -41,7 +41,20 @@ In Claude Code:
 /plugin install jit-speckit --marketplace iamalisson/jit-speckit
 ```
 
-<sub>Needs Claude Code 2.1.275 or newer; on older versions use two prompts: `/plugin marketplace add iamalisson/jit-speckit`, then `/plugin install jit-speckit@jit-speckit`. Update the plugin from `/plugin`, then run `/jit-speckit:init` once in each project to update its copy of the extension (it keeps the level).</sub>
+<sub>Needs Claude Code 2.1.275 or newer; on older versions use two prompts: `/plugin marketplace add iamalisson/jit-speckit`, then `/plugin install jit-speckit@jit-speckit`.</sub>
+
+## Update
+
+Plugins don't update themselves. From a terminal, one line:
+
+```
+claude plugin marketplace update jit-speckit && claude plugin update jit-speckit@jit-speckit
+```
+
+Then restart Claude Code. **In every project that already uses jit-speckit, run `/jit-speckit:init`
+once**: each project keeps its own copy of the extension (hooks, scripts, review method, scaffold)
+under `.specify/`, and only `init` refreshes it. It keeps the project's level and touches nothing
+else. Skip it and the project keeps running the old version, whatever the plugin says.
 
 You also need `git` and the [GitHub CLI](https://cli.github.com), logged in. `/jit-speckit:init`
 installs spec-kit for you if it's missing.
