@@ -3,8 +3,9 @@
 #   next.sh [feature]    feature: a number (002) or folder name (002-reports); it becomes the active one
 # A task is done when its GitHub issue is closed. A task is in progress, and never picked, when its
 # branch is on origin, checked out in another worktree, or has an open PR. A branch you started in
-# this clone is yours to resume, and is picked first.
-# Prints a line per task ("done|resume|in-progress|open|no-issue Tnnn #N description"), then
+# this clone is yours to resume, and is picked first. A task whose line says "depends on T003" is
+# blocked until T003's issue is closed.
+# Prints a line per task ("done|resume|in-progress|blocked|open|no-issue Tnnn #N description"), then
 # DONE=x/y IN_PROGRESS=n NEXT=<Tnnn> (NEXT empty when nothing is left to start).
 # With no argument and several features that have tasks to start, it prints one "feature <name>
 # DONE=x/y" line each and CHOOSE=<names>; run it again with the chosen one.
@@ -24,7 +25,7 @@ pr_heads=" $(gh pr list --state open --limit 500 --json headRefName --jq '.[].he
 
 # scan <feature dir> <print>: one line per task when print=true; sets DONE_N TOTAL BUSY NEXT_ID
 scan() {
-  local fdir="$1" show="$2" num closed line id issue key state resume=""
+  local fdir="$1" show="$2" num closed line id issue key state resume="" d dl di
   num="$(feature_key "$fdir")"
   # One API call per feature: its task issues have "[<feature number>] T" in the title.
   closed=" $(gh issue list --state closed --limit 500 --search "$num in:title" --json number --jq '.[].number' | tr '\n' ' ') "
@@ -40,7 +41,14 @@ scan() {
     elif [[ "$checked_out" == *"$key"* ]]; then state=in-progress; BUSY=$((BUSY + 1))
     elif [[ "$local_b" == *"$key"* ]]; then state=resume; resume="${resume:-$id}"
     elif [[ "$remote_b" == *"$key"* || "$pr_heads" == *"$key"* ]]; then state=in-progress; BUSY=$((BUSY + 1))
-    else state=open; NEXT_ID="${NEXT_ID:-$id}"
+    else
+      state=open
+      # "(depends on T003, T004)": blocked while any named task with an issue is still open.
+      for d in $(grep -oiE 'depends on T[0-9]{3,}([, ]+(and )?T[0-9]{3,})*' <<<"$line" | grep -oE 'T[0-9]{3,}'); do
+        dl="$(task_line "$fdir" "$d")"; di="$(task_issue "$dl")"
+        if [[ -n "$di" && "$closed" != *" $di "* ]]; then state=blocked; fi
+      done
+      [[ "$state" != open ]] || NEXT_ID="${NEXT_ID:-$id}"
     fi
     if $show; then echo "$state $id ${issue:+#$issue} $(task_summary "$line")"; fi
   done < <(grep -E '^- \[.\] T[0-9]{3,} ' "$fdir/tasks.md")

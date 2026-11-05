@@ -12,8 +12,10 @@ argument-hint: "[feature]"
      first, and stop.
    - If it prints `CHOOSE=...`, more than one feature has tasks to start: show the `feature` lines
      with their counts, ask which one, and run it again with that feature.
-2. Show the progress as a short list (done / resume / in-progress / open / no-issue), then
-   `DONE=x/y`.
+2. Show the progress as a short list (done / resume / in-progress / blocked / open / no-issue),
+   then `DONE=x/y`.
+   - **blocked** tasks say "depends on Txxx" on their line and that task's issue is still open;
+     they are never picked before it closes (merge that PR first).
    - **resume** is a task whose branch you started in this clone; it is picked first.
    - **in-progress** tasks are being done elsewhere (a branch on origin, another worktree, an
      open PR) and are never picked; they finish when their PR merges.
