@@ -231,14 +231,12 @@ These are spec-kit hooks, so you never type them. If you skip one, run it yourse
 `/jit-speckit:help` shows every command, level and setting. Ask it anything:
 `/jit-speckit:help why is the spec a separate PR?`
 
-## Notes
-
-- **AI attribution:** `.claude/settings.json` turns off the "Generated with Claude Code" and
-  `Co-Authored-By` lines for everyone on the project. jit-speckit writes it only when the
-  project has no `.claude/settings.json` yet; to get the same in an existing one, add
-  `"attribution": { "commit": "", "pr": "" }`. If your team or a policy requires AI
-  disclosure, delete its `attribution` block: jit-speckit then keeps those lines, and never asks
-  for the block back.
+> **Note: AI attribution.** `.claude/settings.json` turns off the "Generated with Claude Code" and
+> `Co-Authored-By` lines for everyone on the project. jit-speckit writes it only when the
+> project has no `.claude/settings.json` yet; to get the same in an existing one, add
+> `"attribution": { "commit": "", "pr": "" }`. If your team or a policy requires AI
+> disclosure, delete its `attribution` block: jit-speckit then keeps those lines, and never asks
+> for the block back.
 
 ## Uninstall
 
