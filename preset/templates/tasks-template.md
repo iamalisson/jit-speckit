@@ -18,9 +18,15 @@ description: "Task list template for feature implementation"
 - **[P]**: Can run in parallel (different files, no dependencies)
 - **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
 - Include exact file paths in descriptions
-- **One task = one issue = one branch = one pull request.** Size each task so it is one
-  reviewable PR. Do not write issue numbers yourself: after this file is generated, every task
-  line gets ` — #N` appended automatically (jit-speckit).
+- **One task = one issue = one branch = one pull request.** Do not write issue numbers yourself:
+  after this file is generated, every task line gets ` — #N` appended automatically (jit-speckit).
+- **A task is a vertical slice, not a layer.** It is the smallest change that is reviewable,
+  mergeable and revertible on its own, with a result someone can observe (a request that answers,
+  a command that works, a rule that refuses). The layers of one behavior (its model, migration,
+  repository, endpoint, UI) are **one task**, never four: merged apart they leave dead code on the
+  base branch and the later PR lands in an environment the earlier one changed. A task under
+  about 30 lines joins its neighbor. A task whose diff, tests included, would pass about 400
+  lines is split by behavior (a defect found per line drops sharply past that size).
 - Under each task, add these sub-bullets (they become the issue body):
   - `  - Comes from: <FR-/SC-/story IDs or plan section>`
   - `  - Impact: <existing code, tests, docs, data files and guards this task must update, found by

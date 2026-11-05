@@ -51,7 +51,10 @@ Facts the author passes:
 `tasks.md`. *Impact* names every reference the task touches (search each symbol) and the newest
 sibling of each file it adds; *Completed when* is a command that proves the real path, not only a
 fresh state; a step that writes data names its target and refuses production; no task deletes
-what another task still uses.
+what another task still uses. **Shape:** a task is a vertical slice with an observable result. A
+task that is one layer of a behavior another task completes (a model here, its migration there,
+the endpoint in a third) is a finding: name the tasks to merge. So is a task whose diff would
+clearly pass about 400 lines with its tests: name the behaviors to split it by.
 
 ## Report
 

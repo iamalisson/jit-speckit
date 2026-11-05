@@ -38,6 +38,18 @@ practices:
       url: https://dora.dev/research/
       use_when: deciding how to measure or improve delivery (CI/CD, batch size, deploy frequency)
       key: four keys are deploy frequency, lead time, change failure rate and recovery time. Small batches and fast feedback win.
+    - title: DORA, Working in small batches
+      url: https://dora.dev/capabilities/working-in-small-batches/
+      use_when: sizing tasks, PRs or releases, or arguing for one PR per task
+      key: small batches predict delivery and organizational performance; the two pitfalls are pieces not small enough and regrouping them before release.
+    - title: SmartBear, Best practices for peer code review (Cisco study)
+      url: https://smartbear.com/learn/code-review/best-practices-for-peer-code-review/
+      use_when: deciding how big a change under review may be
+      key: review 200 to 400 lines at a time, under about 60 minutes; past 400 lines defects found per line fall off.
+    - title: Google engineering practices, Small CLs
+      url: https://google.github.io/eng-practices/review/developer/small-cls.html
+      use_when: splitting a change into reviewable pieces
+      key: one self-contained change per CL; about 100 lines is reasonable, 1,000 is too large; split by behavior, keep refactors apart.
     - title: MinimumCD
       url: https://minimumcd.org/
       use_when: setting up CI/CD for a new project

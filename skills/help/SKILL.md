@@ -8,8 +8,11 @@ argument-hint: "[question]"
 
 The docs are the source of truth. Read them, don't answer from memory, and read only what the
 question needs:
-- the commands, the loop, levels, configuration: `${CLAUDE_PLUGIN_ROOT}/README.md`;
-- why things work the way they do, with a worked feature: `${CLAUDE_PLUGIN_ROOT}/examples/README.md`;
+- the commands, the loop, levels: `${CLAUDE_PLUGIN_ROOT}/README.md`;
+- what runs automatically, configuration, update, uninstall, Claude Code tools:
+  `${CLAUDE_PLUGIN_ROOT}/docs/reference.md`;
+- why things work the way they do: `${CLAUDE_PLUGIN_ROOT}/docs/design.md`, and a worked feature
+  in `${CLAUDE_PLUGIN_ROOT}/examples/README.md`;
 - security: `${CLAUDE_PLUGIN_ROOT}/docs/security.md`;
 - starting a project, architecture, "is this a good idea?": `${CLAUDE_PLUGIN_ROOT}/docs/GUIDELINES.md`
   and `${CLAUDE_PLUGIN_ROOT}/docs/GUARDRAILS.md`;
