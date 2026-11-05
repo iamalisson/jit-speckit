@@ -14,7 +14,7 @@ tasks.md "Rules every task follows".
 | P12 | Never opens a PR on red checks | broken | no script runs the checks before a PR; section B: `pr.sh` opens the PR while the project's check fails: F3.3 |
 | P13 | Tests are evidence: a PR that changes existing tests needs `## Test changes`; mutation testing runs on the change | limit | test changes: `pr.sh:57-66` with `TEST_PATH_RE` (`lib.sh:57`) and `--no-renames`; `tests/pr.test.sh:86-111`. Mutation testing only runs when the prompt runs it, and `missing` exits 0: F3.4 |
 | P14 | GitHub Copilot code review is requested on every PR when the account has it | broken | sandbox PR #15: `pr.sh`'s exact call answers `201 Created` with `"requested_reviewers":[]`, and `pr.sh` prints `copilot: code review requested` anyway: F3.5 |
-| P15 | On full, `## Evidence` and `/speckit-analyze` on the current `tasks.md` are required | holds | `pr.sh:52-54` refuses a body without `## Evidence`; `branch.sh:37-42` refuses until the analysis marker matches `tasks.md` on the base; `tests/pr.test.sh:40`, `tests/branch.test.sh:63-70`. The marker is written by `analyzed.sh`, so it has the same narrowness as F3.1 |
+| P15 | On full, `## Evidence` and `/speckit-analyze` on the current `tasks.md` are required | limit | `pr.sh:52-54` refuses a body without `## Evidence`; `branch.sh:37-42` refuses until the analysis marker matches `tasks.md` on the base; `tests/pr.test.sh:40`, `tests/branch.test.sh:63-70`. But the marker proves even less than the review record: `analyzed.sh:12` writes it with no report at all: F3.1 |
 | P26 | Before each PR, the scanners run on the changed files and `/security-review` runs | limit | asked in `extension/commands/pr.md` step 4 only; `pr.sh` never checks they ran (section B), and a missing scanner is reported as `missing` and exits 0 (`security-scan.sh:32`): F3.6 |
 
 Also checked, no finding:
@@ -52,7 +52,10 @@ Also checked, no finding:
   `review.sh check` passes. `docs/design.md:38-46` says the review "runs in a fresh agent that
   gets only facts" and "The review is a gate, not a prompt". The gate is real for *some* recorded
   report on *this* diff; who wrote it, and whether it read anything, is only asked by the prompt.
-  The report also lives in `.git/jit-review/`, so nobody else can see it.
+  The report also lives in `.git/jit-review/`, so nobody else can see it. The full-level
+  analysis marker is weaker still: `analyzed.sh:12` writes the hash of `tasks.md` whenever it is
+  run, with no report at all, so `branch.sh:37-42` passes on full whether `/speckit-analyze` ran
+  or not.
 - **reproduction**: section A of the script below.
 - **exposure**: public (the operator, or their own agent, can skip it; FR-013).
 - **fix**: make the record visible and say what it proves. `pr.sh task` puts the recorded
@@ -106,10 +109,13 @@ Also checked, no finding:
   comment says "Without it the API refuses (422) and nothing is said" (`pr.sh:26-27`). On the
   sandbox, real output: `HTTP/2.0 201 Created` with `"requested_reviewers":[]`, and then
   `GET …/requested_reviewers` gives `{"teams":[],"users":[]}`. The login `Copilot` gives the same
-  `201` and `[]`. PRs #29 and #30 in this repository, and sandbox #14, all printed the line, and
-  none has a review request or a review event in its timeline. Whether a request works on an
-  account that has Copilot code review is `unverified` here: this account's answers show no Copilot
-  reviewer at all.
+  `201` and `[]`. Sandbox PRs #13 and #14 printed the line (quoted in section 1's sandbox output),
+  and so did this repository's #29 and #30 when they were opened (this session's output, not quoted
+  elsewhere); none of the four has a review request or a review event in its timeline. Which login
+  GitHub expects for a Copilot review request was not checked against GitHub's documentation, so
+  two causes remain open and both are `unverified`: this account has no Copilot code review, or
+  `copilot-pull-request-reviewer[bot]` is not the login the API takes. Either way the printed line
+  is wrong, which is the finding.
 - **reproduction**: sandbox script below.
 - **exposure**: public.
 - **fix**: print the line only when the answer's `requested_reviewers` contains the Copilot
@@ -138,7 +144,7 @@ Also checked, no finding:
 
 ### F3.7 · Low · P10 · the hint for a missing task review tells the user to record a plan review
 
-- **verdict**: limit
+- **verdict**: broken
 - **evidence**: `review.sh:45` builds the hint with `${plan:+ --plan}`, but `plan` is the string
   `false` or `true`, never empty, so the hint always says `review.sh record --plan <report-file>`.
   Section D: on a task branch with no record, `… record its report: review.sh record --plan
@@ -240,6 +246,9 @@ rc=0
 HTTP/2.0 201 Created
 []
 ```
+
+The probe's label "the login GitHub documents for Copilot" is the probe's wording, not a
+checked fact (see F3.5).
 
 Cleanup: PR #15 closed with `[001 review T003] cleanup`, branch `review-001-t003-copilot` deleted
 on origin and locally. The record is in the sandbox clone's `.git/jit-repro/t003-created.txt`.
