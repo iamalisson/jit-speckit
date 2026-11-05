@@ -51,7 +51,8 @@ Plugins don't update themselves. From a terminal, one line:
 claude plugin marketplace update jit-speckit && claude plugin update jit-speckit@jit-speckit
 ```
 
-Then restart Claude Code. **In every project that already uses jit-speckit, run `/jit-speckit:init`
+Inside a Claude Code session, the same line with a `!` in front runs it there (the `/plugin` prompt
+does not take it). Then `/reload-plugins`, or restart Claude Code. **In every project that already uses jit-speckit, run `/jit-speckit:init`
 once**: each project keeps its own copy of the extension (hooks, scripts, review method, scaffold)
 under `.specify/`, and only `init` refreshes it. It keeps the project's level and touches nothing
 else. Skip it and the project keeps running the old version, whatever the plugin says.
