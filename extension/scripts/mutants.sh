@@ -19,9 +19,7 @@ finish() { echo "mutants $1 $2"; echo "REPORT_DIR=$dir"; exit 0; }
 cmd="$(constitution_cmd mutate)"
 [[ -n "$cmd" ]] || finish missing "no 'mutate' command in the constitution's **Commands** line; /jit-speckit:adopt fills it"
 
-base="$(base_branch)"
-ref="origin/$base"; git show-ref --verify --quiet "refs/remotes/$ref" || ref="$base"
-from="$(git merge-base HEAD "$ref" 2>/dev/null || echo HEAD)"
+from="$(git merge-base HEAD "$(base_ref)" 2>/dev/null || echo HEAD)"
 git diff "$from" HEAD > "$dir/changes.diff"
 changed="$(git diff --name-only --diff-filter=ACMR "$from" HEAD | grep -vE "$TEST_PATH_RE" | tr '\n' ' ')"
 changed="${changed% }"

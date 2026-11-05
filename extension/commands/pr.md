@@ -39,7 +39,7 @@ description: "Review, commit, push and open the task's pull request"
      the real ones. List the false positives with the reason.
    - `/security-review` on the branch.
 
-   Save the report to a file as it came and record it:
+   Save the report as it came to a file outside the repository (`mktemp`) and record it:
    `bash .specify/extensions/jit/scripts/review.sh record <file>`. Then fix every **High** and
    **Medium** finding in the code (a test changes only when the test was wrong: then
    `## Test changes`, step 2). Commit the fixes (same rules), re-run step 2, and run the review

@@ -77,6 +77,10 @@ check_git() {
       *) sub="$1"; shift; break ;;
     esac
   done
+  # pre-commit's SKIP= only matters where hooks run; `SKIP=x git status` is fine.
+  case "$sub" in commit|push|merge|rebase|am|cherry-pick|revert)
+    if $skip_env; then block "SKIP= turns pre-commit hooks off; fix what the hook reports instead"; fi ;;
+  esac
   case "$sub" in
     commit)
       while (($#)); do
@@ -132,12 +136,17 @@ check_git() {
   esac
 }
 
-# check_command <command text>: every command in it, including ones inside sh -c '...'.
+# check_command <command text> [nested]: every command in it, including ones inside sh -c '...'.
+# An env prefix (SKIP=) belongs to one top-level command; inside sh -c it carries over.
 check_command() {
-  local cmd=() w
+  local cmd=() w nested="${2:-}"
   while IFS= read -r w; do
-    if [[ "$w" == "|" ]]; then check_words ${cmd[@]+"${cmd[@]}"}; cmd=(); else cmd+=("$w"); fi
+    if [[ "$w" == "|" ]]; then
+      [[ -n "$nested" ]] || skip_env=false
+      check_words ${cmd[@]+"${cmd[@]}"}; cmd=()
+    else cmd+=("$w"); fi
   done < <(words "$(without_heredocs "$1")")
+  [[ -n "$nested" ]] || skip_env=false
   check_words ${cmd[@]+"${cmd[@]}"}
 }
 
@@ -148,25 +157,26 @@ check_words() {
     if [[ "$w" == GIT_CONFIG_*=* ]] && hookspath "$w"; then no_hooks; fi
   done
   # Prefixes that still run git: VAR=value, env [VAR=value...], command, exec, time, nohup.
-  local skip=false
+  # SKIP= (pre-commit) is remembered: it also reaches the commands inside a `sh -c '...'`.
   while (($#)); do
     case "$1" in
-      SKIP=*|PRE_COMMIT_ALLOW_NO_CONFIG=*) skip=true; shift ;;
+      SKIP=*|PRE_COMMIT_ALLOW_NO_CONFIG=*) skip_env=true; shift ;;
       *=*|env|command|exec|time|nohup|sudo) shift ;;
       *) break ;;
     esac
   done
   (($#)) || return 0
   case "$1" in
-    git|*/git) if $skip; then block "SKIP= turns pre-commit hooks off; fix what the hook reports instead"; fi; shift; check_git "$@" ;;
+    git|*/git) shift; check_git "$@" ;;
     sh|bash|zsh|*/sh|*/bash|*/zsh)
       shift
       while (($#)); do
-        if [[ "$1" == -*c* && "$1" != --* ]]; then check_command "${2:-}"; return; fi
+        if [[ "$1" == -*c* && "$1" != --* ]]; then check_command "${2:-}" nested; return; fi
         shift
       done ;;
   esac
 }
 
+skip_env=false
 check_command "${1:-}"
 exit 0

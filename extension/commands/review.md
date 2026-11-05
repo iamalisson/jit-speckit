@@ -13,7 +13,7 @@ session shares the author's assumptions and tests the same path the author teste
 **Two roles.** If you are the author's session (`/speckit-jit-pr`, `/speckit-jit-issues`, or the
 user ran `/speckit-jit-review`): launch one general-purpose subagent whose prompt is this whole
 file plus the facts below, and nothing else: no summary of what you built, no "I already checked
-X". Wait for its report, save it to a file as it came, and record it:
+X". Wait for its report, save it as it came to a file outside the repository (`mktemp`), and record it:
 `bash .specify/extensions/jit/scripts/review.sh record <file>` (`record --plan <file>` for a plan
 review). The record is tied to the exact diff (or `tasks.md`): `pr.sh` and `issues.sh` refuse to
 open anything without a recorded review that said `ready` for the current state, at every level,

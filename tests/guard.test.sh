@@ -28,6 +28,9 @@ check "when hooks are switched off with -c core.hooksPath, then it is blocked" \
   'blocked "git -c core.hooksPath=/dev/null commit -m x" && blocked "git -c core.hooksPath /dev/null commit -m x"'
 check "when pre-commit hooks are skipped with SKIP=, then it is blocked" \
   'blocked "SKIP=blue git commit -m x" && blocked "SKIP=a,b env git push" && blocked "npm test && SKIP=x git commit -m y"'
+check "when SKIP= wraps an sh -c, then the commit inside is still blocked" 'blocked "SKIP=x bash -c \"git commit -m y\""'
+check "when SKIP= prefixes a read-only git command, then it is allowed" '"$g" "SKIP=x git status" && "$g" "SKIP=lint git diff" && "$g" "SKIP=1 git log -1"'
+check "when SKIP= was on an earlier command in the chain, then a later plain commit is allowed" '"$g" "SKIP=x pre-commit run && git commit -m y"'
 check "when SKIP= only appears in the message, then it is allowed" '"$g" "git commit -m \"docs: SKIP=blue explained\""'
 check "when a commit message merely contains -n or --no-verify, then it is allowed" \
   '"$g" "git commit -m \"docs: explain -n and --no-verify\""'

@@ -57,7 +57,7 @@ case "$mode" in
     # A test that changes to fit the code proves nothing: editing, renaming or deleting an
     # existing test needs a reason a reviewer can check. New tests need none.
     # --no-renames: a test moved out of a test folder counts as deleted, not as a new file.
-    ref="origin/$base"; git rev-parse --verify --quiet "$ref" >/dev/null || ref="$base"
+    ref="$(base_ref)"
     git rev-parse --verify --quiet "$ref" >/dev/null || die "base branch '$base' not found locally or on origin"
     changed_tests="$(git diff --no-renames --diff-filter=MD --name-only "$ref...HEAD" | grep -E "$TEST_PATH_RE" || true)"
     if [[ -n "$changed_tests" ]] && ! grep -qE '^## Test changes' <<<"$body"; then
@@ -79,7 +79,7 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
     open="$(gh pr list --head "$branch" --state open --json url --jq '.[0].url // empty' 2>/dev/null || true)"
     fresh=false
     if [[ "$(git branch --show-current)" != "$branch" || -z "$open" ]]; then
-      ref="origin/$base"; git rev-parse --verify --quiet "$ref" >/dev/null || ref="$base"
+      ref="$(base_ref)"
       # The spec folder's current content travels with us; nothing else is touched.
       saved="$(mktemp -d)"; cp -R "$fdir" "$saved/"
       restore() { rm -rf "$fdir"; mkdir -p "$(dirname "$fdir")"; cp -R "$saved/$(basename "$fdir")" "$fdir"; rm -rf "$saved"; }
