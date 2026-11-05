@@ -51,6 +51,14 @@ sk="$(sed -nE 's/^SPECKIT_VERSION="(v[0-9.]+)".*/\1/p' bin/setup.sh)"
 check "the spec-kit version in setup.sh ($sk) matches the init skill and the README badge" \
   '[[ -n "$sk" ]] && grep -qF "spec-kit.git@$sk\`" skills/init/SKILL.md && grep -qF "spec--kit-$sk-" README.md && grep -qF "alt=\"spec-kit $sk\"" README.md'
 
+# A link copied from the README into docs/ keeps its docs/ prefix and breaks; every relative link
+# in a markdown file must point at a file that exists next to it.
+broken=""
+while IFS=: read -r f target; do
+  [[ -e "$(dirname "$f")/${target%%#*}" ]] || broken+="$f -> $target "
+done < <(grep -oE '\]\([^)#:]+(\.md|\.yaml|\.yml)(#[^)]*)?\)' README.md docs/*.md examples/README.md | sed -E 's/\]\(//; s/\)$//')
+check "every relative link in the docs points at a file that exists${broken:+ — broken: $broken}" '[[ -z "$broken" ]]'
+
 refs=docs/references.yaml
 check "every reference has a title, url, use_when and key" \
   '[[ $(grep -c "^ *- title: " $refs) -gt 0 && $(grep -c "^ *- title: " $refs) == $(grep -c "^ *url: https://" $refs) && $(grep -c "^ *- title: " $refs) == $(grep -c "^ *use_when: " $refs) && $(grep -c "^ *- title: " $refs) == $(grep -c "^ *key: " $refs) ]]'
