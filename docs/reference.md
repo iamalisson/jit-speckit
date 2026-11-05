@@ -57,6 +57,22 @@ CI. Your files are never overwritten: the ones jit-speckit generates carry a
 line to make one yours. Repos that run hooks through the pre-commit framework or husky get jit's
 two checks added there.
 
+## Several features at once
+
+Every feature is its own folder (`specs/001-login/`, `specs/002-reports/`), and everything jit
+creates carries its number: issues `[001] T003: ...`, branches `feat/001-t003-...`, the spec PR
+`spec/001-login`. They never collide. The **active feature** is per clone (`.specify/feature.json`,
+git-ignored): `/speckit-specify` sets it to the new feature, and `/jit-speckit:next 002` or
+`/speckit-implement 002 T001` set it explicitly. With no argument, `next` serves the active
+feature; when more than one feature has tasks to start, it lists them and asks. On a task branch
+the branch name decides, so a worktree never follows the main checkout.
+
+A task is **claimed** the moment it starts: its branch is pushed to origin, empty. From then on
+`next` in every clone and worktree shows it as in progress and never picks it; the clone that
+started it sees it as `resume` and picks it first. Teammates need nothing but `/jit-speckit:init`
+once in their clone: the shared state is `tasks.md` on the base branch, the issues, and the
+branches on origin.
+
 ## What happens automatically
 
 | After / before | jit-speckit |
@@ -64,8 +80,8 @@ two checks added there.
 | after `/speckit-tasks` | the plan is **grounded in the real code** (every symbol a task removes is searched for, every quickstart command is read, every data write names its target), then reviewed by a fresh agent (plan review), then one issue per task, `— #N` written on each task line, the spec PR opened |
 | after `/speckit-analyze` | records the analysis (level `full` needs it before tasks start) |
 | after `/speckit-converge` | the new tasks it found get grounded, get issues, and reach the base branch through a spec PR |
-| before `/speckit-implement` | refuses without exactly one task, an issue, the merged spec and a clean tree; otherwise switches to `feat/<feature>-t00x-<slug>`. spec-kit's implement command is told to build only that task and not tick it (the issue closing is "done") |
-| after `/speckit-implement` | checks, commit, security scan, `/security-review`, the independent review (fixed until `ready`), push, PR with `Closes #N` and `## Review`, Copilot code review requested |
+| before `/speckit-implement` | refuses without exactly one task, an issue, the merged spec and a clean tree; otherwise switches to `feat/<feature>-t00x-<slug>` and pushes it to origin at once (the claim). spec-kit's implement command is told to build only that task and not tick it (the issue closing is "done") |
+| after `/speckit-implement` | checks, mutation testing on the change, commit, security scan, `/security-review`, the independent review (fixed until `ready`), push, PR with `Closes #N` and `## Review`, Copilot code review requested |
 | every issue and PR | assigned to you; given the milestone and project if configured (a failure only warns); no AI attribution lines; long output folded into `<details>` |
 | a task PR that changes existing tests | refused unless the body has a `## Test changes` section saying why. New tests need no explanation; weakening one does |
 

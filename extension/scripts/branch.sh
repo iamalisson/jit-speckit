@@ -1,16 +1,23 @@
 #!/usr/bin/env bash
 # Switch to the branch for one task, creating it from the base branch if needed.
-# Usage: branch.sh T003
+# Usage: branch.sh [feature] T003      feature: a number (002) or folder name, else the active one
+# A new branch is pushed to origin at once, so the task shows as in progress to every clone.
 # Prints: BRANCH=<name> ISSUE=<n> TASK=<id> BASE=<base>
 set -euo pipefail
 # shellcheck source=lib.sh
 source "$(dirname "$0")/lib.sh"
 
-task="${1:-}"
-[[ "$task" =~ ^T[0-9]{3,}$ ]] || die "usage: branch.sh T001 (exactly one task ID)"
+task=""; feature=""
+for a in "$@"; do
+  case "$a" in
+    T[0-9]*) [[ -z "$task" ]] || die "usage: branch.sh [feature] T001 (exactly one task ID)"; task="$a" ;;
+    *) [[ -z "$feature" ]] || die "usage: branch.sh [feature] T001 (one feature at most)"; feature="$a" ;;
+  esac
+done
+[[ "$task" =~ ^T[0-9]{3,}$ ]] || die "usage: branch.sh [feature] T001 (exactly one task ID)"
 jit_cd_root
 
-fdir="$(feature_dir)"
+if [[ -n "$feature" ]]; then fdir="$(resolve_feature "$feature")"; else fdir="$(feature_dir)"; fi
 line="$(task_line "$fdir" "$task")"
 [[ -n "$line" ]] || die "$task not found in $fdir/tasks.md"
 issue="$(task_issue "$line")"
@@ -43,7 +50,10 @@ if [[ "$(git branch --show-current)" != "$branch" ]]; then
   [[ -z "$(git status --porcelain)" ]] || die "uncommitted changes on '$(git branch --show-current)'; commit or stash them first"
   if git show-ref --verify --quiet "refs/heads/$branch"; then git switch --quiet "$branch"
   elif git show-ref --verify --quiet "refs/remotes/origin/$branch"; then git switch --quiet --track "origin/$branch"
-  else git switch --quiet --no-track -c "$branch" "$from"
+  else
+    git switch --quiet --no-track -c "$branch" "$from"
+    # The claim: an empty branch on origin tells every other clone's `next` this task is taken.
+    if git push --quiet -u origin "$branch" 2>/dev/null; then echo "claim: $branch pushed to origin" >&2; fi
   fi
 fi
 

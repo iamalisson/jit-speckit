@@ -1,16 +1,22 @@
 ---
 name: next
-description: "Show the current spec-kit feature's progress (a task is done when its issue is closed) and start the next open task with /speckit-implement. Use when the user asks what's next or has just merged a task PR."
+description: "Show a spec-kit feature's progress (a task is done when its issue is closed) and start the next open task with /speckit-implement; with several features, asks which. Use when the user asks what's next or has just merged a task PR."
+argument-hint: "[feature]"
 ---
 
 # Next task
 
-1. Run `bash .specify/extensions/jit/scripts/next.sh`.
+1. Run `bash .specify/extensions/jit/scripts/next.sh [feature]`, with the argument when the user
+   named a feature (`002` or `002-reports`); it becomes the active feature.
    - If `.specify/extensions/jit/` does not exist, tell the user to run `/jit-speckit:init`
      first, and stop.
-2. Show the progress as a short list (done / in-progress / open / no-issue), then `DONE=x/y`.
-   - **in-progress** tasks have an open PR (from this or another worktree) and are never picked
-     again; they finish when their PR merges.
+   - If it prints `CHOOSE=...`, more than one feature has tasks to start: show the `feature` lines
+     with their counts, ask which one, and run it again with that feature.
+2. Show the progress as a short list (done / resume / in-progress / open / no-issue), then
+   `DONE=x/y`.
+   - **resume** is a task whose branch you started in this clone; it is picked first.
+   - **in-progress** tasks are being done elsewhere (a branch on origin, another worktree, an
+     open PR) and are never picked; they finish when their PR merges.
    - If tasks have **no issue**, say so and suggest `/speckit-jit-issues`.
    - If `NEXT` is empty and `IN_PROGRESS` is not 0, nothing is left to start: list the open PRs
      to merge, and stop.

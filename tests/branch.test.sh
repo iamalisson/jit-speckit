@@ -15,6 +15,15 @@ check "when the branch does not exist, then it is created from origin/develop (s
 check "then it prints the branch, issue, task and base" \
   '[[ "$out" == "BRANCH=feat/001-t001-split-ci-credentials-into ISSUE=57 TASK=T001 BASE=develop" ]]'
 check "when run again on the same branch, then it succeeds" '"$b" T001'
+check "then the new branch was pushed to origin at once (the claim)" 'git ls-remote --exit-code origin feat/001-t001-split-ci-credentials-into'
+
+git switch --quiet main
+mkdir -p specs/002-reports; printf '%s\n' '- [ ] T001 Monthly report in `r.py` — #30' > specs/002-reports/tasks.md
+git add specs/002-reports; git commit --quiet -m "docs: 002"; git push --quiet origin main; git push --quiet origin main:develop
+check "when a feature is named before the task, then that feature's task is used, not the active one" \
+  '"$b" 002 T001 | grep -q "BRANCH=feat/002-t001-monthly-report ISSUE=30" && grep -q specs/002-reports .specify/feature.json'
+check "when the feature name matches nothing, then it refuses" '! "$b" 009 T001'
+git switch --quiet main; echo '{ "feature_directory": "specs/001-demo" }' > .specify/feature.json
 
 git switch --quiet main
 "$b" T002 >/dev/null

@@ -78,7 +78,8 @@ printf 'Adds search.\n\n## Review\n\nready: no findings\n' > "$TMP/plain.md"
 echo 'assert True' > tests/test_price.py; git commit --quiet -am "feat: weaken"
 check "when an existing test is edited and the body says nothing, then it refuses and names the file" \
   'fails_with "tests/test_price.py" "$p" task T001 "feat(search): add search" "$TMP/plain.md"'
-check "then nothing was pushed" '! git ls-remote --exit-code origin "$(git branch --show-current)"'
+check "then no commit was pushed (origin still has only the empty claim)" \
+  '[[ "$(git ls-remote origin "refs/heads/$(git branch --show-current)" | cut -f1)" == "$(git rev-parse origin/develop)" ]]'
 
 git rm --quiet src/keep.test.ts; git commit --quiet -m "chore: drop test"
 check "when an existing test is deleted, then it refuses too" 'fails_with "src/keep.test.ts" "$p" task T001 "feat(search): add search" "$TMP/plain.md"'

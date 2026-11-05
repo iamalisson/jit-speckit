@@ -77,7 +77,7 @@ commit it. What `new` asks and sets up: [docs/reference.md](docs/reference.md#wh
 | | `/speckit-tasks` | the task list, grounded in the real code, **one issue per task**, and a spec PR |
 | | *(optional)* `/speckit-analyze` | a consistency check (required on `full`) |
 | | merge the spec PR | |
-| **Once per task** | `/jit-speckit:next` | progress, then the next open task: **its branch → code → checks → review → PR** |
+| **Once per task** | `/jit-speckit:next` | progress, then the next open task: **its branch → code → checks (tests, mutants) → review → PR**. Several features? `next 002` |
 | | merge the PR | the issue closes |
 | **When every task is done** | `/speckit-converge` | compares the code with the spec; anything unbuilt becomes new tasks with issues |
 
