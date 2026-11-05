@@ -3,7 +3,7 @@ schema_version: "1.0"
 extension:
   id: jit
   name: "jit-speckit"
-  version: "1.6.0"
+  version: "1.6.1"
   description: "One task = one issue = one branch = one PR, with defaults sized by project complexity"
   author: iamalisson
   repository: https://github.com/iamalisson/jit-speckit

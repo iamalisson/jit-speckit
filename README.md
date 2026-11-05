@@ -174,7 +174,7 @@ two checks added there.
 | **Plan mode** (`Shift+Tab`) | thinking out loud before `/speckit-specify` or during `/speckit-clarify`. Not for `/speckit-plan`, which writes files that plan mode blocks. |
 | **`/code-review ultra`** | yourself, before merging a large or risky change (cloud, billed). The review before each PR is jit's own `/speckit-jit-review`: a fresh agent grounded in the whole repository, so it is not anchored on the session that wrote the code. |
 | **`/security-review`** | before each PR, automatically, and inside `/jit-speckit:security` |
-| **Worktrees** | tasks marked `[P]` can run in parallel: open another session with `claude --worktree` and run `/speckit-implement T00X` there. Each one gets its own branch and PR. The active feature, the `/speckit-analyze` record and the security reports are shared by every worktree, so `full` works there too. |
+| **Worktrees** | tasks marked `[P]` can run in parallel: open another session with `claude --worktree` and run `/jit-speckit:next` there. A task with an open PR counts as in progress and is never picked twice, so every worktree gets a different task. Each one gets its own branch and PR. The active feature, the `/speckit-analyze` record and the security reports are shared by every worktree, so `full` works there too. |
 
 ## What happens automatically
 
