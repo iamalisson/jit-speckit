@@ -78,11 +78,12 @@ git config --unset color.ui; git config --unset diff.noprefix
 
 # A first push of a brand-new repo: the root commit itself carries the secret, and no remote has
 # anything yet. Nothing may be skipped.
-mkdir -p "$TMP/fresh" && cd "$TMP/fresh" && git init --quiet && git config user.email t@t && git config user.name t
+mkdir -p "$TMP/fresh" && cd "$TMP/fresh" && git init --quiet -b feat/first && git config user.email t@t && git config user.name t
 mkdir -p .specify/extensions/jit && ln -s "$SCRIPTS" .specify/extensions/jit/scripts
 printf 'key = "sk_live_%s"\n' "$(printf 'c%.0s' {1..24})" > root.rb; git add root.rb; git commit --quiet --no-verify -m root
+# A feature branch, so the secret scan (not the protected-branch rule) is what refuses.
 check "when the first push of a new repo has a secret in the root commit, then pre-push refuses" \
-  'fails_with "root.rb:1: possible Stripe live key" bash "$SCRIPTS/prepush.sh" <<<"refs/heads/main $(git rev-parse HEAD) refs/heads/main $zero"'
+  'fails_with "root.rb:1: possible Stripe live key" bash "$SCRIPTS/prepush.sh" <<<"refs/heads/feat/first $(git rev-parse HEAD) refs/heads/feat/first $zero"'
 
 # A brand-new repository on level standard: the remote is empty, so the first push of the setup
 # to the default branch has no PR to go through. It is allowed once, and still scanned.
