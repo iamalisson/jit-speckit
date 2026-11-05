@@ -41,7 +41,7 @@ Also checked, no finding:
 | red checks | nothing | `pr.md` step 2: "If anything fails, stop and report it. Never open a PR on red checks." | "never open a PR on red checks" (`.specify/memory/constitution.md:11`) |
 | test changes | `pr.sh:63-66`: an edited or deleted existing test needs `## Test changes` | `pr.md` step 2 | "refused unless the body has a `## Test changes` section" (`docs/reference.md:89`) |
 | mutation testing | nothing (`mutants.sh` always exits 0) | `pr.md` step 2 | "mutation testing on the change" (`docs/reference.md:87`) |
-| pre-PR scanners, `/security-review` | nothing | `pr.md` step 4 | "scanners on the change, `/security-review`" (`README.md:108`) |
+| pre-PR scanners, `/security-review` | nothing | `pr.md` step 4 | "scanners on the changed files, `/security-review`" (`README.md:108`) |
 | full: evidence, analysis | `pr.sh:52-54`; `branch.sh:37-42` (a marker `analyzed.sh` writes on request, F3.8) | `pr.md` step 5, `/speckit-analyze` | "required before any task" (`README.md:126`) |
 
 ### F3.1 · Medium · P10, P11 · the review gate proves a report exists, not that a fresh reader wrote it
@@ -58,12 +58,17 @@ Also checked, no finding:
 - **exposure**: public (the operator, or their own agent, can skip it; FR-013).
 - **fix**: make the record visible and say what it proves. `pr.sh task` puts the recorded
   report's *What changed* and *Findings* headings, and its `Assessment:` line, into the PR body,
-  folded in `<details><summary>Independent review</summary>`, so a human merging can see it; a
-  report section marked as a security finding is left out and replaced by its one line, as the
-  constitution requires for public places. `docs/design.md` then says the gate proves "a recorded report that said
+  folded in `<details><summary>Independent review</summary>`, so a human merging can see it.
+  Nothing marks a security finding today (`extension/commands/review.md:78-79` only ranks
+  "security" under High), so the same change makes `review.md` report each security finding as one
+  line, `Security: reported privately (<id>)`, with its detail kept in the recorded file only, and
+  `pr.sh` copies no line that follows such a marker. That keeps the constitution's "never put … a
+  security finding into a public place" (`.specify/memory/constitution.md:12`). `docs/design.md` then says the gate proves "a recorded report that said
   ready for this exact diff, attached to the PR", and that who wrote it is asked by the prompt.
   Check for `tests/pr.test.sh`: when a review is recorded and `pr.sh task` opens the PR, then the
-  body sent to `gh pr create` contains the recorded report's text. It fails today.
+  body sent to `gh pr create` contains the recorded report's text, and when the recorded report
+  holds a security finding, then the body does not contain that finding's text. The first fails
+  today; the second guards the fix.
 
 ### F3.2 · Low · P11 · editing `spec.md`, `research.md` or `quickstart.md` after the plan review keeps it valid
 
@@ -74,6 +79,7 @@ Also checked, no finding:
   own plan used that on 2026-11-05: a fix to `research.md` after the last plan review kept it
   `ready`.
 - **reproduction**: section C of the script below.
+- **exposure**: public.
 - **docs**: `docs/reference.md:83` says the plan is "reviewed by a fresh agent (plan review, recorded; no
   issue is created without it)", and does not say which files the record covers.
 - **note**: hashing the whole feature folder (without the issue links) would cover what the task
@@ -95,7 +101,7 @@ Also checked, no finding:
 
 ### F3.4 · Medium · P13 · mutation testing runs only if the prompt runs it
 
-- **verdict**: limit
+- **verdict**: limit (the docs mislead)
 - **evidence**: `mutants.sh` always exits 0 (`mutants.sh:17`), with `missing`, `skipped`,
   `survivors` or `ok` on its first line, and `pr.sh` never calls it. Section E: with no `mutate`
   command, `mutants missing …`, `rc=0`. `pr.md` step 2 asks to put the result in *Evidence*, and
@@ -145,8 +151,19 @@ Also checked, no finding:
   `security-scan.sh` reports each absent scanner as `missing` and exits 0 (`security-scan.sh:32`).
   On this machine all four were `missing` for T001 and T002, and both PRs opened. A user can tell
   from the PR body only if the agent wrote it there.
-- **reproduction**: section B (no check in `pr.sh`), and `security-scan.sh --changed` with no
-  scanner installed.
+- **reproduction**: section B (no check in `pr.sh`), and v1.7.2's `security-scan.sh --changed`
+  run on this machine, where no scanner is installed (the `missing` lines come from
+  `security-scan.sh:32`, and the script ends with `echo "REPORT_DIR=$dir"`, so it exits 0):
+
+  ```text
+  gitleaks     missing   install: https://github.com/gitleaks/gitleaks#installing (brew install gitleaks)
+  osv-scanner  missing   install: https://google.github.io/osv-scanner/installation/ (brew install osv-scanner)
+  semgrep      missing   install: uv tool install semgrep (or pipx install semgrep)
+  zizmor       missing   install: uv tool install zizmor (or brew install zizmor)
+  trivy        skipped   no Dockerfile/Terraform/Kubernetes files
+  REPORT_DIR=.git/jit-security/<timestamp>
+  rc=0
+  ```
 - **exposure**: public.
 - **fix**: `security-scan.sh --changed` writes its result line to `.git/jit-security/<diff patch
   id>`, and `pr.sh task` refuses when there is none for this diff. Or, smaller, the README row
@@ -162,6 +179,7 @@ Also checked, no finding:
   Section D: on a task branch with no record, `… record its report: review.sh record --plan
   <report-file>`. Following it records a plan review, and the task gate still refuses.
 - **reproduction**: section D of the script below.
+- **exposure**: public.
 - **note**: `$($plan && echo ' --plan')`.
 
 ### F3.8 · Medium · P15 · on full, the analysis requirement is met by running `analyzed.sh` alone
