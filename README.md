@@ -207,8 +207,11 @@ These are spec-kit hooks, so you never type them. If you skip one, run it yourse
 
 ## Uninstall
 
-```
-/plugin uninstall jit-speckit
-```
+From one project, `/jit-speckit:remove`: it unregisters the spec-kit extension and preset,
+deletes the files jit-speckit created and you never edited (hooks, workflows, Dependabot, PR
+template, `SECURITY.md`, `CODEOWNERS`), undoes its git hook setup and strips its block from the
+constitution. Your specs, commits and edits stay; `develop`/`staging` and the GitHub protections
+are listed for you to remove by hand. `/jit-speckit:remove --with-speckit` also removes spec-kit's
+own files, for a reinstall from zero with `/jit-speckit:init`.
 
-In a project, `specify extension remove jit && specify preset remove jit && git config --unset core.hooksPath`.
+From Claude Code: `/plugin uninstall jit-speckit`.
