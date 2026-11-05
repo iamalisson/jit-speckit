@@ -14,7 +14,7 @@ tasks.md "Rules every task follows".
 | P12 | Never opens a PR on red checks | broken | no script runs the checks before a PR; section B: `pr.sh` opens the PR while the project's check fails: F3.3 |
 | P13 | Tests are evidence: a PR that changes existing tests needs `## Test changes`; mutation testing runs on the change | limit | test changes: `pr.sh:57-66` with `TEST_PATH_RE` (`lib.sh:57`) and `--no-renames`; `tests/pr.test.sh:86-111`. Mutation testing only runs when the prompt runs it, and `missing` exits 0: F3.4 |
 | P14 | GitHub Copilot code review is requested on every PR when the account has it | broken | sandbox PR #15: `pr.sh`'s exact call answers `201 Created` with `"requested_reviewers":[]`, and `pr.sh` prints `copilot: code review requested` anyway: F3.5 |
-| P15 | On full, `## Evidence` and `/speckit-analyze` on the current `tasks.md` are required | limit | `pr.sh:52-54` refuses a body without `## Evidence`; `branch.sh:37-42` refuses until the analysis marker matches `tasks.md` on the base; `tests/pr.test.sh:40`, `tests/branch.test.sh:63-70`. But the marker proves even less than the review record: `analyzed.sh:12` writes it with no report at all: F3.1 |
+| P15 | On full, `## Evidence` and `/speckit-analyze` on the current `tasks.md` are required | limit | `pr.sh:52-54` refuses a body without `## Evidence`; `branch.sh:37-42` refuses until the analysis marker matches `tasks.md` on the base; `tests/pr.test.sh:40`, `tests/branch.test.sh:63-70`. But the marker proves even less than the review record: `analyzed.sh:12` writes it with no report at all: F3.8 |
 | P26 | Before each PR, the scanners run on the changed files and `/security-review` runs | limit | asked in `extension/commands/pr.md` step 4 only; `pr.sh` never checks they ran (section B), and a missing scanner is reported as `missing` and exits 0 (`security-scan.sh:32`): F3.6 |
 
 Also checked, no finding:
@@ -34,17 +34,17 @@ Also checked, no finding:
 
 **Script refuses / prompt asks** (research R4):
 
-| gate | script refuses | prompt asks |
-|---|---|---|
-| task review | `pr.sh:68`: no recorded `ready` for this diff; `pr.sh:55-56`: no `## Review` | `extension/commands/pr.md` step 4: a fresh general-purpose subagent with `review.md` and the facts only |
-| plan review | `issues.sh:18`: no recorded `ready` for this `plan.md` + `tasks.md` | `extension/commands/issues.md` step 2 |
-| red checks | nothing | `pr.md` step 2: "If anything fails, stop and report it. Never open a PR on red checks." |
-| test changes | `pr.sh:63-66`: an edited or deleted existing test needs `## Test changes` | `pr.md` step 2 |
-| mutation testing | nothing (`mutants.sh` always exits 0) | `pr.md` step 2 |
-| pre-PR scanners, `/security-review` | nothing | `pr.md` step 4 |
-| full: evidence, analysis | `pr.sh:52-54`, `branch.sh:37-42` | `pr.md` step 5, `/speckit-analyze` |
+| gate | script refuses | prompt asks | docs say |
+|---|---|---|---|
+| task review | `pr.sh:68`: no recorded `ready` for this diff; `pr.sh:55-56`: no `## Review` | `extension/commands/pr.md` step 4: a fresh general-purpose subagent with `review.md` and the facts only | "an **independent review** by a fresh agent" (`README.md:108`); "The review is a gate, not a prompt" (`docs/design.md:44`) |
+| plan review | `issues.sh:18`: no recorded `ready` for this `plan.md` + `tasks.md` | `extension/commands/issues.md` step 2 | "reviewed by a fresh agent (plan review, recorded; no issue is created without it)" (`docs/reference.md:83`) |
+| red checks | nothing | `pr.md` step 2: "If anything fails, stop and report it. Never open a PR on red checks." | "never open a PR on red checks" (`.specify/memory/constitution.md:11`) |
+| test changes | `pr.sh:63-66`: an edited or deleted existing test needs `## Test changes` | `pr.md` step 2 | "refused unless the body has a `## Test changes` section" (`docs/reference.md:89`) |
+| mutation testing | nothing (`mutants.sh` always exits 0) | `pr.md` step 2 | "mutation testing on the change" (`docs/reference.md:87`) |
+| pre-PR scanners, `/security-review` | nothing | `pr.md` step 4 | "scanners on the change, `/security-review`" (`README.md:108`) |
+| full: evidence, analysis | `pr.sh:52-54`; `branch.sh:37-42` (a marker `analyzed.sh` writes on request, F3.8) | `pr.md` step 5, `/speckit-analyze` | "required before any task" (`README.md:126`) |
 
-### F3.1 · Medium · P10, P11, P15 · the review gate proves a report exists, not that a fresh reader wrote it
+### F3.1 · Medium · P10, P11 · the review gate proves a report exists, not that a fresh reader wrote it
 
 - **verdict**: limit (the docs mislead)
 - **evidence**: `review.sh record` accepts any file whose last `Assessment:` line says `ready`
@@ -52,15 +52,15 @@ Also checked, no finding:
   `review.sh check` passes. `docs/design.md:38-46` says the review "runs in a fresh agent that
   gets only facts" and "The review is a gate, not a prompt". The gate is real for *some* recorded
   report on *this* diff; who wrote it, and whether it read anything, is only asked by the prompt.
-  The report also lives in `.git/jit-review/`, so nobody else can see it. The full-level
-  analysis marker is weaker still: `analyzed.sh:12` writes the hash of `tasks.md` whenever it is
-  run, with no report at all, so `branch.sh:37-42` passes on full whether `/speckit-analyze` ran
-  or not.
+  The report also lives in `.git/jit-review/`, so nobody else can see it. (The full-level
+  analysis marker is weaker still: F3.8.)
 - **reproduction**: section A of the script below.
 - **exposure**: public (the operator, or their own agent, can skip it; FR-013).
 - **fix**: make the record visible and say what it proves. `pr.sh task` puts the recorded
-  report into the PR body, folded in `<details><summary>Independent review</summary>`, so a human
-  merging can see it. `docs/design.md` then says the gate proves "a recorded report that said
+  report's *What changed* and *Findings* headings, and its `Assessment:` line, into the PR body,
+  folded in `<details><summary>Independent review</summary>`, so a human merging can see it; a
+  report section marked as a security finding is left out and replaced by its one line, as the
+  constitution requires for public places. `docs/design.md` then says the gate proves "a recorded report that said
   ready for this exact diff, attached to the PR", and that who wrote it is asked by the prompt.
   Check for `tests/pr.test.sh`: when a review is recorded and `pr.sh task` opens the PR, then the
   body sent to `gh pr create` contains the recorded report's text. It fails today.
@@ -72,7 +72,9 @@ Also checked, no finding:
   (`review.sh:19-21`). Section C: after a `ready` plan review, a changed `spec.md` and
   `research.md` still pass `check --plan`, and only a changed `plan.md` is refused. This review's
   own plan used that on 2026-11-05: a fix to `research.md` after the last plan review kept it
-  `ready`. `docs/reference.md:83` says the plan is "reviewed by a fresh agent (plan review, recorded; no
+  `ready`.
+- **reproduction**: section C of the script below.
+- **docs**: `docs/reference.md:83` says the plan is "reviewed by a fresh agent (plan review, recorded; no
   issue is created without it)", and does not say which files the record covers.
 - **note**: hashing the whole feature folder (without the issue links) would cover what the task
   lines point at.
@@ -91,15 +93,24 @@ Also checked, no finding:
   it says so and goes on. Check for `tests/pr.test.sh`: when the constitution's test command exits
   1, then `pr.sh task` exits non-zero, prints that output and pushes nothing. It fails today.
 
-### F3.4 · Low · P13 · mutation testing runs only if the prompt runs it
+### F3.4 · Medium · P13 · mutation testing runs only if the prompt runs it
 
 - **verdict**: limit
 - **evidence**: `mutants.sh` always exits 0 (`mutants.sh:17`), with `missing`, `skipped`,
   `survivors` or `ok` on its first line, and `pr.sh` never calls it. Section E: with no `mutate`
   command, `mutants missing …`, `rc=0`. `pr.md` step 2 asks to put the result in *Evidence*, and
   `docs/reference.md:87` lists "mutation testing on the change" among the steps after
-  `/speckit-implement`, without saying a script refuses it, which is accurate.
-- **note**: on full, `pr.sh` could require a `mutants` line in `## Evidence`.
+  `/speckit-implement`, in the same row as the review that *is* refused. Ranked Medium like F3.6:
+  research R4 makes any gap between "script refuses" and "prompt asks" Medium at least, and the
+  docs list both in the same breath.
+- **reproduction**: section E of the script below.
+- **exposure**: public.
+- **fix**: `mutants.sh` writes its result line to `.git/jit-mutants/<diff patch id>`, and
+  `pr.sh task` refuses when there is none for this diff, or when it says `survivors` and the body
+  has no `## Evidence` line naming the survivor. `missing` stays allowed (a stack with no tool) and
+  goes into the body. Check for `tests/pr.test.sh`: when the constitution has a `mutate` command and
+  `mutants.sh` was not run on this diff, then `pr.sh task` refuses and names `mutants.sh`. It
+  fails today.
 
 ### F3.5 · Medium · P14 · "copilot: code review requested" is printed when no review was requested
 
@@ -114,8 +125,9 @@ Also checked, no finding:
   elsewhere); none of the four has a review request or a review event in its timeline. Which login
   GitHub expects for a Copilot review request was not checked against GitHub's documentation, so
   two causes remain open and both are `unverified`: this account has no Copilot code review, or
-  `copilot-pull-request-reviewer[bot]` is not the login the API takes. Either way the printed line
-  is wrong, which is the finding.
+  `copilot-pull-request-reviewer[bot]` is not the login the API takes. What would settle it:
+  GitHub's REST docs page on requesting a Copilot code review, or the same call on an account that
+  has Copilot code review. Either way the printed line is wrong, which is the finding.
 - **reproduction**: sandbox script below.
 - **exposure**: public.
 - **fix**: print the line only when the answer's `requested_reviewers` contains the Copilot
@@ -149,7 +161,23 @@ Also checked, no finding:
   `false` or `true`, never empty, so the hint always says `review.sh record --plan <report-file>`.
   Section D: on a task branch with no record, `… record its report: review.sh record --plan
   <report-file>`. Following it records a plan review, and the task gate still refuses.
+- **reproduction**: section D of the script below.
 - **note**: `$($plan && echo ' --plan')`.
+
+### F3.8 · Medium · P15 · on full, the analysis requirement is met by running `analyzed.sh` alone
+
+- **verdict**: limit (the docs mislead)
+- **evidence**: `README.md:126` says `/speckit-analyze` is "required before any task" on full,
+  and `branch.sh:37-42` refuses until the marker matches `tasks.md` on the base. But
+  `analyzed.sh:12` writes that marker whenever it is run, with no analysis report to read. Section F
+  below, on level full: `branch.sh T001` is refused ("requires /speckit-analyze"), then
+  `analyzed.sh` alone prints `ANALYZED=001-demo`, and `branch.sh T001` goes through.
+- **reproduction**: section F below.
+- **exposure**: public.
+- **fix**: record the analysis like the review: `analyzed.sh <report-file>` takes the analysis
+  output and refuses a file that has none of `/speckit-analyze`'s section headings, and the marker
+  keeps the report next to the hash. Check for `tests/branch.test.sh`: when `analyzed.sh` is run
+  with no report, then it refuses and `branch.sh` on full still refuses. It fails today.
 
 ### Reproductions
 
@@ -207,6 +235,30 @@ rc=1
 == E. mutation testing with no mutate command
 mutants missing no 'mutate' command in the constitution's **Commands** line; /jit-speckit:adopt fills it
 rc=0
+```
+
+</details>
+
+<details>
+<summary>Local script F (F3.8) and its output</summary>
+
+```bash
+# T003 reproduction F, run as: bash t003-repro-f.sh <v1.7.2 worktree>
+source "$1/tests/helpers.sh"
+fake_gh; new_repo full
+[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/jit-speckit ] || exit 1
+commit_tasks '- [ ] T001 Add search — #5'
+echo "== F. level full: the analysis marker without any analysis"
+"$SCRIPTS/branch.sh" T001 2>&1 | tail -1 || true
+"$SCRIPTS/analyzed.sh"
+"$SCRIPTS/branch.sh" T001 2>&1 | tail -1
+```
+
+```text
+== F. level full: the analysis marker without any analysis
+jit: level 'full' requires /speckit-analyze on the current tasks.md before implementing
+ANALYZED=001-demo
+BRANCH=feat/001-t001-add-search ISSUE=5 TASK=T001 BASE=develop
 ```
 
 </details>
