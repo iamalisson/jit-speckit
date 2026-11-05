@@ -42,12 +42,17 @@ promises, and a verdict. The sources were opened on 2026-11-05.
     `close-linked-issues.yml` already closes them on any other branch (its condition is
     `base.ref != default_branch`), but lite writes no workflows (section 4, F4.4). Without that
     workflow at every level, or the PR script closing the issue itself, `next.sh:39` would never see
-    a task as done on lite, and a task that depends on it would stay blocked until the feature PR
-    merges.
+    a task as done on lite, and a task that depends on it would stay blocked for good: the feature
+    PR's merge into `main` would not close the task issues either, because `Closes #N` is only in
+    each task PR's body (`pr.sh:69`) and task commits carry `Refs #N` (`extension/commands/pr.md:30`),
+    unless the feature PR's body lists every `Closes #N` too.
   - **"one revert removes one task"** (`docs/design.md:18-19`): reverting the feature PR takes the
-    whole feature. A single task can still be reverted from the base only if the feature PR is
-    merged with a merge commit, which keeps each task PR's merge in the base's history; a squashed
-    feature PR loses that.
+    whole feature. A single task can still be reverted from the base only if both merges keep it
+    as one unit: each task PR merged into the feature branch with a merge commit (a rebase merge
+    makes one task several commits), and the feature PR merged into the base with a merge commit (a
+    squash loses the task merges). Then `git revert -m 1 <the task PR's merge>` removes that task
+    alone; a plain `git revert` refuses a merge commit. jit-speckit sets no merge method today, so
+    the model has to.
 
   With both, the base gets each feature once, which matches DORA's batches better than ten partial
   merges into it. The user chose this on
@@ -78,8 +83,11 @@ promises, and a verdict. The sources were opened on 2026-11-05.
   code they produced. What changes is who reviews the design first: today the user sees it as a PR
   before any code exists (`examples/README.md:54-55`); in this model the first reviewer is the
   agent's plan review, and the user sees the spec on GitHub in the feature branch (any time) and in
-  the feature PR (after the code). A team that wants a human sign-off before code can keep it as a
-  review of the feature branch's first commit, without a merge into the base.
+  the feature PR (after the code). The human sign-off before code becomes optional and has no gate:
+  GitHub can only approve pull requests, not a commit, and nothing would make `/speckit-implement`
+  wait for it, where today it refuses with "merge the spec PR first" (`examples/README.md:48-50`).
+  A team that needs that gate keeps a small PR of the spec into the feature branch, approved before
+  the first task.
 - **Verdict**: **replace**: the spec as the feature branch's first commit, no separate spec PR into
   the base. Later spec changes go through a small PR into the feature branch.
 
