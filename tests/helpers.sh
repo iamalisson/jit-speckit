@@ -34,7 +34,7 @@ case "$1 $2" in
   "issue create") n=$(( $(cat "$GH_N" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$GH_N"
                   echo "https://github.com/acme/app/issues/$n" ;;
   "label create") exit 0 ;;
-  "pr list") [[ -f "$GH_PR" ]] && cat "$GH_PR"; exit 0 ;;
+  "pr list") if [[ "$*" == *headRefName* ]]; then cat "$GH_OPEN" 2>/dev/null; elif [[ -f "$GH_PR" ]]; then cat "$GH_PR"; fi; exit 0 ;;
   "pr create") echo "https://github.com/acme/app/pull/99" | tee "$GH_PR" ;;
   "issue list") cat "$GH_CLOSED" 2>/dev/null; exit 0 ;;
   "repo view") exit 1 ;;
@@ -43,7 +43,7 @@ case "$1 $2" in
 esac
 EOF
   chmod +x "$TMP/bin/gh"
-  export PATH="$TMP/bin:$PATH" GH_LOG="$TMP/gh.log" GH_N="$TMP/gh.n" GH_PR="$TMP/gh.pr" GH_CLOSED="$TMP/gh.closed"
+  export PATH="$TMP/bin:$PATH" GH_LOG="$TMP/gh.log" GH_N="$TMP/gh.n" GH_PR="$TMP/gh.pr" GH_CLOSED="$TMP/gh.closed" GH_OPEN="$TMP/gh.open"
 }
 
 # set_cfg <key> <value>: edit a config line in place, as a user would.
