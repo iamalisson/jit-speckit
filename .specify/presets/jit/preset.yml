@@ -3,7 +3,7 @@ schema_version: "1.0"
 preset:
   id: jit
   name: "jit-speckit"
-  version: "1.7.0"
+  version: "1.7.1"
   description: "Constitution with level-sized defaults, and tasks sized as one issue and one PR each"
   author: iamalisson
   repository: https://github.com/iamalisson/jit-speckit
