@@ -1,0 +1,17 @@
+---
+name: speckit-jit-analyzed
+description: Record that analysis ran on the current tasks
+compatibility: Requires spec-kit project structure with .specify/ directory
+metadata:
+  author: iamalisson
+  source: jit:commands/analyzed.md
+---
+
+# Record the analysis (after `/speckit-analyze`)
+
+1. If the analysis report above has **CRITICAL** findings, say they must be fixed first, and stop.
+   Do not record anything.
+2. Otherwise run `bash .specify/extensions/jit/scripts/analyzed.sh`. This lets level `full` start
+   tasks. If `tasks.md` changes later, the analysis has to be run again.
+3. On level `full` (`level:` in `.specify/extensions/jit/jit-config.yml`), open the spec PR now:
+   `bash .specify/extensions/jit/scripts/pr.sh spec`, and show its URL.

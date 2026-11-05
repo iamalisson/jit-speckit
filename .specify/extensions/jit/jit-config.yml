@@ -1,0 +1,6 @@
+level: lite
+base_branch: auto
+branch_prefix: feat
+issue_labels: "type:task"
+milestone: ""
+project: ""
