@@ -50,7 +50,8 @@ Facts the author passes:
 **Plan review** (before the issues are created): apply steps 1, 2 and 5 to every task in
 `tasks.md`. *Impact* names every reference the task touches (search each symbol) and the newest
 sibling of each file it adds; *Completed when* is a command that proves the real path, not only a
-fresh state; a step that writes data names its target and refuses production; no task deletes
+fresh state, at the level the behavior demands (logic: unit; through the interface: integration
+against the real database or in-memory HTTP; a user-visible flow: one end-to-end); a step that writes data names its target and refuses production; no task deletes
 what another task still uses. **Shape:** a task is a vertical slice with an observable result. A
 task that is one layer of a behavior another task completes (a model here, its migration there,
 the endpoint in a third) is a finding: name the tasks to merge. So is a task whose diff would

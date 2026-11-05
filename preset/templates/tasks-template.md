@@ -20,6 +20,11 @@ description: "Task list template for feature implementation"
 - Include exact file paths in descriptions
 - **One task = one issue = one branch = one pull request.** Do not write issue numbers yourself:
   after this file is generated, every task line gets ` — #N` appended automatically (jit-speckit).
+- **Tests at the level the behavior demands**, named in *Completed when*: logic (parsing, rules,
+  money) gets a unit test; a behavior through the interface (an endpoint, a query, a migration)
+  gets an integration test against the real thing (in-memory HTTP, the database the project uses
+  in CI); a user-visible flow gets one end-to-end test of the running program. A unit test alone
+  never proves an endpoint or a migration.
 - **A task is a vertical slice, not a layer.** It is the smallest change that is reviewable,
   mergeable and revertible on its own, with a result someone can observe (a request that answers,
   a command that works, a rule that refuses). The layers of one behavior (its model, migration,

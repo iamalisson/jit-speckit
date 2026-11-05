@@ -23,6 +23,9 @@
 
 ### Tests (integration)
 
+- Before each PR, the mutation tool runs on the changed lines (the constitution's `mutate`
+  command). A surviving mutant gets the test that kills it, or one written line in the PR saying
+  why it changes nothing observable.
 - Flows are tested against real infrastructure in tests (a test database, a local server); only
   external services (payment, email, third-party APIs) are mocked.
 - Every test covers the happy path, expected errors and limits (zero, negative, expired); where
