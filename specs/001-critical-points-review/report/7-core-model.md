@@ -44,15 +44,18 @@ promises, and a verdict. The sources were opened on 2026-11-05.
     workflow at every level, or the PR script closing the issue itself, `next.sh:39` would never see
     a task as done on lite, and a task that depends on it would stay blocked for good: the feature
     PR's merge into `main` would not close the task issues either, because `Closes #N` is only in
-    each task PR's body (`pr.sh:69`) and task commits carry `Refs #N` (`extension/commands/pr.md:30`),
-    unless the feature PR's body lists every `Closes #N` too.
+    each task PR's body (`extension/scripts/pr.sh:69`) and task commits carry `Refs #N`
+    (`extension/commands/pr.md:30`). Two exceptions: the feature PR's body lists every `Closes #N`,
+    or the repository sets its merge commit message to the PR's title and description, so the task
+    PRs' `Closes #N` lines travel into the default branch inside their merge commits (GitHub's
+    documented closing-keyword behavior; not tested here).
   - **"one revert removes one task"** (`docs/design.md:18-19`): reverting the feature PR takes the
-    whole feature. A single task can still be reverted from the base only if both merges keep it
-    as one unit: each task PR merged into the feature branch with a merge commit (a rebase merge
-    makes one task several commits), and the feature PR merged into the base with a merge commit (a
-    squash loses the task merges). Then `git revert -m 1 <the task PR's merge>` removes that task
-    alone; a plain `git revert` refuses a merge commit. jit-speckit sets no merge method today, so
-    the model has to.
+    whole feature. A single task can still be reverted from the base if each task stays one unit
+    there: no rebase merge for task PRs (it makes one task several commits) and no squash for the
+    feature PR (it folds every task into one commit). A squash or a merge commit for task PRs both
+    work: `git revert <the task's squash commit>`, or `git revert -m 1 <the task PR's merge
+    commit>` (a plain `git revert` refuses a merge commit). jit-speckit sets no merge method today
+    (no `gh pr merge` or merge setting under `extension/`), so the model has to.
 
   With both, the base gets each feature once, which matches DORA's batches better than ten partial
   merges into it. The user chose this on
