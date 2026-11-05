@@ -67,6 +67,9 @@ git-ignored): `/speckit-specify` sets it to the new feature, and `/jit-speckit:n
 feature; when more than one feature has tasks to start, it lists them and asks. On a task branch
 the branch name decides, so a worktree never follows the main checkout.
 
+A task whose line says `(depends on T003)` is **blocked** until T003's issue closes, so `next`
+never offers work whose prerequisite has not merged.
+
 A task is **claimed** the moment it starts: its branch is pushed to origin, empty. From then on
 `next` in every clone and worktree shows it as in progress and never picks it; the clone that
 started it sees it as `resume` and picks it first. Teammates need nothing but `/jit-speckit:init`

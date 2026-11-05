@@ -51,6 +51,18 @@ check "then from inside that worktree the task is the one to resume" \
   'out="$(cd "$TMP/wt3" && mkdir -p .specify/extensions/jit && ln -sfn "$ROOT/extension/scripts" .specify/extensions/jit/scripts && cp "$TMP/repo/.specify/extensions/jit/jit-config.yml" .specify/extensions/jit/ && "$n")"; grep -q "^resume T003" <<<"$out" && [[ "$out" == *"NEXT=T003"* ]]'
 git worktree remove --force "$TMP/wt3"; git branch --quiet -D feat/001-t003-third-in-c
 
+# Dependencies: "(depends on T001)" holds a task until T001's issue is closed.
+closed; open_prs
+printf '%s\n' '- [ ] T005 [US2] Report screen (depends on T001, T002) in `s` — #8' >> specs/001-demo/tasks.md
+check "when a task depends on open tasks, then it is blocked and not picked" \
+  'out="$("$n")"; grep -q "^blocked T005 #8" <<<"$out" && [[ "$out" == *"NEXT=T001"* ]]'
+closed 1 2 3
+check "when the tasks it depends on are done, then it is open and picked" \
+  'out="$("$n")"; grep -q "^open T005 #8" <<<"$out" && [[ "$out" == *"NEXT=T005"* ]]'
+closed 2 3
+check "when only one dependency is still open, then it stays blocked" 'out="$("$n")"; grep -q "^blocked T005" <<<"$out"'
+sed -i.bak '/T005/d' specs/001-demo/tasks.md; rm -f specs/001-demo/tasks.md.bak; closed
+
 # Several features: a second one with tasks to start.
 mkdir -p specs/002-reports; printf '%s\n' '- [ ] T001 Report in `r` — #30' > specs/002-reports/tasks.md
 check "when two features have tasks to start and none is named, then it lists them and asks" \

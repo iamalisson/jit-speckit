@@ -52,5 +52,12 @@ disable-model-invocation: true
    the user to run `/speckit-constitution`.
 6. Summarize in four lines: the level, the files created, updated or kept, the protections
    enabled, and the next command. If the script said the git hooks are "not active in this clone
-   yet", repeat the command it gave: without it, nothing checks commits locally. Nothing is
-   committed; the user reviews and commits the setup.
+   yet", repeat the command it gave: without it, nothing checks commits locally.
+7. **Offer to commit it**, in one question: "Commit this on `chore/jit-speckit-<version>` and open
+   the PR?" (the version is `version:` in `.specify/extensions/jit/extension.yml`). On yes: switch
+   to that branch from the current one, stage **by name** only what the setup wrote (`.specify`,
+   `.claude/skills`, and each file the script listed as created or updated; never `git add -A`),
+   commit `chore: jit-speckit <version> (level <level>)`, push, and open a PR with a two-line body
+   saying what moved and that nothing else changed. It is a small fix: no spec, no issue; the hooks
+   and CI still apply. Then `/jit-speckit:adopt` (step 5) runs on that branch. On no: leave it
+   uncommitted for the user to review, and say so.
