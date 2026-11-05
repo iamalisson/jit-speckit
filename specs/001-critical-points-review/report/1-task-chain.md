@@ -13,8 +13,8 @@ to `v1.7.2:extension/scripts` (`diff -r`: no output).
 | P01 | Every task gets exactly one GitHub issue; an interrupted run never makes duplicates | limit | an interruption between GitHub creating the issue and the write-back makes a duplicate: F1.7. Otherwise `issues.sh:54-56` writes `— #N` back right after each `gh issue create`, and `:32` skips linked lines; `tests/issues.test.sh:37` ("when run again, then no issue is created twice"); sandbox: first run `T001 → #11`, `T002 → #12`, `CREATED=2 SKIPPED=0`, second run `CREATED=0 SKIPPED=2` |
 | P02 | Every task gets its own branch from the base, refused without one task, an issue, the merged spec and a clean tree; pushed at once as a claim | broken | the refusals hold (`branch.sh:17,22,24,35,50`; `tests/branch.test.sh:38,42-44,57`), but a refused claim push is silent: F1.1 |
 | P03 | Every task gets one PR with `Closes #N`; a task is done when its issue closes | broken | `pr.sh:69` adds `Closes #N`; sandbox PR #14 into `develop` got it and `close-linked-issues.yml` closed #11 within ~10 s ("Closed by #14 (merged into develop)."). But `next` decides "done" by a title search, so a renamed closed issue stays "open": F1.2; and on standard and full a failed close is silent: F1.6 |
-| P04 | `/jit-speckit:next` is resumable, never offers a task in progress twice (worktrees too), holds a task until its dependencies close | broken | resume, in progress, worktrees and blocked hold (`next.sh:39-51`; `tests/next.test.sh:26-63`); sandbox: after the claim T001 showed `resume`, after #11 closed `done T001` and T002 went from `blocked` to `open` within ~17 s. Broken through the same title search: F1.2. The dependency hold is in `next` only: F1.3 |
-| P05 | The spec is its own PR; the spec folder is never lost while switching branches | holds | `pr.sh:84-91` copies the folder out and puts it back on any exit (`trap … EXIT`); `tests/pr.test.sh:121`; real runs: this repository's PR #28 (the untracked folders of features 002 and 003 stayed in place) and sandbox PR #13 |
+| P04 | `/jit-speckit:next` is resumable, never offers a task in progress twice (worktrees too), holds a task until its dependencies close | broken | resume, in progress, worktrees and blocked hold (`next.sh:39-51`; `tests/next.test.sh:26-63`); sandbox: `next.sh 099` showed `open T001` and `blocked T002`; after #11 closed, `done T001` and T002 went from `blocked` to `open` within ~17 s. Broken through the same title search: F1.2. The dependency hold is in `next` only: F1.3; on a task branch with no argument it asks which feature: F1.9 |
+| P05 | The spec is its own PR; the spec folder is never lost while switching branches | broken | the local folder holds, but a failed `gh pr list` makes `pr.sh spec` rebuild the spec branch and force-push over a teammate's commit: F1.8. The folder: `pr.sh:84-91` copies the folder out and puts it back on any exit (`trap … EXIT`); `tests/pr.test.sh:121`; real runs: this repository's PR #28 (the untracked folders of features 002 and 003 stayed in place) and sandbox PR #13 |
 | P23 | Never commits or pushes for the user outside the documented flows | holds | every commit or push in the shipped scripts: the claim push `branch.sh:56`, the task push `pr.sh:70`, the spec commit and push `pr.sh:94,97`, `develop`/`staging` creation `level.sh:56` (offered with `--no-branches` in `skills/init/SKILL.md` step 3); the prompts commit only in `extension/commands/pr.md` step 3 and in `skills/init/SKILL.md` step 7, which asks first |
 
 Also checked, no finding:
@@ -90,14 +90,17 @@ Also checked, no finding:
 - **note**: the message could list the paths (`git status --porcelain | head -5`) and say that
   untracked files count too.
 
-### F1.5 · Low · P04 · `next` exits 128 with no message when origin cannot be listed
+### F1.5 · Low · P04 · `next` exits with no message when origin or `gh pr list` cannot be reached
 
 - **verdict**: limit
 - **evidence**: `next.sh:23` runs `git ls-remote … 2>/dev/null` under `set -o pipefail`, so an
   unreachable origin ends the script with git's exit code and nothing on screen. It fails closed
   (no claimed task is offered as `open`), but the user gets no reason. Section E below: `rc=128`
-  after the `in-progress T001` line from the earlier run.
-- **note**: `ls-remote … || die "cannot list branches on origin: …"` would say why.
+  after the `in-progress T001` line from the earlier run. `next.sh:24` does the same for
+  `gh pr list … 2>/dev/null`: a `gh` answering `HTTP 401: Bad credentials` there ends `next` with
+  `rc=1` and no output (found by the independent review, by reading and a run; not in the script).
+- **note**: `ls-remote … || die "cannot list branches on origin: …"`, and the same for line 24,
+  would say why.
 
 ### F1.6 · Medium · P03, P04 · on standard and full, a failed close in `close-linked-issues.yml` is silent
 
@@ -114,9 +117,13 @@ Also checked, no finding:
   progress and offers it again (`next.sh:39,43`).
 - **reproduction**: section F of the script below.
 - **exposure**: public.
-- **fix**: drop `|| true`, so a close that fails fails the job, and GitHub shows a red run on the
-  merged PR. Check for `tests/static.test.sh`: when `close-linked-issues.yml` closes an issue, then
-  the `gh issue close` line has no `|| true`. It fails today.
+- **fix**: keep closing the other numbers when one fails, and fail the job at the end:
+  `failed=""; for n in …; do gh issue close … || failed+=" #$n"; done; [ -z "$failed" ] || { echo "could not close:$failed"; exit 1; }`.
+  Only dropping `|| true` would be worse: under the step's `bash -e`, a failure on one number (a
+  "fixes #12" that is not an issue) would stop the loop before the task's own `Closes #3`. Check for
+  `tests/static.test.sh`, running the step with a fake `gh` that fails on 12: when the body says
+  "fixes #12" and "Closes #3", then `gh issue close 3` is still called and the step exits non-zero.
+  It fails today (exit 0).
 
 ### F1.7 · Low · P01 · an issue created on GitHub whose answer never arrives is created again
 
@@ -130,6 +137,38 @@ Also checked, no finding:
   ("running it again only creates issues for tasks that don't have one yet") hold for every
   interruption except this window.
 - **note**: before creating, `gh issue list --search "[NNN] Tnnn: in:title"` and reuse a match.
+
+### F1.8 · Medium · P05 · when `gh pr list` fails, `pr.sh spec` force-pushes over the open spec PR's branch
+
+- **verdict**: broken
+- **evidence**: `pr.sh:79` looks for an open spec PR with `gh pr list … 2>/dev/null || true`, so a
+  failure (network, expired token) reads as "no PR open". Then `pr.sh:81-90` rebuilds
+  `spec/<feature>` from the base (`switch -C`) and `pr.sh:97` pushes it with `--force-with-lease`.
+  The lease only refuses when origin moved since the last fetch; after any fetch it passes, so a
+  teammate's commit on the open spec PR is overwritten, and nothing is printed. Section H below:
+  origin's `spec/001-demo` before is `docs: mate fix|docs(specs): add …|init|` with `plan.md`, and
+  after is `docs(specs): add …|init|` with only `spec.md` and `tasks.md`. The teammate's commit
+  still exists in their clone and in the PR's history on GitHub, so it can be recovered, which is
+  why this is Medium and not High.
+- **reproduction**: section H of the script below.
+- **exposure**: public.
+- **fix**: tell "no PR" from "could not ask": drop `2>/dev/null || true` at `pr.sh:79` and stop
+  with `die "could not check for an open spec PR: <gh's error>"`. Check for `tests/pr.test.sh`:
+  when `gh pr list` fails while a spec PR is open with a commit from someone else, then `pr.sh spec`
+  exits non-zero and origin's spec branch still has that commit. It fails today.
+
+### F1.9 · Low · P04 · on a task branch, `next` with no argument asks which feature
+
+- **verdict**: limit
+- **evidence**: `next.sh:62-77`: with no argument, more than one feature with tasks to start means
+  `CHOOSE=…`, before the branch is looked at. Sandbox, on `feat/099-t001-add-docs-099-note` right
+  after the claim, `next.sh | tail -3` printed `feature 001-tempconv-foundation DONE=1/3
+  IN_PROGRESS=0`, `feature 099-jit-review DONE=0/2 IN_PROGRESS=0`, `CHOOSE=001-tempconv-foundation
+  099-jit-review`. `docs/reference.md:66-68` says both "when more than one feature has tasks to
+  start, it lists them and asks" and "On a task branch the branch name decides"; `next` follows the
+  first even on a task branch. It fails safe: it asks, and `next 099` serves the branch's feature.
+- **note**: `next.sh` could start from `feature_dir` when the current branch is a task branch, or
+  the docs could say the branch decides only for the other scripts.
 
 ### Reproductions
 
@@ -225,11 +264,46 @@ issue create calls for T003: 2
 </details>
 
 <details>
+<summary>Local script H (F1.8) and its output</summary>
+
+```bash
+# T001 reproduction H, run as: bash t001-repro-h.sh <v1.7.2 worktree>
+source "$1/tests/helpers.sh"
+fake_gh; new_repo standard
+[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/jit-speckit ] || exit 1
+p="$SCRIPTS/pr.sh"
+echo "== H. pr.sh spec when 'gh pr list' fails while a spec PR is open"
+echo spec > specs/001-demo/spec.md; printf '%s\n' '- [ ] T001 First — #1' > specs/001-demo/tasks.md
+"$p" spec | grep '^PR='
+git clone -q "$TMP/origin.git" "$TMP/mate" && (cd "$TMP/mate" && git config user.email m@m && git config user.name mate && git switch -q spec/001-demo && echo plan > specs/001-demo/plan.md && git add specs/001-demo/plan.md && git commit -q -m "docs: mate fix" && git push -q origin spec/001-demo)
+git fetch -q origin; echo "local edit" >> specs/001-demo/spec.md
+echo "origin spec/001-demo before: $(git log --format=%s origin/spec/001-demo | tr '\n' '|')"
+cp "$TMP/bin/gh" "$TMP/bin/gh-ok"
+printf '#!/usr/bin/env bash\n[[ "$1 $2" == "pr list" ]] && { echo "HTTP 401: Bad credentials" >&2; exit 1; }\nexec "%s" "$@"\n' "$TMP/bin/gh-ok" > "$TMP/bin/gh"; chmod +x "$TMP/bin/gh"
+"$p" spec || echo "rc=$?"
+git fetch -q origin
+echo "origin spec/001-demo after:  $(git log --format=%s origin/spec/001-demo | tr '\n' '|')"
+echo "files: $(git ls-tree --name-only origin/spec/001-demo specs/001-demo/ | tr '\n' ' ')"
+```
+
+```text
+== H. pr.sh spec when 'gh pr list' fails while a spec PR is open
+PR=https://github.com/acme/app/pull/99
+origin spec/001-demo before: docs: mate fix|docs(specs): add 001-demo spec, plan and tasks|init|
+copilot: code review requested
+PR=https://github.com/acme/app/pull/99
+origin spec/001-demo after:  docs(specs): add 001-demo spec, plan and tasks|init|
+files: specs/001-demo/spec.md specs/001-demo/tasks.md 
+```
+
+</details>
+
+<details>
 <summary>Sandbox run, feature 099 (real GitHub)</summary>
 
 Phase 1, `bash sandbox-1.sh` from the sandbox clone. The capture of its output lost the first lines
 (the `== issues.sh before any plan review` run and its `rc`, and the `== issues.sh` heading); the
-plan-review refusal is shown by section 3, not here. What was captured:
+plan-review refusal is left to T003's section, `report/3-review-gate.md` (not written yet). What was captured:
 
 ```bash
 # T001 real run on the sandbox, phase 1. Run from the sandbox clone: bash sandbox-1.sh
@@ -307,6 +381,10 @@ DONE=0/2 IN_PROGRESS=0 NEXT=T001
 claim: feat/099-t001-add-docs-099-note pushed to origin
 BRANCH=feat/099-t001-add-docs-099-note ISSUE=11 TASK=T001 BASE=develop
 <sha>	refs/heads/feat/099-t001-add-docs-099-note
+== next after the claim
+feature 001-tempconv-foundation DONE=1/3 IN_PROGRESS=0
+feature 099-jit-review DONE=0/2 IN_PROGRESS=0
+CHOOSE=001-tempconv-foundation 099-jit-review
 committed
 REVIEW=ready
 == pr.sh task
