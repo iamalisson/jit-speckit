@@ -32,11 +32,11 @@ case "$action" in
   record)
     report="${1:-}"; [[ -f "$report" ]] || die "usage: review.sh record [--plan] <report-file>"
     # The last line that names the assessment decides; "changes needed" wins when both words appear.
-    a="$(grep -iE 'assessment' "$report" | tail -1 | grep -oiE 'changes needed|ready' | head -1 | tr '[:upper:]' '[:lower:]' || true)"
-    [[ -n "$a" ]] || die "the report has no 'Assessment: ready' or 'Assessment: changes needed' line"
+    verdict="$(grep -iE 'assessment' "$report" | tail -1 | grep -oiE 'changes needed|ready' | head -1 | tr '[:upper:]' '[:lower:]' || true)"
+    [[ -n "$verdict" ]] || die "the report has no 'Assessment: ready' or 'Assessment: changes needed' line"
     if ! $plan && [[ -n "$(git status --porcelain)" ]]; then die "commit the work first: the review is recorded for the committed diff"; fi
-    { echo "state: $(state)"; echo "assessment: $a"; echo; cat "$report"; } > "$record"
-    echo "REVIEW=$a" ;;
+    { echo "state: $(state)"; echo "assessment: $verdict"; echo; cat "$report"; } > "$record"
+    echo "REVIEW=$verdict" ;;
   check)
     [[ -f "$record" ]] || die "no independent review recorded for $what; run /speckit-jit-review and record its report: review.sh record${plan:+ --plan} <report-file>"
     [[ "$(sed -n 's/^state: //p' "$record")" == "$(state)" ]] \

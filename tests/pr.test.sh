@@ -4,7 +4,7 @@
 source "$(dirname "$0")/helpers.sh"
 fake_gh
 p="$SCRIPTS/pr.sh"
-reviewed() { printf 'What changed: x\n\nAssessment: ready\n' > "$TMP/review.md"; "$SCRIPTS/review.sh" record ${1:-} "$TMP/review.md" >/dev/null; }
+reviewed() { printf 'What changed: x\n\nAssessment: ready\n' > "$TMP/review.md"; "$SCRIPTS/review.sh" record "$TMP/review.md" >/dev/null; }
 
 new_repo standard
 commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
