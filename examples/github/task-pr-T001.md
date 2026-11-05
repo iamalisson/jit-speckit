@@ -2,6 +2,12 @@
 Adds `searchByMaxPrice()`, which returns products at or below a price, cheapest first, plus an
 index on `products(price)`.
 
+## Review
+
+Independent review: adds a price-bounded product query and its index. One Medium finding, fixed in
+3f2a9c1: the index migration created `idx_products_price` unconditionally, while the two previous
+migrations guard with `IF NOT EXISTS` for databases built from the models. Assessment: ready.
+
 ## Evidence
 
 tests 18/18 · lint clean · scanners: no findings · 10,000 rows answered in 41 ms (SC-001)

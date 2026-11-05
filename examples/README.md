@@ -23,7 +23,7 @@ issue gets it too.
 
 | You run | What happens | What you do |
 |---|---|---|
-| `/jit-speckit:next` | shows `0/3 done`, then starts T001: branch `feat/001-t001-add-the-price-query` from `develop`, code, tests, security scan, `/code-review`, commit, push, and [PR #24](github/task-pr-T001.md) with `Closes #21` | review PR #24, merge it (issue #21 closes) |
+| `/jit-speckit:next` | shows `0/3 done`, then starts T001: branch `feat/001-t001-add-the-price-query` from `develop`, code, tests, security scan, the independent review, commit, push, and [PR #24](github/task-pr-T001.md) with `Closes #21` | review PR #24, merge it (issue #21 closes) |
 | `/jit-speckit:next` | `1/3 done`, then T002 → PR #25, `Closes #22` | review, merge |
 | `/jit-speckit:next` | `2/3 done`, then T003 → PR #26, `Closes #23` | review, merge |
 | `/jit-speckit:next` | `3/3 done`, and it suggests `/speckit-converge` | run it: it compares the merged code with the spec. Nothing left, so the feature is finished; `/jit-speckit:security` before you release |

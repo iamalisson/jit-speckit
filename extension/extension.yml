@@ -3,7 +3,7 @@ schema_version: "1.0"
 extension:
   id: jit
   name: "jit-speckit"
-  version: "1.5.1"
+  version: "1.6.0"
   description: "One task = one issue = one branch = one PR, with defaults sized by project complexity"
   author: iamalisson
   repository: https://github.com/iamalisson/jit-speckit
@@ -32,6 +32,9 @@ provides:
     - name: speckit.jit.pr
       file: commands/pr.md
       description: "Commit, push and open the task's pull request"
+    - name: speckit.jit.review
+      file: commands/review.md
+      description: "Independent review of the branch or the plan by a fresh reader grounded in the whole repository"
 
 hooks:
   after_tasks:

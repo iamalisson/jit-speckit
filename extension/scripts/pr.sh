@@ -2,7 +2,8 @@
 # Push the current work and open (or reuse) its pull request.
 #   pr.sh task T003 "feat(api): add price search" [body-file]
 #       On the task's branch, with the work already committed. Adds "Closes #N".
-#       Level "full" requires an "## Evidence" section in the body.
+#       Levels "standard" and "full" require a "## Review" section (the independent review's
+#       findings and what was done); "full" also requires "## Evidence".
 #   pr.sh spec
 #       Commits the active feature's spec folder on spec/<feature> and opens a docs PR.
 # Prints: PR=<url>
@@ -22,6 +23,12 @@ open_pr() { # open_pr <title> <body>
   if [[ -z "$url" ]]; then
     url="$(gh pr create --base "$base" --head "$(git branch --show-current)" --title "$1" --body "$2")"
     add_meta pr "$url"
+    # A second independent reader when the account has GitHub Copilot code review. Without it the
+    # API refuses (422) and nothing is said: the review in the author's session already ran.
+    if [[ "$url" =~ /([^/]+/[^/]+)/pull/([0-9]+)$ ]] \
+      && gh api -X POST "repos/${BASH_REMATCH[1]}/pulls/${BASH_REMATCH[2]}/requested_reviewers" -f 'reviewers[]=copilot-pull-request-reviewer[bot]' >/dev/null 2>&1; then
+      echo "copilot: code review requested"
+    fi
   fi
   echo "PR=$url"
 }
@@ -44,6 +51,9 @@ case "$mode" in
     body=""; [[ -n "$body_file" ]] && body="$(cat "$body_file")"
     if [[ "$(jit_level)" == full ]] && ! grep -qE '^## Evidence' <<<"$body"; then
       die "level 'full' requires an '## Evidence' section in the PR body (test output, screenshots, run links)"
+    fi
+    if [[ "$(jit_level)" != lite ]] && ! grep -qE '^## Review' <<<"$body"; then
+      die "level '$(jit_level)' requires a '## Review' section in the PR body: the independent review's findings and what was done about them (/speckit-jit-review)"
     fi
     # A test that changes to fit the code proves nothing: editing, renaming or deleting an
     # existing test needs a reason a reviewer can check. New tests need none.
