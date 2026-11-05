@@ -62,8 +62,12 @@ Also checked, no finding:
   Nothing marks a security finding today (`extension/commands/review.md:78-79` only ranks
   "security" under High), so the same change makes `review.md` report each security finding as one
   line, `Security: reported privately (<id>)`, with its detail kept in the recorded file only, and
-  `pr.sh` copies no line that follows such a marker. That keeps the constitution's "never put … a
-  security finding into a public place" (`.specify/memory/constitution.md:12`). `docs/design.md` then says the gate proves "a recorded report that said
+  `pr.sh` copies no line that follows such a marker. The prompt has the same path today and needs
+  the same change: `extension/commands/pr.md:54-56` tells the agent to put "each High and Medium
+  finding" into the public `## Review`, and a security finding is High (`review.md:78-79`), so
+  `pr.md` step 5 says a security finding goes into `## Review` as its one line only. Only both
+  changes together keep the constitution's "never put … a security finding into a public place"
+  (`.specify/memory/constitution.md:12`). That prompt path also belongs to P25, section 4 (T004). `docs/design.md` then says the gate proves "a recorded report that said
   ready for this exact diff, attached to the PR", and that who wrote it is asked by the prompt.
   Check for `tests/pr.test.sh`: when a review is recorded and `pr.sh task` opens the PR, then the
   body sent to `gh pr create` contains the recorded report's text, and when the recorded report
@@ -152,7 +156,9 @@ Also checked, no finding:
   On this machine all four were `missing` for T001 and T002, and both PRs opened. A user can tell
   from the PR body only if the agent wrote it there.
 - **reproduction**: section B (no check in `pr.sh`), and v1.7.2's `security-scan.sh --changed`
-  run on this machine, where no scanner is installed (the `missing` lines come from
+  run in this repository's checkout on branch `feat/001-t003-review-the-review-gate` (which has
+  `.github/workflows/`, so zizmor is looked for; a repository without workflows prints
+  `zizmor skipped no GitHub workflows` instead), on a machine where no scanner is installed (the `missing` lines come from
   `security-scan.sh:32`, and the script ends with `echo "REPORT_DIR=$dir"`, so it exits 0):
 
   ```text
