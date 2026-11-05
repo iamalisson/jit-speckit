@@ -110,6 +110,28 @@ commit it.
 | | merge the PR | the issue closes |
 | **When every task is done** | `/speckit-converge` | compares the code with the spec; anything unbuilt becomes new tasks with issues |
 
+### Why one task = one issue = one branch = one PR
+
+- **Review finds bugs only in small changes.** A Cisco study of 2,500 reviews put the useful
+  size at 200 to 400 lines; past that, defects found per line fall off
+  ([SmartBear](https://smartbear.com/learn/code-review/best-practices-for-peer-code-review/)).
+  Google's guide calls about 100 lines reasonable and 1,000 too large
+  ([small CLs](https://google.github.io/eng-practices/review/developer/small-cls.html)). This
+  matters more with AI-written code: a 150-line PR gets read, a 2,000-line one gets scrolled.
+- **Small batches are faster and safer at once.** DORA's research links batch size to both
+  delivery speed and stability
+  ([working in small batches](https://dora.dev/capabilities/working-in-small-batches/)), and the
+  2025 model lists it among the capabilities that make AI help instead of hurt.
+- **Failures localize.** A red CI, a security finding or a production bug points at one task.
+  One revert removes one task. In a one-PR feature, the revert takes everything.
+- **"Done" has an external definition.** The issue says which requirement produced the code and
+  closes only when the PR merges. That is what makes `/jit-speckit:next` resumable after a month,
+  and what the independent review checks the PR against.
+
+The cost is real: a CI run, a review round and a merge per task. It pays off when tasks are
+**vertical slices**, one observable behavior with its test, and not layers. The tasks template
+says so, and the plan review flags layer-shaped tasks before any issue exists.
+
 **Small fixes don't need the feature loop.** A typo, a one-line bug fix or a dependency bump
 goes on a normal branch with a normal PR. The hooks and the CI gate still apply. The spec, issue
 and per-task flow are for features.
