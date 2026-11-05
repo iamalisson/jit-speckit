@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "extensions": {
+    "jit": {
+      "version": "1.6.2",
+      "source": "local",
+      "manifest_hash": "sha256:c2c18b409d270ccb09e1986616eeb55b6ef0a53079f2e4284342f6adae60e2bb",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "claude": [
+          "speckit.jit.issues",
+          "speckit.jit.analyzed",
+          "speckit.jit.branch",
+          "speckit.jit.pr",
+          "speckit.jit.review"
+        ]
+      },
+      "registered_skills": [],
+      "installed_at": "2026-11-05T05:05:46.507023+00:00"
+    }
+  }
+}
