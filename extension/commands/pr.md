@@ -25,6 +25,9 @@ description: "Review, commit, push and open the task's pull request"
    none; if the team removed that block to disclose AI use, keep them. The git pre-commit hook checks for secrets. If it refuses, remove the secret;
    never use `--no-verify`.
 4. **Review before anyone else sees it** (qualified check):
+   - For each new file of a kind the repo already has (a migration, a workflow, an endpoint),
+     open the newest sibling and check the new file keeps its guards (`has_table`, idempotent
+     seeds, the same refusal of production). A diff review alone never sees this.
    - `bash .specify/extensions/jit/scripts/security-scan.sh --changed`. Read every finding and fix
      the real ones. List the false positives with the reason.
    - `/security-review` on the branch.
