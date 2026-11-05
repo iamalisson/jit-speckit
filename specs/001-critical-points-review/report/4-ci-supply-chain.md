@@ -11,7 +11,7 @@ follows". The pins were checked against GitHub on 2026-11-05.
 | id | promise | verdict | evidence |
 |---|---|---|---|
 | P16 | Every PR, push and week the CI gate runs Gitleaks on full history, OSV-Scanner, zizmor (Semgrep on full, trivy with infra); pinned and checksum-verified; not skippable with branch protection | limit | generated `security.yml` (below) runs on `pull_request`, pushes to the base branches and weekly; gitleaks with `fetch-depth: 0`; every action pinned by SHA and every binary checked with `sha256sum -c`, each SHA and checksum matching upstream. On the sandbox, protection with `init`'s check names blocked a red PR. On lite none of it exists: F4.4. Semgrep is not checksum-pinned: F4.5 |
-| P17 | Every action pin is in one place; Dependabot proposes updates; generated workflows use `persist-credentials: false` and read-only permissions | limit | one place: `extension/scripts/pins.sh:6-25`, and every generated `uses:` comes from it; `persist-credentials: false` on every checkout; `contents: read` at the top of `ci.yml` and `security.yml` (`release.yml` needs `contents: write`, and `close-linked-issues.yml` needs `issues: write`). Dependabot reaches 2 of the 9 action pins: F4.1 |
+| P17 | Every action pin is in one place; Dependabot proposes updates; generated workflows use `persist-credentials: false` and read-only permissions | limit | one place: `extension/scripts/pins.sh:6-25`, and every generated `uses:` comes from it; `persist-credentials: false` on every checkout; `contents: read` at the top of `ci.yml` and `security.yml` (`release.yml` needs `contents: write`, and `close-linked-issues.yml` needs `issues: write`). Dependabot reaches 2 of the 9 action pins (F4.1), and a refresh with `init` undoes a project's own bumps (F4.7) |
 | P25 | Security findings are never put in a public place | broken | the audit report stays in `.git` (`skills/security/SKILL.md:82`), but its private advisory call is refused (F4.2), and the PR prompt copies security findings into the public PR body (F4.3) |
 | P27 | Before a release, `/jit-speckit:security` runs the full audit | limit | the audit is a command the user runs (`docs/security.md:32`, "On demand, before releases"); nothing checks it ran before a release: F4.6 |
 | P28 | `/jit-speckit:init` offers secret scanning with push protection and branch protection requiring CI | limit | `skills/init/SKILL.md` step 4 offers them on standard and full, with check names taken from the job names, and the sandbox run shows those names match the real check runs. On lite nothing is offered: F4.4 |
@@ -30,11 +30,17 @@ Also checked, no finding:
   `Security`. On the sandbox, the four names (`python`, `Secrets (gitleaks, full history)`,
   `Dependencies (osv-scanner)`, `Workflows (zizmor)`) were the four check runs on the probe PRs,
   so no PR waits for a check that never reports.
+- **The pins the Node project did not generate**, checked the same way: `pnpm/action-setup@v4.4.0`,
+  `Swatinem/rust-cache@v2.9.3`, `actions/setup-python@v5.6.0` and `actions/setup-go@v5.6.0` all
+  `ok`; `dtolnay/rust-toolchain`'s pin is `master`'s current SHA (`683b588c…`), as its comment
+  says; trivy 0.76.0's `trivy_0.76.0_checksums.txt` lists `e24b1c51…3562c993e145fe7
+  trivy_0.76.0_Linux-64bit.tar.gz`, the pinned value. The trivy job itself (`level.sh:251-260`)
+  is only written for a project with infrastructure files and was not generated here.
 - **Private repositories**: the advisory API answers 404 on the sandbox (private), even to a list,
   and the skill sends private repositories to issues instead (`skills/security/SKILL.md:101-103`),
   which is consistent.
 
-### F4.1 · Medium · P17 · Dependabot updates only 2 of the 9 pinned actions, and none of the 5 pinned tools
+### F4.1 · Medium · P17 · Dependabot updates only 2 of the 9 pinned actions, and none of the 4 pinned tools
 
 - **verdict**: limit (the docs mislead)
 - **evidence**: `docs/security.md:76-77` says "Every pin lives in `extension/scripts/pins.sh`, and
@@ -45,8 +51,8 @@ Also checked, no finding:
   `rust-toolchain`, `rust-cache`, `setup-python`, `setup-go` and `zizmor-action` 0. The
   tool versions (gitleaks, osv-scanner, semgrep, trivy) sit in `run:` lines that Dependabot does
   not read at all. So a new project always starts on those 7 actions and 4 tools as they were
-  pinned by hand. A project's own Dependabot does bump its actions afterwards (sandbox PRs #1, #2),
-  but not the tool versions, which stay at what `level.sh` wrote.
+  pinned by hand. A project's own Dependabot proposes action bumps afterwards (sandbox PRs #1, #2),
+  but not the tool versions, and the next `init` undoes the action bumps it merged (F4.7).
 - **reproduction**: `for p in $(grep -oE '^PIN_[A-Z_]+="[^@]+' extension/scripts/pins.sh | sed 's/.*="//'); do echo "$p $(grep -rhoE "uses: $p@" .github/workflows | wc -l)"; done`, run in the `v1.7.2` worktree: only checkout and setup-uv are non-zero.
 - **exposure**: public.
 - **fix**: add `.github/workflows/pins.yml` to this repository, `on: workflow_dispatch` only, with
@@ -116,6 +122,25 @@ Also checked, no finding:
   hooks; and `init` offers secret scanning with push protection and private vulnerability
   reporting on every level for a public repository (they cost nothing there). Check for
   `tests/static.test.sh`: the README CI row names its levels. It fails today.
+
+### F4.7 · Medium · P17 · a refresh with `init` puts a project's newer action pins back to the plugin's older ones
+
+- **verdict**: limit (the docs mislead)
+- **evidence**: a Dependabot PR in a project bumps the SHA inside the managed `security.yml` and
+  keeps its `# jit-speckit: managed file` line. `level.sh` rewrites every file that still has that
+  line (`level.sh:124`, `put`), and the documented update path runs it (`init` → `bin/setup.sh:71`
+  → `level.sh`, `docs/reference.md` "Update"). So after an update the plugin's `pins.sh` SHA is
+  back, older than the one the project merged, and only `updated: .github/workflows/security.yml`
+  is printed. Script below: three `v7.1.0` lines after the bump, and after `level.sh standard`
+  again, `0 lines at v7.1.0; 3 at v7.0.1`. `docs/security.md:76-77` presents Dependabot as what
+  keeps the pins current.
+- **reproduction**: the re-pin script below.
+- **exposure**: public.
+- **fix**: when `put` is about to rewrite a managed workflow, keep each `uses: <action>@<sha> #
+  <version>` line whose version is newer than `pins.sh`'s (compare the version comments with
+  `sort -V`), and say `kept newer pin: <action> <version>`. Check for `tests/level.test.sh`: when
+  a managed workflow carries a newer checkout pin than `pins.sh`, then `level.sh` keeps it and
+  prints `kept newer pin`. It fails today.
 
 ### F4.5 · Low · P16 · Semgrep is version-pinned but not checksum-verified, and its rules are fetched at run time
 
@@ -280,6 +305,31 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: gh release create "$TAG" --generate-notes --verify-tag
+```
+
+</details>
+
+<details>
+<summary>Re-pin script (F4.7) and its output</summary>
+
+```bash
+# T004: does a re-run of level.sh (what init does) keep a newer pin a project's Dependabot wrote?
+source "$1/tests/helpers.sh"
+fake_gh; new_repo standard
+[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/jit-speckit ] || exit 1
+ln -s "$1/extension/scaffold" .specify/extensions/jit/scaffold 2>/dev/null || true
+printf '{"name":"x","version":"1.0.0"}\n' > package.json; printf '{"lockfileVersion":3}\n' > package-lock.json
+bash "$SCRIPTS/level.sh" standard --no-branches >/dev/null 2>&1
+sed -i 's/actions\/checkout@[0-9a-f]\{40\} # v7.0.1/actions\/checkout@1111111111111111111111111111111111111111 # v7.1.0/' .github/workflows/security.yml
+echo "after a Dependabot-style bump: $(grep -c 'v7.1.0' .github/workflows/security.yml) lines at v7.1.0"
+bash "$SCRIPTS/level.sh" standard --no-branches 2>&1 | grep 'security.yml'
+echo "after level.sh again: $(grep -c 'v7.1.0' .github/workflows/security.yml) lines at v7.1.0; $(grep -c 'v7.0.1' .github/workflows/security.yml) at v7.0.1"
+```
+
+```text
+after a Dependabot-style bump: 3 lines at v7.1.0
+updated: .github/workflows/security.yml
+after level.sh again: 0 lines at v7.1.0; 3 at v7.0.1
 ```
 
 </details>
