@@ -23,6 +23,13 @@ metadata:
      an accepted value ("200 or 405"), or delete the test to get green;
    - if an existing test really must change (the spec changed, or the test was wrong), the PR
      body needs a `## Test changes` section saying why. The script refuses the PR without it.
+
+   **Mutation testing proves those tests can fail.** Run
+   `bash .specify/extensions/jit/scripts/mutants.sh` (the constitution's `mutate` command on this
+   branch's changes). `ok` goes in *Evidence*. `survivors` means a behavior no test checks: for
+   each surviving mutant in the changed lines, add the test that kills it, or write one line in
+   *Evidence* saying why it changes nothing observable (log or help text). `missing` means the
+   constitution has no `mutate` command: say so in *Evidence* and suggest `/jit-speckit:adopt`.
 3. **Commit.** Commit the task's changes, and only those. Stage files by name, never
    `git add -A`. Use a Conventional Commit message, `<type>(<scope>): <summary>`, with a body line
    `Refs #<ISSUE>`. Attribution lines (`Co-Authored-By` for Claude, "Generated with") follow the

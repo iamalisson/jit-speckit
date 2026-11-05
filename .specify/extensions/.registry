@@ -2,9 +2,9 @@
   "schema_version": "1.0",
   "extensions": {
     "jit": {
-      "version": "1.6.2",
+      "version": "1.7.0",
       "source": "local",
-      "manifest_hash": "sha256:c2c18b409d270ccb09e1986616eeb55b6ef0a53079f2e4284342f6adae60e2bb",
+      "manifest_hash": "sha256:18dd97d47f44b9076eb930fe09427212472d742ba9f9ef68d3efd1f7879b7f19",
       "enabled": true,
       "priority": 10,
       "registered_commands": {
@@ -17,7 +17,7 @@
         ]
       },
       "registered_skills": [],
-      "installed_at": "2026-11-05T05:05:46.507023+00:00"
+      "installed_at": "2026-11-05T05:12:01.252222+00:00"
     }
   }
 }

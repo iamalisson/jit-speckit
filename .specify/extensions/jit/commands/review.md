@@ -43,15 +43,20 @@ Facts the author passes:
 5. **Walk the real path, not the fresh one.** For each change ask what happens where state already
    exists: a table the models already created, a half-applied earlier run, a retry, two requests
    at once, a missing optional config, an empty result. The happy path on a clean machine is the
-   one the author already tested.
+   one the author already tested. **Then walk the failure path**: when this fails, does the caller
+   get a status and a code and nothing internal, is the failure logged exactly once with the
+   request ID and without personal data, and is each refused case (wrong user, bad input, replay)
+   tested? A swallowed error, a silent failure or a log line with personal data is a finding.
 6. **Security at the boundaries** of what changed: input validation, authorization taken from the
    authenticated context, secrets, injection, what the error messages leak.
 
 **Plan review** (before the issues are created): apply steps 1, 2 and 5 to every task in
 `tasks.md`. *Impact* names every reference the task touches (search each symbol) and the newest
 sibling of each file it adds; *Completed when* is a command that proves the real path, not only a
-fresh state; a step that writes data names its target and refuses production; no task deletes
-what another task still uses. **Shape:** a task is a vertical slice with an observable result. A
+fresh state, at the level the behavior demands (logic: unit; through the interface: integration
+against the real database or in-memory HTTP; a user-visible flow: one end-to-end); a step that writes data names its target and refuses production; every task names its failure
+path (what the caller gets, the one log line, who is refused), and no task is a bare "error
+handling", "logging" or "hardening" layer; no task deletes what another task still uses. **Shape:** a task is a vertical slice with an observable result. A
 task that is one layer of a behavior another task completes (a model here, its migration there,
 the endpoint in a third) is a finding: name the tasks to merge. So is a task whose diff would
 clearly pass about 400 lines with its tests: name the behaviors to split it by.
@@ -62,7 +67,7 @@ Written for the author, who fixes it, and for the human who merges:
 - **What changed**: three lines at most, in your own words from the code, not from the PR body.
 - **Findings**, ranked: **High** (wrong result, data loss, a broken upgrade on existing state,
   security), **Medium** (a guard the siblings have, a test that cannot fail, an unhandled
-  real-path case), **Low** (worth a line, not a block). Each one: `file:line`, one concrete
+  real-path case, a failure path that is silent or untested), **Low** (worth a line, not a block). Each one: `file:line`, one concrete
   scenario of what goes wrong ("on a database built by `create_all` and stamped at the previous
   revision, `flask db upgrade` stops with 'already exists'"), and the evidence (the sibling's
   `file:line`, the command output). A finding you could not verify says so. No style, no naming,

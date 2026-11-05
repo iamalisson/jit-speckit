@@ -1,37 +1,74 @@
 #!/usr/bin/env bash
-# Show the active feature's progress and the next task to implement.
-# A task is done when its GitHub issue is closed; the next task is the first one, in tasks.md order,
-# whose issue is still open.
-# A task whose branch has an open PR is in progress (here or in another worktree) and is not picked again.
-# Prints a line per task ("done|open|in-progress|no-issue Tnnn #N description"), then
+# Show a feature's progress and the next task to implement.
+#   next.sh [feature]    feature: a number (002) or folder name (002-reports); it becomes the active one
+# A task is done when its GitHub issue is closed. A task is in progress, and never picked, when its
+# branch is on origin, checked out in another worktree, or has an open PR. A branch you started in
+# this clone is yours to resume, and is picked first.
+# Prints a line per task ("done|resume|in-progress|open|no-issue Tnnn #N description"), then
 # DONE=x/y IN_PROGRESS=n NEXT=<Tnnn> (NEXT empty when nothing is left to start).
+# With no argument and several features that have tasks to start, it prints one "feature <name>
+# DONE=x/y" line each and CHOOSE=<names>; run it again with the chosen one.
 set -euo pipefail
 # shellcheck source=lib.sh
 source "$(dirname "$0")/lib.sh"
 
 jit_cd_root
 command -v gh >/dev/null || die "the GitHub CLI (gh) is required: https://cli.github.com"
-fdir="$(feature_dir)"
+
+# Branches, once: ours (local), checked out in some worktree, on origin, with an open PR.
+cur="$(git branch --show-current)"
+local_b=" $(git for-each-ref --format='%(refname:short)' refs/heads/ | tr '\n' ' ') "
+checked_out=" $(git worktree list --porcelain | sed -n 's#^branch refs/heads/##p' | tr '\n' ' ') "
+remote_b=" $(git ls-remote --heads origin 2>/dev/null | sed 's#.*refs/heads/##' | tr '\n' ' ') "
+pr_heads=" $(gh pr list --state open --limit 500 --json headRefName --jq '.[].headRefName' 2>/dev/null | tr '\n' ' ') "
+
+# scan <feature dir> <print>: one line per task when print=true; sets DONE_N TOTAL BUSY NEXT_ID
+scan() {
+  local fdir="$1" show="$2" num closed line id issue key state resume=""
+  num="$(feature_key "$fdir")"
+  # One API call per feature: its task issues have "[<feature number>] T" in the title.
+  closed=" $(gh issue list --state closed --limit 500 --search "$num in:title" --json number --jq '.[].number' | tr '\n' ' ') "
+  NEXT_ID=""; DONE_N=0; TOTAL=0; BUSY=0
+  while IFS= read -r line; do
+    id="$(sed -E 's/^- \[.\] (T[0-9]{3,}) .*/\1/' <<<"$line")"
+    issue="$(task_issue "$line")"
+    key="/$num-$(tr '[:upper:]' '[:lower:]' <<<"$id")-"
+    TOTAL=$((TOTAL + 1))
+    if [[ -z "$issue" ]]; then state=no-issue
+    elif [[ "$closed" == *" $issue "* ]]; then state="done"; DONE_N=$((DONE_N + 1))
+    elif [[ "$cur" == *"$key"* ]]; then state=resume; resume="${resume:-$id}"
+    elif [[ "$checked_out" == *"$key"* ]]; then state=in-progress; BUSY=$((BUSY + 1))
+    elif [[ "$local_b" == *"$key"* ]]; then state=resume; resume="${resume:-$id}"
+    elif [[ "$remote_b" == *"$key"* || "$pr_heads" == *"$key"* ]]; then state=in-progress; BUSY=$((BUSY + 1))
+    else state=open; NEXT_ID="${NEXT_ID:-$id}"
+    fi
+    if $show; then echo "$state $id ${issue:+#$issue} $(task_summary "$line")"; fi
+  done < <(grep -E '^- \[.\] T[0-9]{3,} ' "$fdir/tasks.md")
+  [[ -z "$resume" ]] || NEXT_ID="$resume"
+}
+
+if [[ -n "${1:-}" ]]; then
+  fdir="$(resolve_feature "$1")"
+  mkdir -p .specify; printf '{ "feature_directory": "%s" }\n' "$fdir" > .specify/feature.json
+else
+  # Several features with tasks to start: say so instead of silently serving the last one touched.
+  startable=(); summary=""
+  while IFS= read -r d; do
+    [[ -f "$d/tasks.md" ]] || continue
+    scan "$d" false
+    summary+="feature $(basename "$d") DONE=$DONE_N/$TOTAL IN_PROGRESS=$BUSY"$'\n'
+    [[ -z "$NEXT_ID" ]] || startable+=("$(basename "$d")")
+  done < <(find specs -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
+  if ((${#startable[@]} > 1)); then
+    printf '%s' "$summary"; echo "CHOOSE=${startable[*]}"; exit 0
+  elif ((${#startable[@]} == 1)); then
+    fdir="specs/${startable[0]}"
+    mkdir -p .specify; printf '{ "feature_directory": "%s" }\n' "$fdir" > .specify/feature.json
+  else
+    fdir="$(feature_dir)"
+  fi
+fi
 [[ -f "$fdir/tasks.md" ]] || die "$fdir/tasks.md not found; run /speckit-tasks first"
 
-# One API call: this feature's task issues (their titles start with "[<feature number>] T"),
-# so a repository with thousands of issues doesn't push old ones out of the result.
-num="$(feature_key "$fdir")"
-closed=" $(gh issue list --state closed --limit 500 --search "$num in:title" --json number --jq '.[].number' | tr '\n' ' ') "
-# Open PRs by head branch: a task branch (<prefix>/<feature>-t003-...) with one is being worked on.
-heads=" $(gh pr list --state open --limit 500 --json headRefName --jq '.[].headRefName' 2>/dev/null | tr '\n' ' ') "
-
-next=""; done_n=0; total=0; busy=0
-while IFS= read -r line; do
-  id="$(sed -E 's/^- \[.\] (T[0-9]{3,}) .*/\1/' <<<"$line")"
-  issue="$(task_issue "$line")"
-  total=$((total + 1))
-  if [[ -z "$issue" ]]; then state=no-issue
-  elif [[ "$closed" == *" $issue "* ]]; then state="done"; done_n=$((done_n + 1))
-  elif [[ "$heads" == *"/$num-$(tr '[:upper:]' '[:lower:]' <<<"$id")-"* ]]; then state=in-progress; busy=$((busy + 1))
-  else state=open; [[ -n "$next" ]] || next="$id"
-  fi
-  echo "$state $id ${issue:+#$issue} $(task_summary "$line")"
-done < <(grep -E '^- \[.\] T[0-9]{3,} ' "$fdir/tasks.md")
-
-echo "DONE=$done_n/$total IN_PROGRESS=$busy NEXT=$next"
+scan "$fdir" true
+echo "DONE=$DONE_N/$TOTAL IN_PROGRESS=$BUSY NEXT=$NEXT_ID"

@@ -10,7 +10,7 @@
 [STACK]
 <!-- Languages, frameworks, database, hosting, with versions. Source of truth: the manifest files. -->
 
-**Commands**: build `[BUILD_COMMAND]` · test `[TEST_COMMAND]` · lint `[LINT_COMMAND]`
+**Commands**: build `[BUILD_COMMAND]` · test `[TEST_COMMAND]` · lint `[LINT_COMMAND]` · mutate `[MUTATE_COMMAND]`
 
 ## Project principles
 

@@ -24,7 +24,7 @@ never put a secret, an AI attribution line or a security finding into a public p
 - GitHub Actions in every workflow are pinned to full commit SHAs, listed once in
   `extension/scripts/pins.sh`.
 
-**Commands**: build `python3 -c "import json; [json.load(open(f)) for f in ('.claude-plugin/plugin.json', '.claude-plugin/marketplace.json', 'hooks/hooks.json')]"` · test `tests/run.sh` · lint `shellcheck -S warning -x -P extension/scripts:tests bin/*.sh extension/scripts/*.sh tests/*.sh hooks/*.sh extension/scaffold/lite/.githooks/*`
+**Commands**: build `python3 -c "import json; [json.load(open(f)) for f in ('.claude-plugin/plugin.json', '.claude-plugin/marketplace.json', 'hooks/hooks.json')]"` · test `tests/run.sh` · lint `shellcheck -S warning -x -P extension/scripts:tests bin/*.sh extension/scripts/*.sh tests/*.sh hooks/*.sh extension/scaffold/lite/.githooks/*` · mutate `[MUTATE_COMMAND]`
 
 ## Project principles
 
