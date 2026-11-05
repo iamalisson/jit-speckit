@@ -18,7 +18,7 @@ question needs:
 1. **No argument**: show a short overview.
    - The loop: what you run once per feature, and what you run once per task.
    - The commands in one table: `/jit-speckit:new`, `init`, `adopt`, `level`, `next`,
-     `security`, `help`, and the spec-kit commands they hook into.
+     `security`, `remove`, `help`, and the spec-kit commands they hook into.
    - The levels in one line each.
    - The config keys in `.specify/extensions/jit/jit-config.yml`.
    - If the current directory is a jit project (`.specify/extensions/jit/` exists), add one line
