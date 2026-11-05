@@ -32,12 +32,14 @@ fi
 
 # bin/sync-pins.sh, on a copy: a Dependabot-style bump in every workflow is copied into pins.sh.
 copy="$TMP/pins-repo"; mkdir -p "$copy/extension/scripts"
-cp -R bin .github "$copy/"; cp extension/scripts/pins.sh "$copy/extension/scripts/"
+cp -R bin .github "$copy/"; cp extension/scripts/pins.sh "$copy/extension/scripts/"; cp -R extension/scaffold "$copy/extension/"
 old="$(sed -nE 's/^PIN_CHECKOUT="actions\/checkout@([0-9a-f]{40}).*/\1/p' extension/scripts/pins.sh)"
 new=1111111111111111111111111111111111111111
 find "$copy/.github/workflows" -name '*.yml' -exec sed -i.bak "s/checkout@$old # v[0-9.]*/checkout@$new # v9.9.9/" {} +
 check "when Dependabot bumped an action in every workflow, then sync-pins copies it into pins.sh" \
   '"$copy/bin/sync-pins.sh" | grep -q "SYNCED=1" && grep -qx "PIN_CHECKOUT=\"actions/checkout@$new # v9.9.9\"" "$copy/extension/scripts/pins.sh"'
+check "then sync-pins also updates the scaffold workflows Dependabot doesn't see" \
+  'grep -q "uses: actions/checkout@$new # v9.9.9" "$copy/extension/scaffold/full/.github/workflows/release.yml" && ! grep -rq "checkout@$old" "$copy/extension/scaffold"'
 cp "$copy/.github/workflows/test.yml" "$copy/.github/workflows/other.yml"
 sed -i.bak "s/checkout@$new # v9.9.9/checkout@$old # v4.4.0/" "$copy/.github/workflows/other.yml"
 check "when workflows disagree on an action, then sync-pins refuses and lists both" \

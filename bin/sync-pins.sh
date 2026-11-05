@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # Copy action pins from the workflows into extension/scripts/pins.sh, after Dependabot bumped them.
 # For each PIN_* in pins.sh: if every workflow that uses that action agrees on one SHA (and its
-# version comment), pins.sh is rewritten to it. If workflows disagree, it stops and lists them.
+# version comment), pins.sh is rewritten to it, and so are the scaffold workflows (Dependabot
+# doesn't see them). If workflows disagree, it stops and lists them.
 # Usage: bin/sync-pins.sh     (then tests/static.test.sh checks there is no drift)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 pins=extension/scripts/pins.sh
 workflows="$(find .github/workflows -name '*.yml')"
+scaffold="$(find extension/scaffold -name '*.yml' -path '*workflows*')"
 changed=0
 while IFS= read -r line; do
   name="${line%%=*}"; ref="${line#*=\"}"; ref="${ref%%\"*}"; action="${ref%%@*}"
@@ -19,6 +21,11 @@ while IFS= read -r line; do
   [[ "$used" == "$ref" ]] && continue
   NAME="$name" NEW="$used" awk 'index($0, ENVIRON["NAME"] "=\"") == 1 { print ENVIRON["NAME"] "=\"" ENVIRON["NEW"] "\""; next } { print }' \
     "$pins" > "$pins.tmp" && mv "$pins.tmp" "$pins"
+  # shellcheck disable=SC2086  # paths without spaces
+  for f in $(grep -lF "$ref" $scaffold || true); do
+    OLD="$ref" NEW="$used" awk '{ while ((i = index($0, ENVIRON["OLD"])) > 0) $0 = substr($0, 1, i - 1) ENVIRON["NEW"] substr($0, i + length(ENVIRON["OLD"])); print }' \
+      "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+  done
   echo "$name: $ref → $used"
   changed=$((changed + 1))
 done < <(grep -E '^PIN_[A-Z_]+="' "$pins")
