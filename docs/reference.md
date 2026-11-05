@@ -1,8 +1,8 @@
 # jit-speckit reference
 
 The details behind the [README](../README.md): updating, what `new` sets up, stack detection
-and managed files, what runs automatically, the Claude Code tools that fit, every setting, and
-uninstalling. For why things work the way they do, see [design.md](design.md).
+and managed files, what runs automatically, the Claude Code tools that fit, every setting, AI
+attribution, and uninstalling. For why things work the way they do, see [design.md](design.md).
 
 ## Update
 
@@ -12,11 +12,12 @@ Plugins don't update themselves. From a terminal, one line:
 claude plugin marketplace update jit-speckit && claude plugin update jit-speckit@jit-speckit
 ```
 
-Inside a Claude Code session, the same line with a `!` in front runs it there (the `/plugin`
-prompt does not take it). Then `/reload-plugins`, or restart Claude Code. **In every project that already uses jit-speckit, run `/jit-speckit:init`
-once**: each project keeps its own copy of the extension (hooks, scripts, review method, scaffold)
-under `.specify/`, and only `init` refreshes it. It keeps the project's level and touches nothing
-else. Skip it and the project keeps running the old version, whatever the plugin says.
+Inside a Claude Code session, the same line with a `!` in front runs it there. Then
+`/reload-plugins`, or restart Claude Code. **In every project that already uses jit-speckit, run
+`/jit-speckit:init` once**: each project keeps its own copy of the extension (hooks, scripts,
+review method, scaffold) under `.specify/`, and only `init` refreshes it. It keeps the project's
+level and touches nothing else. Skip it and the project keeps running the old version, whatever
+the plugin says.
 
 ## What `new` does
 
