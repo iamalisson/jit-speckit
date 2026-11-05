@@ -4,6 +4,7 @@
 source "$(dirname "$0")/helpers.sh"
 fake_gh
 p="$SCRIPTS/pr.sh"
+reviewed() { printf 'What changed: x\n\nAssessment: ready\n' > "$TMP/review.md"; "$SCRIPTS/review.sh" record ${1:-} "$TMP/review.md" >/dev/null; }
 
 new_repo standard
 commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
@@ -17,7 +18,10 @@ git add search.ts; git commit --quiet -m "feat(search): add search"
 
 printf 'Adds search.\n\n## Review\n\nready: no findings\n\n## Evidence\n\n`npm test` passed\n' > "$TMP/body.md"
 printf 'Adds search.\n\n## Evidence\n\n`npm test` passed\n' > "$TMP/unreviewed.md"
-check "when the level is standard and the body has no Review section, then it refuses" \
+check "when no independent review was recorded for the diff, then it refuses at every level" \
+  'fails_with "no independent review" "$p" task T001 "feat(search): add search" "$TMP/body.md"'
+reviewed
+check "when the body has no Review section, then it refuses" \
   'fails_with "Review" "$p" task T001 "feat(search): add search" "$TMP/unreviewed.md"'
 out="$("$p" task T001 "feat(search): add search" "$TMP/body.md")"
 check "when the work is committed, then it pushes and opens the PR into the base" \
@@ -37,6 +41,9 @@ check "when the level is full and the body has no Evidence section, then it refu
   'fails_with "Evidence" "$p" task T001 "feat(search): add search" "$TMP/thin.md"'
 
 sed -i.bak 's/^level: .*/level: standard/' .specify/extensions/jit/jit-config.yml
+echo 'export const x = 2' >> search.ts; git commit --quiet -am "feat: more"
+check "when the code changed after the review, then the PR is refused until a new review is recorded" \
+  'fails_with "changed since" "$p" task T001 "feat(search): add search" "$TMP/body.md" && reviewed && "$p" task T001 "feat(search): add search" "$TMP/body.md" | grep -q "^PR="'
 git switch --quiet main; rm -f "$GH_PR"
 mkdir -p specs/002-new
 printf '%s\n' '- [ ] T001 Thing in `a` — #11' '- [ ] T002 Other in `b` — #12' > specs/002-new/tasks.md
@@ -81,7 +88,7 @@ check "when an existing test is edited and the body says nothing, then it refuse
 check "then no commit was pushed (origin still has only the empty claim)" \
   '[[ "$(git ls-remote origin "refs/heads/$(git branch --show-current)" | cut -f1)" == "$(git rev-parse origin/develop)" ]]'
 
-git rm --quiet src/keep.test.ts; git commit --quiet -m "chore: drop test"
+git rm --quiet src/keep.test.ts; git commit --quiet -m "chore: drop test"; reviewed
 check "when an existing test is deleted, then it refuses too" 'fails_with "src/keep.test.ts" "$p" task T001 "feat(search): add search" "$TMP/plain.md"'
 
 printf 'Adds search.\n\n## Review\n\nready: no findings\n\n## Test changes\n\nThe spec changed the price rule (FR-002).\n' > "$TMP/why.md"
@@ -100,7 +107,7 @@ git remote set-url origin "$TMP/origin.git"; git fetch --quiet origin; git branc
 
 # A fresh branch for this scenario: drop the pushed one and start again from the base.
 git push --quiet origin --delete "$(git branch --show-current)" 2>/dev/null || true; git reset --quiet --hard origin/develop; rm -f "$GH_PR"
-echo 'assert 2 == 2' > tests/test_new.py; git add tests/test_new.py; git commit --quiet -m "test: add"
+echo 'assert 2 == 2' > tests/test_new.py; git add tests/test_new.py; git commit --quiet -m "test: add"; reviewed
 check "when only new tests are added, then no explanation is needed" '"$p" task T001 "feat(search): add search" "$TMP/plain.md" | grep -q "^PR="'
 
 

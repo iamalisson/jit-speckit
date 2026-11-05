@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Guard for git commands run by Claude Code (called by the plugin's PreToolUse hook).
 # Usage: guard.sh "<bash command>"   — exit 2 (with the reason on stderr) blocks the command.
-# Rules: no --no-verify (or commit -n), no hooks disabled with -c core.hooksPath, no
+# Rules: no --no-verify (or commit -n), no hooks disabled with -c core.hooksPath or SKIP=, no
 #        `git add -A/--all/.`, no commit on a protected branch, no push to a protected branch.
 # Best effort: it catches the usual forms (chains, env/command/VAR= prefixes, sh -c '...', git
 # global options, bundled flags), not every possible shell trick. The real boundary is CI plus
@@ -148,15 +148,17 @@ check_words() {
     if [[ "$w" == GIT_CONFIG_*=* ]] && hookspath "$w"; then no_hooks; fi
   done
   # Prefixes that still run git: VAR=value, env [VAR=value...], command, exec, time, nohup.
+  local skip=false
   while (($#)); do
     case "$1" in
+      SKIP=*|PRE_COMMIT_ALLOW_NO_CONFIG=*) skip=true; shift ;;
       *=*|env|command|exec|time|nohup|sudo) shift ;;
       *) break ;;
     esac
   done
   (($#)) || return 0
   case "$1" in
-    git|*/git) shift; check_git "$@" ;;
+    git|*/git) if $skip; then block "SKIP= turns pre-commit hooks off; fix what the hook reports instead"; fi; shift; check_git "$@" ;;
     sh|bash|zsh|*/sh|*/bash|*/zsh)
       shift
       while (($#)); do
