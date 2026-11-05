@@ -25,6 +25,11 @@ description: "Task list template for feature implementation"
   gets an integration test against the real thing (in-memory HTTP, the database the project uses
   in CI); a user-visible flow gets one end-to-end test of the running program. A unit test alone
   never proves an endpoint or a migration.
+- **Every task names its failure path in *Completed when*.** What the caller gets when it fails
+  (a status and an error code, never internals), what is logged (one structured line with the
+  request ID, no personal data or secrets), and who is refused (the wrong user, bad input, a
+  replay, a missing dependency), each as a test. Error handling, logging and the refused cases are
+  part of the task that adds the behavior, never a task of their own done last.
 - **A task is a vertical slice, not a layer.** It is the smallest change that is reviewable,
   mergeable and revertible on its own, with a result someone can observe (a request that answers,
   a command that works, a rule that refuses). The layers of one behavior (its model, migration,
@@ -100,14 +105,13 @@ Example:
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-Examples of foundational tasks (adjust based on your project):
+Only what no story can start without, and still as slices with an observable result (adjust
+based on your project; in an existing project most of this already exists):
 
-- [ ] T004 Setup database schema and migrations framework
-- [ ] T005 [P] Implement authentication/authorization framework
-- [ ] T006 [P] Setup API routing and middleware structure
-- [ ] T007 Create base models/entities that all stories depend on
-- [ ] T008 Configure error handling and logging infrastructure
-- [ ] T009 Setup environment configuration management
+- [ ] T004 Create the `orders` table and model with a migration that is safe on an existing database, in migrations/ and src/orders/model.py
+  - Completed when: the migration upgrades on an empty database and on one built from the models; `pytest tests/orders/test_model.py` passes
+- [ ] T005 Require a signed-in user on `/orders/*` in src/auth/require_user.py
+  - Completed when: an anonymous request gets 401 with code `auth_required` and one log line with the request ID; a signed-in one passes
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -121,12 +125,12 @@ Examples of foundational tasks (adjust based on your project):
 
 ### Implementation for User Story 1
 
-- [ ] T012 [P] [US1] Create [Entity1] model in src/models/[entity1].py
-- [ ] T013 [P] [US1] Create [Entity2] model in src/models/[entity2].py
-- [ ] T014 [US1] Implement [Service] in src/services/[service].py (depends on T012, T013)
-- [ ] T015 [US1] Implement [endpoint/feature] in src/[location]/[file].py
-- [ ] T016 [US1] Add validation and error handling
-- [ ] T017 [US1] Add logging for user story 1 operations
+- [ ] T012 [US1] Create an order via `POST /orders` (validation, persistence, response) in src/orders/create.py
+  - Comes from: FR-001, US1 scenarios 1-3
+  - Impact: `routes.py` registers it; `tests/orders/test_create.py` is new; newest sibling endpoint `src/orders/cancel.py` (same auth and error shape)
+  - Completed when: `pytest tests/orders/test_create.py` passes: a valid order answers 201 with its id; an empty cart answers 422 with code `empty_cart`; another user's address answers 403; a database failure answers 500 with an `error_id` that is also in the one log line, which carries the request ID and no personal data
+- [ ] T013 [P] [US1] List a user's orders via `GET /orders` in src/orders/list.py
+  - Completed when: `pytest tests/orders/test_list.py` passes: only the caller's orders, newest first; user A never sees user B's; an unknown `status` filter answers 422
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
@@ -140,10 +144,8 @@ Examples of foundational tasks (adjust based on your project):
 
 ### Implementation for User Story 2
 
-- [ ] T020 [P] [US2] Create [Entity] model in src/models/[entity].py
-- [ ] T021 [US2] Implement [Service] in src/services/[service].py
-- [ ] T022 [US2] Implement [endpoint/feature] in src/[location]/[file].py
-- [ ] T023 [US2] Integrate with User Story 1 components (if needed)
+- [ ] T020 [US2] Cancel an order via `POST /orders/{id}/cancel` in src/orders/cancel.py
+  - Completed when: `pytest tests/orders/test_cancel.py` passes: a pending order becomes cancelled once (two simultaneous cancels produce one refund); a shipped one answers 409 with code `already_shipped`; another user's order answers 404; every refusal is one log line with the request ID
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
 
@@ -157,9 +159,8 @@ Examples of foundational tasks (adjust based on your project):
 
 ### Implementation for User Story 3
 
-- [ ] T026 [P] [US3] Create [Entity] model in src/models/[entity].py
-- [ ] T027 [US3] Implement [Service] in src/services/[service].py
-- [ ] T028 [US3] Implement [endpoint/feature] in src/[location]/[file].py
+- [ ] T026 [US3] Email the receipt when an order is paid, in src/orders/receipt.py
+  - Completed when: `pytest tests/orders/test_receipt.py` passes with the mail provider faked: one email per paid order, none on retry; a provider failure is logged with the request ID and retried later, and the order stays paid
 
 **Checkpoint**: All user stories should now be independently functional
 
@@ -174,10 +175,10 @@ Examples of foundational tasks (adjust based on your project):
 **Purpose**: Improvements that affect multiple user stories
 
 - [ ] TXXX [P] Documentation updates in docs/
-- [ ] TXXX Code cleanup and refactoring
-- [ ] TXXX Performance optimization across all stories
-- [ ] TXXX Security hardening
 - [ ] TXXX Run quickstart.md validation
+
+(No "error handling", "logging", "security hardening" or "cleanup" tasks: each task already ships
+its failure path, its logs and its refused cases, and leaves the code clean.)
 
 ---
 
