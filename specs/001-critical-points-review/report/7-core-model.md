@@ -46,14 +46,14 @@ promises, and a verdict. The sources were opened on 2026-11-05.
     PR's merge into `main` would not close the task issues either, because `Closes #N` is only in
     each task PR's body (`extension/scripts/pr.sh:69`) and task commits carry `Refs #N`
     (`extension/commands/pr.md:30`). Two exceptions: the feature PR's body lists every `Closes #N`,
-    or the repository sets its merge commit message to the PR's title and description, so the task
-    PRs' `Closes #N` lines travel into the default branch inside their merge commits (GitHub's
-    documented closing-keyword behavior; not tested here).
+    or the repository sets both its merge commit message and its squash commit message to the PR's
+    title and description, so the task PRs' `Closes #N` lines travel into the default branch inside
+    their merge or squash commits (GitHub's documented closing-keyword behavior; not tested here).
   - **"one revert removes one task"** (`docs/design.md:18-19`): reverting the feature PR takes the
     whole feature. A single task can still be reverted from the base if each task stays one unit
-    there: no rebase merge for task PRs (it makes one task several commits) and no squash for the
-    feature PR (it folds every task into one commit). A squash or a merge commit for task PRs both
-    work: `git revert <the task's squash commit>`, or `git revert -m 1 <the task PR's merge
+    there: task PRs are squashed or merged with a merge commit, never rebased (that makes one task
+    several commits), and the feature PR is merged with a merge commit only, never squashed (that
+    folds every task into one commit) or rebased (that drops the task PRs' merge commits). Then: `git revert <the task's squash commit>`, or `git revert -m 1 <the task PR's merge
     commit>` (a plain `git revert` refuses a merge commit). jit-speckit sets no merge method today
     (no `gh pr merge` or merge setting under `extension/`), so the model has to.
 
