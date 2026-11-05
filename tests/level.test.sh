@@ -15,7 +15,7 @@ sed -i.bak '/^milestone:/d; /^project:/d' .specify/extensions/jit/jit-config.yml
 
 "$l" lite >/dev/null
 check "when set to lite, then only the PR template is scaffolded" \
-  '[[ -f .github/pull_request_template.md && ! -f .github/workflows/ci.yml && ! -f .github/dependabot.yml ]]'
+  '[[ -f .github/pull_request_template.md && -f .github/copilot-instructions.md && ! -f .github/workflows/ci.yml && ! -f .github/dependabot.yml ]]'
 check "then the constitution has one jit block for lite" '[[ "$(blocks)" == 1 ]] && grep -q "level: lite" .specify/memory/constitution.md'
 check "then the branch flow targets main" 'grep -qF "feat/* → main" .specify/memory/constitution.md'
 check "then an older config gains empty milestone and project keys (nothing is guessed)" \

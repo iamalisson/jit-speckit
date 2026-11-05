@@ -15,11 +15,16 @@ echo 'export const search = 1' > search.ts
 check "when there are uncommitted changes, then it refuses" 'fails_with "uncommitted" "$p" task T001 "feat: add search"'
 git add search.ts; git commit --quiet -m "feat(search): add search"
 
-printf 'Adds search.\n\n## Evidence\n\n`npm test` passed\n' > "$TMP/body.md"
+printf 'Adds search.\n\n## Review\n\nready: no findings\n\n## Evidence\n\n`npm test` passed\n' > "$TMP/body.md"
+printf 'Adds search.\n\n## Evidence\n\n`npm test` passed\n' > "$TMP/unreviewed.md"
+check "when the level is standard and the body has no Review section, then it refuses" \
+  'fails_with "Review" "$p" task T001 "feat(search): add search" "$TMP/unreviewed.md"'
 out="$("$p" task T001 "feat(search): add search" "$TMP/body.md")"
 check "when the work is committed, then it pushes and opens the PR into the base" \
-  '[[ "$out" == "PR=https://github.com/acme/app/pull/99" ]] && git ls-remote --exit-code origin "$(git branch --show-current)" && grep -q -- "--base develop" "$GH_LOG"'
+  '[[ "$out" == *"PR=https://github.com/acme/app/pull/99" ]] && git ls-remote --exit-code origin "$(git branch --show-current)" && grep -q -- "--base develop" "$GH_LOG"'
 check "then the body links the issue with Closes #N" 'grep -q "Closes #5" "$GH_LOG"'
+check "then a Copilot code review is requested on the new PR" \
+  'grep -q "^api -X POST repos/acme/app/pulls/99/requested_reviewers -f reviewers\[\]=copilot-pull-request-reviewer\[bot\]$" "$GH_LOG"'
 check "then the user is assigned and no milestone or project is guessed" \
   'grep -q -- "^pr edit https://github.com/acme/app/pull/99 --add-assignee @me" "$GH_LOG" && ! grep -qE -- "--milestone|--add-project" "$GH_LOG"'
 
@@ -68,7 +73,7 @@ new_repo standard
 mkdir -p tests src; echo 'assert 1 == 1' > tests/test_price.py; echo 'x' > src/keep.test.ts
 commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
 "$SCRIPTS/branch.sh" T001 >/dev/null
-printf 'Adds search.\n' > "$TMP/plain.md"
+printf 'Adds search.\n\n## Review\n\nready: no findings\n' > "$TMP/plain.md"
 
 echo 'assert True' > tests/test_price.py; git commit --quiet -am "feat: weaken"
 check "when an existing test is edited and the body says nothing, then it refuses and names the file" \
@@ -78,7 +83,7 @@ check "then nothing was pushed" '! git ls-remote --exit-code origin "$(git branc
 git rm --quiet src/keep.test.ts; git commit --quiet -m "chore: drop test"
 check "when an existing test is deleted, then it refuses too" 'fails_with "src/keep.test.ts" "$p" task T001 "feat(search): add search" "$TMP/plain.md"'
 
-printf 'Adds search.\n\n## Test changes\n\nThe spec changed the price rule (FR-002).\n' > "$TMP/why.md"
+printf 'Adds search.\n\n## Review\n\nready: no findings\n\n## Test changes\n\nThe spec changed the price rule (FR-002).\n' > "$TMP/why.md"
 check "when the body explains the test changes, then the PR opens" '"$p" task T001 "feat(search): add search" "$TMP/why.md" | grep -q "^PR="'
 
 git push --quiet origin --delete "$(git branch --show-current)" 2>/dev/null || true; git reset --quiet --hard origin/develop; rm -f "$GH_PR"

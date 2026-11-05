@@ -29,16 +29,22 @@ creates issues for tasks that don't have one yet.
    issue is linked to that ID and text). A missing task is appended with the next free ID; a
    linked task gets sub-bullets added or fixed, not a new line. Report what changed in one short
    list.
-2. Then create the issues: run `bash .specify/extensions/jit/scripts/issues.sh` from the repository root.
+2. **Independent review of the plan.** Launch the reviewer exactly as `commands/review.md`
+   (`/speckit-jit-review`) says, as a plan review: one fresh general-purpose subagent, given that
+   file and the feature folder, nothing of your own conclusions. Fix what it finds in `tasks.md`
+   and `plan.md` under the same rules as step 1, and run it again until it says `ready` (at most
+   three rounds). The issue bodies are the task lines, so they must be right before any issue
+   exists.
+3. Then create the issues: run `bash .specify/extensions/jit/scripts/issues.sh` from the repository root.
    - If it fails (no `gh`, not logged in, no remote), show its message and stop. Do not create
      issues any other way.
    - Show the `Tnnn → #N` lines it printed.
-3. Read the level: `level:` in `.specify/extensions/jit/jit-config.yml` (default `standard`).
-4. Open the spec PR, so the tasks reach the base branch where task branches start from:
+4. Read the level: `level:` in `.specify/extensions/jit/jit-config.yml` (default `standard`).
+5. Open the spec PR, so the tasks reach the base branch where task branches start from:
    - **lite**: ask "Open the spec PR now?"; on yes run
      `bash .specify/extensions/jit/scripts/pr.sh spec`.
    - **standard**: run `bash .specify/extensions/jit/scripts/pr.sh spec`.
    - **full**: do not open it yet. Tell the user to run `/speckit-analyze` next; the spec PR opens
      after the analysis.
-5. End with one line: the PR URL (if one was opened), and "merge it, then start a task with
+6. End with one line: the PR URL (if one was opened), and "merge it, then start a task with
    `/speckit-implement T001`".

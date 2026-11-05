@@ -32,3 +32,5 @@
 
 - Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`).
 - Every PR states how it was verified (test output, screenshot or run link).
+- Before a PR opens, a fresh reader reviews it against the whole repository (`/speckit-jit-review`):
+  High and Medium findings are fixed, and the PR's `## Review` section says what was found and done.

@@ -119,7 +119,7 @@ left to build, the feature is finished: run `/jit-speckit:security` before you r
 | **every commit** | refuses `.env`, keys and credential files, and tokens or passwords in the code. Under a second. |
 | **every command Claude runs** | blocks `--no-verify`, `git add -A`, commits on base branches and pushes to them |
 | **every push** | re-checks every outgoing commit, including ones made with `--no-verify` |
-| **before each PR** | scanners on the changed files, `/security-review`, `/code-review` |
+| **before each PR** | an **independent review** by a fresh agent that reads the whole repository, not the diff (siblings' guards, claims re-run, one mutation, the real upgrade path), scanners on the changed files, `/security-review`; then GitHub Copilot code review on the PR when the account has it |
 | **every PR, and weekly** | CI gate: Gitleaks, OSV-Scanner and zizmor (Semgrep with the OWASP rules on `full`; trivy on Dockerfiles and Terraform when the project has them), all pinned and checksum-verified |
 | **before a release** | `/jit-speckit:security`, the full audit |
 
@@ -143,7 +143,7 @@ files.
 | Branches | `feat/*` → `main` | `feat/*` → `develop` → `main` | `feat/*` → `develop` → `staging` → `main` |
 | Constitution defaults | KISS, secrets, tests for logic, task = issue = PR | + security baseline, stack idioms, dependency policy, integration tests | + threat model per feature, data integrity, observability, releases |
 | Added to the repo | git hooks, PR template, `.claude/settings.json` without AI attribution (only when the project has none yet) | + CI for your stack, security CI, Dependabot | + Semgrep in CI, CODEOWNERS, SECURITY.md, release workflow |
-| Before each PR | asks first | review at `/code-review medium` | review at `/code-review high`, and evidence is required |
+| Before each PR | asks first | independent review, `## Review` required in the PR | the same, and evidence is required |
 | `/speckit-analyze` | optional | optional | required before any task |
 
 Your stack (Rust, Node with npm/pnpm/yarn, Python with uv/pip, Go) is detected and shapes the CI
@@ -159,7 +159,7 @@ two checks added there.
 | Tool | Where it fits |
 |---|---|
 | **Plan mode** (`Shift+Tab`) | thinking out loud before `/speckit-specify` or during `/speckit-clarify`. Not for `/speckit-plan`, which writes files that plan mode blocks. |
-| **`/code-review`** | before each PR, automatically. Run `/code-review ultra` yourself before merging a large or risky change (cloud, billed). |
+| **`/code-review ultra`** | yourself, before merging a large or risky change (cloud, billed). The review before each PR is jit's own `/speckit-jit-review`: a fresh agent grounded in the whole repository, so it is not anchored on the session that wrote the code. |
 | **`/security-review`** | before each PR, automatically, and inside `/jit-speckit:security` |
 | **Worktrees** | tasks marked `[P]` can run in parallel: open another session with `claude --worktree` and run `/speckit-implement T00X` there. Each one gets its own branch and PR. The active feature, the `/speckit-analyze` record and the security reports are shared by every worktree, so `full` works there too. |
 
@@ -167,11 +167,11 @@ two checks added there.
 
 | After / before | jit-speckit |
 |---|---|
-| after `/speckit-tasks` | the plan is **grounded in the real code** (every symbol a task removes is searched for, every quickstart command is read, every data write names its target), then one issue per task, `— #N` written on each task line, the spec PR opened |
+| after `/speckit-tasks` | the plan is **grounded in the real code** (every symbol a task removes is searched for, every quickstart command is read, every data write names its target), then reviewed by a fresh agent (plan review), then one issue per task, `— #N` written on each task line, the spec PR opened |
 | after `/speckit-analyze` | records the analysis (level `full` needs it before tasks start) |
 | after `/speckit-converge` | the new tasks it found get grounded, get issues, and reach the base branch through a spec PR |
 | before `/speckit-implement` | refuses without exactly one task, an issue, the merged spec and a clean tree; otherwise switches to `feat/<feature>-t00x-<slug>`. spec-kit's implement command is told to build only that task and not tick it (the issue closing is "done") |
-| after `/speckit-implement` | checks, commit, security scan, reviews, push, PR with `Closes #N` |
+| after `/speckit-implement` | checks, commit, security scan, `/security-review`, the independent review (fixed until `ready`), push, PR with `Closes #N` and `## Review`, Copilot code review requested |
 | every issue and PR | assigned to you; given the milestone and project if configured (a failure only warns); no AI attribution lines; long output folded into `<details>` |
 | a task PR that changes existing tests | refused unless the body has a `## Test changes` section saying why. New tests need no explanation; weakening one does |
 
