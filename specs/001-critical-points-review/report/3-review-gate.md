@@ -222,12 +222,18 @@ Also checked, no finding:
   `## Test changes` section".
 - **reproduction**: section G below.
 - **exposure**: public.
-- **fix**: widen the pattern and match it case-insensitively:
-  `(^|/)(tests?|__tests__|spec|e2e|cypress)/|(^|/)[^/]*\.tests?/|[._-](test|spec|cy)\.[a-z]+$|(^|/)tests?\.py$|(^|/)test_[^/]*\.py$|Tests?\.[a-z]+$`
-  (with `grep -iE`), and let the constitution add one (`tests: <regex>`) for anything else. Check
-  for `tests/pr.test.sh`: when an existing `app/tests.py` or `Tests/AppTests/AppTests.swift` is
-  edited and the body has no `## Test changes`, then `pr.sh task` refuses and names the file. It
-  fails today.
+- **fix**: widen the pattern, case-sensitively, with the PascalCase test name anchored:
+  `(^|/)([Tt]ests?|__tests__|spec|e2e|cypress)/|(^|/)[^/]*\.[Tt]ests?/|[._-]([Tt]est|[Ss]pec|cy)\.[a-zA-Z]+$|(^|/)tests?\.py$|(^|/)test_[^/]*\.py$|[a-z0-9]Tests?\.[a-z]+$`
+  (with `grep -E`, no `-i`), and let the constitution add one (`tests: <regex>`) for anything
+  else. Tested on 2026-11-05: it matches `app/tests.py`, `Tests/AppTests/AppTests.swift`,
+  `MyApp.Tests/FooTests.cs`, `cypress/e2e/login.cy.ts`, `src/Foo.Test.cs`, `src/foo.spec.TS`,
+  `tests/test_a.py`, `src/a.test.ts` and `__tests__/a.js`, and leaves as source `src/latest.ts`,
+  `lib/contest.py`, `src/attest.go`, `pkg/protest.rb`, `src/greatest.js`, `src/Contests.java`,
+  `src/Latests.cs`, `src/utils.py`, `app/Manifest.swift`, `src/LatestRelease.swift`,
+  `src/specification.py`, `docs/e2e.md` and `lib/testing.go`. Check for `tests/pr.test.sh`: when
+  an existing `app/tests.py` or `Tests/AppTests/AppTests.swift` is edited and the body has no
+  `## Test changes`, then `pr.sh task` refuses and names the file (it fails today); and when an
+  existing `src/latest.ts` is edited, then it is not refused (it guards the fix).
 
 ### Reproductions
 
