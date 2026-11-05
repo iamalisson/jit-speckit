@@ -4,6 +4,7 @@
 source "$(dirname "$0")/helpers.sh"
 fake_gh
 i="$SCRIPTS/issues.sh"
+plan_reviewed() { printf 'Plan read.\n\nAssessment: ready\n' > "$TMP/plan.md"; "$SCRIPTS/review.sh" record --plan "$TMP/plan.md" >/dev/null; }
 
 new_repo standard
 commit_tasks '# Tasks
@@ -16,6 +17,8 @@ commit_tasks '# Tasks
 - [ ] T002 [P] [US1] Price * filter [beta] & co in `src/a.ts` — #7
 - [ ] T003 [US1] Show prices in src/view.tsx and src/list.tsx, with tests in tests/view.test.ts'
 
+check "when the plan was not reviewed, then no issue is created" 'fails_with "no independent review" "$i" && ! grep -qs "^issue create" "$GH_LOG"'
+plan_reviewed
 out="$("$i")"
 check "when tasks have no issue, then one issue is created per task" '[[ "$(grep -c "^issue create" "$GH_LOG")" == 2 ]]'
 check "then each issue number is written at the end of its task line" \
@@ -34,18 +37,20 @@ out="$("$i")"
 check "when run again, then no issue is created twice" '[[ "$out" == *"CREATED=0 SKIPPED=3"* && "$(grep -c "^issue create" "$GH_LOG")" == 2 ]]'
 
 printf '%s\n' '- [ ] T004 Dry task in `x`' >> specs/001-demo/tasks.md
+check "when a task was added since the plan review, then it refuses until the plan is reviewed again" 'fails_with "changed since" "$i"'
+plan_reviewed
 check "when --dry-run, then nothing is created or written" \
   'out="$("$i" --dry-run)"; grep -q "would create" <<<"$out" && [[ "$(grep -c "^issue create" "$GH_LOG")" == 2 ]] && ! grep -q "T004.*#" specs/001-demo/tasks.md'
 
 set_cfg milestone '"Sprint #3"'; set_cfg project '"Road map" # the team board'
-printf '%s\n' '- [ ] T005 Meta task in `y`' >> specs/001-demo/tasks.md
+printf '%s\n' '- [ ] T005 Meta task in `y`' >> specs/001-demo/tasks.md; plan_reviewed
 "$i" >/dev/null
 check "when a quoted milestone contains #, then it is kept whole" 'grep -q -- "^issue edit .* --milestone Sprint #3$" "$GH_LOG"'
 check "then the project is set, and a trailing comment after the quotes is ignored" 'grep -q -- "^issue edit .* --add-project Road map$" "$GH_LOG"'
 
 set_cfg milestone "'Q4 #2' # single quotes work too"
 set_cfg project 'Board # unquoted, comment stripped'
-printf '%s\n' '- [ ] T006 Scope task in `z`' >> specs/001-demo/tasks.md
+printf '%s\n' '- [ ] T006 Scope task in `z`' >> specs/001-demo/tasks.md; plan_reviewed
 out="$(GH_FAIL_EDIT=1 "$i" 2>&1)"
 check "when setting metadata fails, then the issue is still created and linked" 'grep -q "T006 Scope task in \`z\` — #[0-9]*$" specs/001-demo/tasks.md'
 check "then a single-quoted milestone is read whole, without its quotes" 'grep -q -- "^issue edit .* --milestone Q4 #2$" "$GH_LOG"'
