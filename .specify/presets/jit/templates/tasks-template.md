@@ -16,6 +16,8 @@ description: "Task list template for feature implementation"
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no dependencies)
+- A task that needs another one **merged** first says so on its line: `(depends on T003)`.
+  jit-speckit holds it until T003's issue closes, instead of offering it with a caveat.
 - **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
 - Include exact file paths in descriptions
 - **One task = one issue = one branch = one pull request.** Do not write issue numbers yourself:

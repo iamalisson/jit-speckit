@@ -2,9 +2,9 @@
   "schema_version": "1.0",
   "presets": {
     "jit": {
-      "version": "1.7.0",
+      "version": "1.7.1",
       "source": "local",
-      "manifest_hash": "sha256:f4c1ae03bf96e32979da3c5d9928bfc224929caa5f19fcc3f21560626e97e3ea",
+      "manifest_hash": "sha256:7f122b99b3ed2e0c92ef5954dfaa2f21ea978cbd02548da95997ea7e475b1308",
       "enabled": true,
       "priority": 10,
       "registered_commands": {
@@ -17,7 +17,7 @@
           "speckit-implement"
         ]
       },
-      "installed_at": "2026-11-05T05:12:01.871537+00:00"
+      "installed_at": "2026-11-05T05:21:28.223391+00:00"
     }
   }
 }
