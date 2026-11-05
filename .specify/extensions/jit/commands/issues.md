@@ -31,10 +31,12 @@ creates issues for tasks that don't have one yet.
    list.
 2. **Independent review of the plan.** Launch the reviewer exactly as `commands/review.md`
    (`/speckit-jit-review`) says, as a plan review: one fresh general-purpose subagent, given that
-   file and the feature folder, nothing of your own conclusions. Fix what it finds in `tasks.md`
-   and `plan.md` under the same rules as step 1, and run it again until it says `ready` (at most
-   three rounds). The issue bodies are the task lines, so they must be right before any issue
-   exists.
+   file and the feature folder, nothing of your own conclusions. Save its report to a file outside the repository (`mktemp`) and record it:
+   `bash .specify/extensions/jit/scripts/review.sh record --plan <file>`. Fix what it finds in
+   `tasks.md` and `plan.md` under the same rules as step 1, and run it again until it says
+   `ready` (at most three rounds). The issue bodies are the task lines, so they must be right
+   before any issue exists: `issues.sh` refuses to run without a recorded `ready` plan review for
+   the current `tasks.md`.
 3. Then create the issues: run `bash .specify/extensions/jit/scripts/issues.sh` from the repository root.
    - If it fails (no `gh`, not logged in, no remote), show its message and stop. Do not create
      issues any other way.

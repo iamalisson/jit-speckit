@@ -18,7 +18,12 @@ session shares the author's assumptions and tests the same path the author teste
 **Two roles.** If you are the author's session (`/speckit-jit-pr`, `/speckit-jit-issues`, or the
 user ran `/speckit-jit-review`): launch one general-purpose subagent whose prompt is this whole
 file plus the facts below, and nothing else: no summary of what you built, no "I already checked
-X". Wait for its report. If you are that subagent: follow the method and return only the report.
+X". Wait for its report, save it as it came to a file outside the repository (`mktemp`), and record it:
+`bash .specify/extensions/jit/scripts/review.sh record <file>` (`record --plan <file>` for a plan
+review). The record is tied to the exact diff (or `tasks.md`): `pr.sh` and `issues.sh` refuse to
+open anything without a recorded review that said `ready` for the current state, at every level,
+so a commit after the review means another review. If you are that subagent: follow the method
+and return only the report.
 
 Facts the author passes:
 - the base branch and the branch under review, or, for a plan review, the feature folder
@@ -38,24 +43,29 @@ Facts the author passes:
    two siblings and list every guard they have: existence checks, idempotent writes, timeouts,
    authorization, refusal to run against production. A guard the siblings have and the new file
    lacks is a finding, with the sibling's `file:line` as evidence.
-3. **Check every claim.** Each line of the PR body's *Evidence* and the task's *Completed when*:
+3. **Feed it what the tests don't.** For every validator, parser or form changed, try the shapes
+   its tests do not list: empty, whitespace only, wrapped in braces or quotes, too long, mixed
+   case, a duplicate, unicode. Compare each answer with the contract, including how many messages
+   come back: one failure, one message, in the contract's words. A second message from a
+   framework default (a length or required check the framework adds by itself) is a finding.
+4. **Check every claim.** Each line of the PR body's *Evidence* and the task's *Completed when*:
    re-run the command when it takes under a minute; otherwise read the test and say what it
    proves. Each *Impact* item: is it handled in this diff? A claim you cannot reproduce is
    reported as unverified, never assumed.
-4. **Run the tests, then break the code once.** Run the test command. For the task's main
+5. **Run the tests, then break the code once.** Run the test command. For the task's main
    behavior, make one small change that should break it (invert a condition, drop a guard, return
    early), run the tests again, and restore the file. A suite that stays green is a finding.
-5. **Walk the real path, not the fresh one.** For each change ask what happens where state already
+6. **Walk the real path, not the fresh one.** For each change ask what happens where state already
    exists: a table the models already created, a half-applied earlier run, a retry, two requests
    at once, a missing optional config, an empty result. The happy path on a clean machine is the
    one the author already tested. **Then walk the failure path**: when this fails, does the caller
    get a status and a code and nothing internal, is the failure logged exactly once with the
    request ID and without personal data, and is each refused case (wrong user, bad input, replay)
    tested? A swallowed error, a silent failure or a log line with personal data is a finding.
-6. **Security at the boundaries** of what changed: input validation, authorization taken from the
+7. **Security at the boundaries** of what changed: input validation, authorization taken from the
    authenticated context, secrets, injection, what the error messages leak.
 
-**Plan review** (before the issues are created): apply steps 1, 2 and 5 to every task in
+**Plan review** (before the issues are created): apply steps 1, 2 and 6 to every task in
 `tasks.md`. *Impact* names every reference the task touches (search each symbol) and the newest
 sibling of each file it adds; *Completed when* is a command that proves the real path, not only a
 fresh state, at the level the behavior demands (logic: unit; through the interface: integration
@@ -77,4 +87,5 @@ Written for the author, who fixes it, and for the human who merges:
   revision, `flask db upgrade` stops with 'already exists'"), and the evidence (the sibling's
   `file:line`, the command output). A finding you could not verify says so. No style, no naming,
   no nits: they are what gets reviews ignored.
-- **Assessment**: `ready`, or `changes needed` when there is any High or Medium.
+- The last line, exactly: `Assessment: ready`, or `Assessment: changes needed` when there is any
+  High or Medium. `review.sh record` reads that line; without it the report cannot be recorded.

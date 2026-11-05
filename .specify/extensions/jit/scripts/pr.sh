@@ -2,8 +2,8 @@
 # Push the current work and open (or reuse) its pull request.
 #   pr.sh task T003 "feat(api): add price search" [body-file]
 #       On the task's branch, with the work already committed. Adds "Closes #N".
-#       Levels "standard" and "full" require a "## Review" section (the independent review's
-#       findings and what was done); "full" also requires "## Evidence".
+#       Every level requires a "## Review" section in the body and a recorded independent review
+#       that said "ready" for this exact diff (review.sh); "full" also requires "## Evidence".
 #   pr.sh spec
 #       Commits the active feature's spec folder on spec/<feature> and opens a docs PR.
 # Prints: PR=<url>
@@ -52,19 +52,20 @@ case "$mode" in
     if [[ "$(jit_level)" == full ]] && ! grep -qE '^## Evidence' <<<"$body"; then
       die "level 'full' requires an '## Evidence' section in the PR body (test output, screenshots, run links)"
     fi
-    if [[ "$(jit_level)" != lite ]] && ! grep -qE '^## Review' <<<"$body"; then
-      die "level '$(jit_level)' requires a '## Review' section in the PR body: the independent review's findings and what was done about them (/speckit-jit-review)"
-    fi
+    grep -qE '^## Review' <<<"$body" \
+      || die "the PR body needs a '## Review' section: the independent review's findings and what was done about them (/speckit-jit-review)"
     # A test that changes to fit the code proves nothing: editing, renaming or deleting an
     # existing test needs a reason a reviewer can check. New tests need none.
     # --no-renames: a test moved out of a test folder counts as deleted, not as a new file.
-    ref="origin/$base"; git rev-parse --verify --quiet "$ref" >/dev/null || ref="$base"
+    ref="$(base_ref)"
     git rev-parse --verify --quiet "$ref" >/dev/null || die "base branch '$base' not found locally or on origin"
     changed_tests="$(git diff --no-renames --diff-filter=MD --name-only "$ref...HEAD" | grep -E "$TEST_PATH_RE" || true)"
     if [[ -n "$changed_tests" ]] && ! grep -qE '^## Test changes' <<<"$body"; then
       die "existing tests were changed: $(tr '\n' ' ' <<<"$changed_tests")
 add a '## Test changes' section to the PR body saying why (spec changed, test was wrong). Never weaken a test to make it pass."
     fi
+    # The review has to have happened, on this diff, and said ready: a heading alone proves nothing.
+    bash "$JIT_EXT_DIR/scripts/review.sh" check >/dev/null
     grep -qiE "(close[sd]?|fix(e[sd])?|resolve[sd]?) #$issue([^0-9]|$)" <<<"$body" || body+=$'\n\n'"Closes #$issue"
     git push --quiet -u origin "$branch"
     open_pr "$title" "$body"
@@ -78,7 +79,7 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
     open="$(gh pr list --head "$branch" --state open --json url --jq '.[0].url // empty' 2>/dev/null || true)"
     fresh=false
     if [[ "$(git branch --show-current)" != "$branch" || -z "$open" ]]; then
-      ref="origin/$base"; git rev-parse --verify --quiet "$ref" >/dev/null || ref="$base"
+      ref="$(base_ref)"
       # The spec folder's current content travels with us; nothing else is touched.
       saved="$(mktemp -d)"; cp -R "$fdir" "$saved/"
       restore() { rm -rf "$fdir"; mkdir -p "$(dirname "$fdir")"; cp -R "$saved/$(basename "$fdir")" "$fdir"; rm -rf "$saved"; }

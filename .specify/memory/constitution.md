@@ -86,6 +86,10 @@ never put a secret, an AI attribution line or a security finding into a public p
 - Features go through specs and tasks. A small fix (a typo, a one-line bug, a dependency bump)
   goes on a normal branch and PR: no spec or issue needed, but the hooks and CI still apply.
 - Branch flow: `feat/* → main`, always through a pull request.
+- Before a PR opens, a fresh reader reviews it against the whole repository
+  (`/speckit-jit-review`); High and Medium findings are fixed, the review is recorded for the
+  exact diff, and the PR's `## Review` section says what was found and done. No task PR opens
+  without it.
 <!-- jit:end -->
 
 ## Governance
