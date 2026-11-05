@@ -1,7 +1,8 @@
 # jit-speckit reference
 
-The details behind the [README](../README.md): what each command does, what runs automatically,
-and every setting. For why things work the way they do, see [design.md](design.md).
+The details behind the [README](../README.md): updating, what `new` sets up, stack detection
+and managed files, what runs automatically, the Claude Code tools that fit, every setting, and
+uninstalling. For why things work the way they do, see [design.md](design.md).
 
 ## Update
 
@@ -11,7 +12,8 @@ Plugins don't update themselves. From a terminal, one line:
 claude plugin marketplace update jit-speckit && claude plugin update jit-speckit@jit-speckit
 ```
 
-Then restart Claude Code. **In every project that already uses jit-speckit, run `/jit-speckit:init`
+Inside a Claude Code session, the same line with a `!` in front runs it there (the `/plugin`
+prompt does not take it). Then `/reload-plugins`, or restart Claude Code. **In every project that already uses jit-speckit, run `/jit-speckit:init`
 once**: each project keeps its own copy of the extension (hooks, scripts, review method, scaffold)
 under `.specify/`, and only `init` refreshes it. It keeps the project's level and touches nothing
 else. Skip it and the project keeps running the old version, whatever the plugin says.
@@ -35,16 +37,16 @@ through a spec. It sets up the tooling, for any stack, with today's versions:
 It runs the checks on the empty project, then suggests the first spec: the **foundation**
 (validated config, one error type whose 500s carry an `error_id`, JSON logs with request IDs,
 limits, a health check, tests at three levels). It follows three short files:
-- **[GUIDELINES.md](docs/GUIDELINES.md)**: start simple, well done and secure, and add
+- **[GUIDELINES.md](GUIDELINES.md)**: start simple, well done and secure, and add
   complexity only when a real need shows up. Its
-  [Starter checklist](docs/GUIDELINES.md#starter-checklist) lists what `new` sets up and what
+  [Starter checklist](GUIDELINES.md#starter-checklist) lists what `new` sets up and what
   the foundation spec covers.
-- **[GUARDRAILS.md](docs/GUARDRAILS.md)**: the common, costly mistakes and how to catch them,
+- **[GUARDRAILS.md](GUARDRAILS.md)**: the common, costly mistakes and how to catch them,
   each backed by evidence.
-- **[references.yaml](docs/references.yaml)**: the primary source to check for each topic,
+- **[references.yaml](references.yaml)**: the primary source to check for each topic,
   so choices follow current practice, not habits from five years ago.
 
-## Levels in detail
+## Stack detection and managed files
 
 Your stack (Rust, Node with npm/pnpm/yarn, Python with uv/pip, Go) is detected and shapes the CI
 and the constitution; the constitution's **Commands** line, once `/jit-speckit:adopt` fills it,
