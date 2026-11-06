@@ -25,8 +25,10 @@ Also checked, no finding:
   `jit: warning: could not set …` with `gh`'s own error (`tests/issues.test.sh:57`), so a user can
   tell it never worked (FR-006).
 - The 500-item limit on `gh pr list` (`next.sh:24`): a task beyond it is still seen as in progress
-  through its branch on origin (`next.sh:23,43`), which every started task has (the claim), so only
-  a task whose claim push failed (F1.1) and whose PR is past the 500 newest open ones is missed.
+  through its branch on origin (`next.sh:23,43`, `git ls-remote --heads origin`, no limit). Every
+  task with an open PR has that branch, because `pr.sh:70` pushes it before `open_pr` at `:71`,
+  so the limit never hides a task with an open PR. A failed claim matters only before a PR exists,
+  which is F1.1.
 - The `"$num in:title"` search (`next.sh:31`) matching other features' issues does no harm: a task
   is done only when its own issue number is in the result (`next.sh:39`), and numbers are unique.
 
@@ -125,9 +127,9 @@ Also checked, no finding:
   "fixes #12" and "Closes #3", then `gh issue close 3` is still called and the step exits non-zero.
   It fails today (exit 0).
 
-### F1.7 · Low · P01 · an issue created on GitHub whose answer never arrives is created again
+### F1.7 · Medium · P01 · an issue created on GitHub whose answer never arrives is created again
 
-- **verdict**: limit
+- **verdict**: limit (the docs mislead)
 - **evidence**: `issues.sh:52-56` writes `— #N` only after `gh issue create` returns a URL. If the
   request reaches GitHub but the client fails (a timeout, Ctrl-C), `set -e` ends the run before the
   write-back, and the next run creates the task's issue again; nothing looks for an existing
@@ -135,8 +137,16 @@ Also checked, no finding:
   prints `T003 → #2`, and the log has 2 `issue create` calls for T003. Not run against real GitHub.
   `issues.sh:54` ("so an interrupted run never creates duplicates") and `extension/commands/issues.md:8-9`
   ("running it again only creates issues for tasks that don't have one yet") hold for every
-  interruption except this window.
-- **note**: before creating, `gh issue list --search "[NNN] Tnnn: in:title"` and reuse a match.
+  interruption except this window, and neither says the window exists: both promise the opposite,
+  as P01 does. Ranked Medium for that (FR-009: "a promise kept but a user could be misled about
+  it").
+- **reproduction**: section G of the script below.
+- **exposure**: public.
+- **fix**: before `gh issue create`, look for an issue (any state) titled `[NNN] Tnnn:` and, when
+  there is one, write its number back instead of creating another. Check for
+  `tests/issues.test.sh`: when the first `gh issue create` for a task reached GitHub but failed on
+  the client, then a rerun makes no second `issue create` for that task and writes the existing
+  number back. It fails today (2 calls).
 
 ### F1.8 · Medium · P05 · when `gh pr list` fails, `pr.sh spec` force-pushes over the open spec PR's branch
 

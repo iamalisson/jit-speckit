@@ -13,7 +13,7 @@ tasks.md "Rules every task follows".
 | P11 | No issue is created without a recorded plan review of the current `tasks.md` | limit | `issues.sh:18` refuses without it (`tests/issues.test.sh:20,40`); the same narrowness as P10 (F3.1), and the record covers `plan.md` and `tasks.md` only: F3.2 |
 | P12 | Never opens a PR on red checks | broken | no script runs the checks before a PR; section B: `pr.sh` opens the PR while the project's check fails: F3.3 |
 | P13 | Tests are evidence: a PR that changes existing tests needs `## Test changes`; mutation testing runs on the change | limit | test changes: `pr.sh:57-66` with `TEST_PATH_RE` (`lib.sh:57`) and `--no-renames`; `tests/pr.test.sh:86-111`, but common test layouts are not recognized: F3.9. Mutation testing only runs when the prompt runs it, and `missing` exits 0: F3.4 |
-| P14 | GitHub Copilot code review is requested on every PR when the account has it | broken | sandbox PR #15: `pr.sh`'s exact call answers `201 Created` with `"requested_reviewers":[]`, and `pr.sh` prints `copilot: code review requested` anyway: F3.5 |
+| P14 | GitHub Copilot code review is requested on every PR when the account has it | limit | sandbox PR #15: `pr.sh`'s exact call answers `201 Created` with `"requested_reviewers":[]`, and `pr.sh` prints `copilot: code review requested` anyway: F3.5 |
 | P15 | On full, `## Evidence` and `/speckit-analyze` on the current `tasks.md` are required | limit | `pr.sh:52-54` refuses a body without `## Evidence`; `branch.sh:37-42` refuses until the analysis marker matches `tasks.md` on the base; `tests/pr.test.sh:40`, `tests/branch.test.sh:63-70`. But the marker proves even less than the review record: `analyzed.sh:12` writes it with no report at all: F3.8 |
 | P26 | Before each PR, the scanners run on the changed files and `/security-review` runs | limit | asked in `extension/commands/pr.md` step 4 only; `pr.sh` never checks they ran (section B), and a missing scanner is reported as `missing` and exits 0 (`security-scan.sh:32`): F3.6 |
 
@@ -22,7 +22,8 @@ Also checked, no finding:
   the base in keeps it, and any edit, whitespace included, changes it (`--verbatim`, with a
   `--stable` fallback for git older than 2.39, `review.sh:28`). Uncommitted tracked changes are refused
   at record time (`review.sh:41`).
-- Only an exact `Assessment: ready` or `Assessment: changes needed` line counts, and the last one
+- Only a line that is just `Assessment: ready` or `Assessment: changes needed` (any case, optional
+  bold, optional trailing period, `review.sh:38`) counts, and the last one
   decides (`review.sh:38`).
 - spec-kit's `optional: false` hooks (`.specify/extensions.yml`) are prompts, not processes: the
   installed `/speckit-implement` skill (spec-kit v1.2.5) emits `EXECUTE_COMMAND:` and says
@@ -128,7 +129,8 @@ Also checked, no finding:
 
 ### F3.5 · Medium · P14 · "copilot: code review requested" is printed when no review was requested
 
-- **verdict**: broken
+- **verdict**: limit (the docs mislead): whether the request itself works is `unverified` (below);
+  what was reproduced is the false line, a message that misleads about a promise that may be kept
 - **evidence**: `pr.sh:29` sends `POST …/requested_reviewers` with
   `reviewers[]=copilot-pull-request-reviewer[bot]`, and prints the line when `gh` exits 0. Its
   comment says "Without it the API refuses (422) and nothing is said" (`pr.sh:26-27`). On the
@@ -145,7 +147,7 @@ Also checked, no finding:
 - **reproduction**: sandbox script below.
 - **exposure**: public.
 - **fix**: print the line only when the answer's `requested_reviewers` contains the Copilot
-  login, and otherwise say `copilot: not requested (no Copilot code review on this repository)`.
+  login, and otherwise say `copilot: not requested (GitHub did not add the reviewer)`, naming no cause.
   Check for `tests/pr.test.sh`: when the fake `gh` answers the request with
   `{"requested_reviewers":[]}`, then the output does not contain `code review requested`. It fails
   today.
@@ -154,7 +156,7 @@ Also checked, no finding:
 
 - **verdict**: limit (the docs mislead)
 - **evidence**: `README.md:108` lists, in "Security, built in", "**before each PR** … scanners on
-  the change, `/security-review`", and `docs/security.md:30` puts them in "The layers". Only
+  the changed files, `/security-review`", and `docs/security.md:30` puts them in "The layers". Only
   `extension/commands/pr.md` step 4 asks for them; `pr.sh` never checks they ran (section B), and
   `security-scan.sh` reports each absent scanner as `missing` and exits 0 (`security-scan.sh:32`).
   On this machine all four were `missing` for T001 and T002, and both PRs opened. A user can tell
@@ -176,8 +178,7 @@ Also checked, no finding:
   ```
 - **exposure**: public.
 - **fix**: `security-scan.sh --changed` writes its result line to `.git/jit-security/<diff patch
-  id>`, and `pr.sh task` refuses when there is none for this diff. Or, smaller, the README row
-  says "asked of the agent before each PR; CI runs the scanners for real". Check for
+  id>`, and `pr.sh task` refuses when there is none for this diff. Check for
   `tests/pr.test.sh`: when no scan was recorded for this diff, then `pr.sh task` refuses and names
   `security-scan.sh`. It fails today.
 

@@ -22,15 +22,18 @@ Also checked, no finding:
   `zizmorcore/zizmor-action@v0.8.1`, `astral-sh/setup-uv@v10.3.3` (all `ok`). The release
   checksum files list the pinned values: gitleaks 8.30.1 `551f6fc8…f2470eb  gitleaks_8.30.1_linux_x64.tar.gz`
   and osv-scanner 2.7.0 `160c6253…cc2e4218b  osv-scanner_linux_amd64`.
-- **Dependabot in a generated project works**: the sandbox (standard, since PR #10) has two open
-  Dependabot PRs, "bump actions/checkout from 4.4.0 to 7.0.1" (#1) and "bump astral-sh/setup-uv
-  from 5.4.2 to 10.3.3" (#2), from the `dependabot.yml` that `level.sh:301-328` writes, with a
-  7-day cooldown.
+- **Dependabot in a generated project works**: the sandbox has two open Dependabot PRs, "bump
+  actions/checkout from 4.4.0 to 7.0.1" (#1) and "bump astral-sh/setup-uv from 5.4.2 to 10.3.3"
+  (#2), opened on 2026-11-04 from the sandbox's first generated `dependabot.yml` on `master`
+  (from before its PRs #8 and #10, with no cooldown). That shows a generated config proposing
+  action bumps; it does not show 1.7.2's config (`level.sh:301-328`, with a 7-day cooldown) at work.
 - **Check names**: `init` step 4 says to take the jobs' `name:` (or key) and never `CI` or
   `Security`. On the sandbox, the four names (`python`, `Secrets (gitleaks, full history)`,
   `Dependencies (osv-scanner)`, `Workflows (zizmor)`) were the four check runs on the probe PRs,
   so no PR waits for a check that never reports.
-- **The pins the Node project did not generate**, checked the same way: `pnpm/action-setup@v4.4.0`,
+- **The pins the Node project did not generate**, checked the same way (an annotated tag,
+  `pnpm/action-setup` and `Swatinem/rust-cache`, was dereferenced with
+  `gh api repos/<action>/git/tags/<sha>` before comparing): `pnpm/action-setup@v4.4.0`,
   `Swatinem/rust-cache@v2.9.3`, `actions/setup-python@v5.6.0` and `actions/setup-go@v5.6.0` all
   `ok`; `dtolnay/rust-toolchain`'s pin is `master`'s current SHA (`683b588c…`), as its comment
   says; trivy 0.76.0's `trivy_0.76.0_checksums.txt` lists `e24b1c51…3562c993e145fe7
@@ -200,7 +203,7 @@ Round 2: reviewed the fix commit (bound parameter, plus a test with a quote in t
   "offered by `/jit-speckit:init`" and says "The CI gate plus branch protection is the boundary".
   On lite that boundary does not exist: the local hooks and the command guard are all there is,
   and both can be bypassed locally (`docs/security.md:27-29`). Step 4 also offers private
-  vulnerability reporting "for full, or any public repo", yet step 4 runs only on standard and
+  vulnerability reporting "(full, or any public repo)", yet step 4 runs only on standard and
   full, so a public lite repository is never offered it. This repository is one: lite, public, with
   private vulnerability reporting `{"enabled":false}` and secret scanning and push protection
   `disabled` (`gh api` on 2026-11-05).
@@ -232,16 +235,22 @@ Round 2: reviewed the fix commit (bound parameter, plus a test with a quote in t
   a managed workflow carries a newer checkout pin than `pins.sh`, then `level.sh` keeps it and
   prints `kept newer pin`. It fails today.
 
-### F4.5 · Low · P16 · Semgrep is version-pinned but not checksum-verified, and its rules are fetched at run time
+### F4.5 · Medium · P16 · Semgrep is version-pinned but not checksum-verified, and its rules are fetched at run time
 
-- **verdict**: limit
+- **verdict**: limit (the docs mislead)
 - **evidence**: the generated full `security.yml` runs
   `uvx --from semgrep==1.183.0 semgrep scan --config p/default --config p/owasp-top-ten …`. The
   package comes from PyPI by version with no hash, and `p/default` and `p/owasp-top-ten` are
   downloaded from the Semgrep registry on each run, so the rules change without a commit.
-  "all pinned and checksum-verified" (`README.md:109`) is true of the binaries, not of these.
-- **note**: `uv pip install --require-hashes` with a pinned hash, and vendored rule files (or a
-  registry ruleset pinned by version), would match the rest.
+  "all pinned and checksum-verified" (`README.md:109`) is true of the binaries, not of these, so a
+  user reading it is misled about Semgrep (FR-009 Medium).
+- **reproduction**: `level.sh full` in a throwaway repo, then read the Semgrep step of the written
+  `security.yml`.
+- **exposure**: public.
+- **fix**: install Semgrep with its hash pinned next to its version in `pins.sh`
+  (`--require-hashes`), and run rule files kept in the extension instead of `--config p/…`
+  registry rulesets. Check for `tests/level.test.sh`: when `level.sh full` writes `security.yml`,
+  then its Semgrep step verifies a hash and has no `--config p/`. It fails today.
 
 ### F4.6 · Low · P27 · a release goes out on any version tag, with no audit or CI requirement
 
@@ -249,7 +258,9 @@ Round 2: reviewed the fix commit (bound parameter, plus a test with a quote in t
 - **evidence**: the full `release.yml` runs on `push: tags: ["v*"]` and calls `gh release create
   "$TAG" --generate-notes --verify-tag`, with no check that CI passed on the tagged commit or that
   `/jit-speckit:security` ran. `docs/security.md:32` says "On demand, before releases", which is
-  accurate; the README's "before a release" row reads more like an automatic step.
+  accurate; the README's "before a release" row reads more like an automatic step. It stays Low:
+  that row names a command, `/jit-speckit:security`, in a table whose other rows also name what to
+  run, not a CI step, and the security doc it points to says "On demand".
 - **note**: `release.yml` could require a passing `Security` run on the tagged commit (`gh run
   list --commit "$GITHUB_SHA" --workflow security.yml`) before creating the release.
 

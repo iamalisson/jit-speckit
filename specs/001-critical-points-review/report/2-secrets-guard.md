@@ -13,7 +13,7 @@ not installed here, so only the built-in patterns ran. Claude Code on this machi
 | P08 | Every command Claude runs is refused for `--no-verify`, `commit -n`, hooks switched off, `git add -A`, commits on and pushes to base branches; the guard is the plugin's own copy | limit | the documented forms are refused (section G below; `guard.sh:85-135`; `tests/guard.test.sh`); the plugin's own copy runs (`hooks/guard-git.sh:22`). Valid commands are refused (F2.2), and two forms inside the documented scope get through (F2.3) |
 | P09 | Findings never print the secret itself | holds | `secrets.sh:73-81` hands back only line numbers and the kind; Gitleaks runs with `--redact` (`:85,88`); section B below: "secret not in the output" |
 
-Also checked, no finding (these are parts of P06 and P07; the rows above carry F2.1 only):
+Also checked, no finding:
 - Secret-bearing files: `.env`, `config/.env.production`, `deploy/id_ed25519` and `certs/server.pem`
   are refused, and `.env.example` and the other templates are allowed (`secrets.sh:34-42`). Section A.
 - Provider tokens in added lines: GitHub and AWS formats are refused, and the kind is named (section A).
@@ -95,8 +95,8 @@ and the guard is "best effort", with "CI and branch protection" as the boundary.
   branch protection (FR-013).
 - **fix**: in `guard.sh`, refuse any long option that git would expand to `--no-verify`: a unique
   prefix of it among that subcommand's options (git rejects the ambiguous shorter ones, so the
-  guard can refuse every prefix that is not ambiguous for `commit`, `push`, `merge`, `rebase`, `am`,
-  `cherry-pick` and `revert`, each checked against its own option list). And when a word sequence in the chain is
+  guard can refuse every prefix that is not ambiguous for `commit`, `push`, `merge`, `rebase` and
+  `am`, each checked against its own option list; `cherry-pick` and `revert` take no `--no-verify`). And when a word sequence in the chain is
   `git switch|checkout <branch>`, judge later commits by that branch. Check for
   `tests/guard.test.sh`: when the command is a commit with an abbreviated `--no-verify`, or a
   switch to `main` followed by a commit in one chain, then `guard.sh` exits 2. It fails today
