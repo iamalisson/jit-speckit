@@ -117,7 +117,10 @@ check "when a '- proven:' line names a file that is not a test, then record refu
 rep ready "${deep[@]}" "- proven: db/migrations/002_drop.sql by tests/drop.test.sh:4"
 check "when a '- proven:' line names a line past the test file's end, then record refuses" \
   'fails_with "db/migrations/002_drop.sql is not proven by tests/drop.test.sh:4" "$r" record "$TMP/report.md"'
-rep ready "${deep[@]}" "- proven: db/migrations/002_drop.sql by tests/drop.test.sh:3 — asserts the drop is guarded"
+rep ready "${deep[@]}" "- proven: db/migrations/002_drop.sql by tests/drop.test.sh:3"
+check "when a '- proven:' line names an existing test line for a path flagged delete, then record refuses: only '- deep:' clears it" \
+  'fails_with "the report does not check db/migrations/002_drop.sql (delete, migration): add '"'"'- deep: db/migrations/002_drop.sql'"'"'" "$r" record "$TMP/report.md"'
+rep ready "- proven: src/authorization.py by tests/drop.test.sh:3 — asserts the check denies" "- deep: build.sh" "- deep: db/migrations/002_drop.sql"
 check "when every risky path is deep or proven by an existing test line, then record prints REVIEWED=<HEAD> then REVIEW=ready, and check passes" \
   'out="$("$r" record "$TMP/report.md")"; [[ "$out" == "$(printf "REVIEWED=%s\nREVIEW=ready" "$(git rev-parse HEAD)")" ]] && "$r" check'
 
@@ -202,5 +205,17 @@ git reset --quiet --hard HEAD~1; git commit --quiet --amend -m rewritten
 drep ready "$h3"
 check "when the last reviewed commit is no longer on the branch (rebased), then record --delta refuses" \
   'fails_with "$h3 is no longer on this branch (rebased?): run a new full review" "$r" record --delta "$TMP/report.md"'
+
+# A skipped test cannot fail, so it cannot prove itself: a gate path, or a test path, needs '- deep:'.
+git reset --quiet --hard "$h2"
+printf "it('works', () => {})\n" > tests/a.test.js; git add tests/a.test.js; git commit --quiet -m "test: a"
+printf "it.skip('works', () => {})\n" > tests/a.test.js; git commit --quiet -am "test: skip a"
+rep ready "${all[@]}" "- proven: tests/a.test.js by tests/a.test.js:1"
+check "when a commit changes it( to it.skip( in tests/a.test.js and the report says '- proven: tests/a.test.js by tests/a.test.js:1', then record refuses" \
+  '"$r" risk | grep -qx "RISK=gate tests/a.test.js" && fails_with "the report does not check tests/a.test.js (gate): add '"'"'- deep: tests/a.test.js'"'"'" "$r" record "$TMP/report.md"'
+echo "it('denies', () => {})" > tests/login.test.js; git add tests/login.test.js; git commit --quiet -m "test: login"
+rep ready "${all[@]}" "- deep: tests/a.test.js" "- proven: tests/login.test.js by tests/login.test.js:1"
+check "when a test path flagged only auth (tests/login.test.js) is 'proven' by its own line, then record refuses" \
+  '"$r" risk | grep -qx "RISK=auth tests/login.test.js" && fails_with "the report does not check tests/login.test.js (auth): add '"'"'- deep: tests/login.test.js'"'"'" "$r" record "$TMP/report.md"'
 
 exit "$FAIL"

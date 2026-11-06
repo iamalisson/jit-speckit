@@ -79,9 +79,10 @@ risk() {
 }
 
 # checked <from>: dies unless every risky path of <from>..HEAD has a "- deep: <path>" line, or a
-# "- proven: <path> by <file>:<n>" line naming an existing line of a test file at HEAD.
+# "- proven: <path> by <file>:<n>" line naming an existing line of a test file at HEAD
+# (never for a gate, delete or test path: those need "- deep:").
 checked() {
-  local l p f n cats re pre='^- proven: ([^ ]+) by ([^ ]+):([0-9]+)( .*)?$'
+  local l p f n o cats re pre='^- proven: ([^ ]+) by ([^ ]+):([0-9]+)( .*)?$'
   re="$(test_path_re)" || exit 1
   while IFS= read -r l; do
     if [[ "$l" =~ $pre ]]; then
@@ -94,10 +95,13 @@ checked() {
     die "$p is not proven by $f:$n (not a test file, or no such line): check it deep or name the test"
   done < <(grep -E '^- proven: ' "$report" || true)
   while IFS=$'\t' read -r cats p; do
-    P="$p" awk 'BEGIN { d = "- deep: " ENVIRON["P"]; q = "- proven: " ENVIRON["P"] " by " }
-      index($0, q) == 1 || (index($0, d) == 1 && (length($0) == length(d) || substr($0, length(d) + 1, 1) == " ")) { f = 1 }
+    # A disabled gate, a deletion or a test itself cannot be proven by a test (a skipped test never fails).
+    o=" or '- proven: $p by <test file:line>'"
+    if [[ ", $cats," == *", gate,"* || ", $cats," == *", delete,"* ]] || grep -qE -- "$re" <<<"$p"; then o=" (a gate, delete or test path needs a deep read)"; fi
+    P="$p" O="$o" awk 'BEGIN { d = "- deep: " ENVIRON["P"]; q = "- proven: " ENVIRON["P"] " by " }
+      (index($0, q) == 1 && ENVIRON["O"] ~ /^ or /) || (index($0, d) == 1 && (length($0) == length(d) || substr($0, length(d) + 1, 1) == " ")) { f = 1 }
       END { exit !f }' "$report" \
-      || die "the report does not check $p ($cats): add '- deep: $p' or '- proven: $p by <test file:line>'"
+      || die "the report does not check $p ($cats): add '- deep: $p'$o"
   done < <(risk "$1" | awk '$0 != "RISK=none" { c = substr($1, 6); p = substr($0, length($1) + 2)
       if (!(p in cats)) { order[++n] = p; cats[p] = c } else cats[p] = cats[p] ", " c }
       END { for (i = 1; i <= n; i++) print cats[order[i]] "\t" order[i] }')
