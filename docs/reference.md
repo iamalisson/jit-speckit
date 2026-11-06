@@ -77,7 +77,9 @@ never offers work whose prerequisite has not merged.
 
 A task is **claimed** the moment it starts: its branch is pushed to origin, empty. From then on
 `next` in every clone and worktree shows it as in progress and never picks it; the clone that
-started it sees it as `resume` and picks it first. Teammates need nothing but `/jit-speckit:init`
+started it sees it as `resume` and picks it first. When origin refuses that push (no network, no
+write access, a server hook), the task still starts and `branch.sh` warns `could not claim <branch>
+on origin: <git's error>`: other clones may start the same task until the branch is pushed. Teammates need nothing but `/jit-speckit:init`
 once in their clone: the shared state is `tasks.md` on the base branch, the issues, and the
 branches on origin.
 
