@@ -24,6 +24,19 @@ while IFS= read -r line; do
 done < <(grep -E '^PIN_[A-Z_]+="' extension/scripts/pins.sh)
 check "then actions also in pins.sh use the same SHA everywhere${drift:+ — drift: $drift (fix: bin/sync-pins.sh)}" '[[ -z "$drift" ]]'
 
+# F4.1: Dependabot reads only this repo's workflows, so every PIN_* action is used by one of them,
+# exactly as pins.sh writes it (pins.yml's never-run actions job); the tool versions are checked weekly.
+unused=""
+while IFS= read -r line; do
+  ref="${line#*=\"}"; ref="${ref%\"*}"
+  grep -qrF -- "uses: $ref" .github/workflows || unused+="${line%%=*} "
+done < <(grep -E '^PIN_[A-Z_]+="' extension/scripts/pins.sh)
+check "when pins.sh has a PIN_* action, then some workflow in .github/workflows uses it as pins.sh writes it${unused:+ — unused: $unused}" '[[ -z "$unused" ]]'
+tools_job="$(awk '/^  tools:/ { p = 1; next } /^  [a-z_]+:/ { p = 0 } p' .github/workflows/pins.yml 2>/dev/null || true)"
+check "when pins.yml's tools job is read, then it runs bin/check-tools.sh with issues: write" \
+  'grep -q "bin/check-tools.sh" <<<"$tools_job" && grep -qE "^ +issues: write" <<<"$tools_job"'
+check "then pins.yml runs on a weekly schedule" 'grep -qE "^ +- cron: \"[0-9]+ [0-9]+ \* \* [0-6]\"" .github/workflows/pins.yml'
+
 if python3 -c "import yaml" 2>/dev/null; then
   check "every workflow is valid YAML" 'python3 -c "import sys, yaml; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" $workflows'
 else
@@ -45,6 +58,18 @@ cp "$copy/.github/workflows/test.yml" "$copy/.github/workflows/other.yml"
 sed -i.bak "s/checkout@$new # v9.9.9/checkout@$old # v4.4.0/" "$copy/.github/workflows/other.yml"
 check "when workflows disagree on an action, then sync-pins refuses and lists both" \
   'out="$("$copy/bin/sync-pins.sh" 2>&1)" && exit 1; grep -q "$old" <<<"$out" && grep -q "$new" <<<"$out"'
+
+# F5.6: the macOS job runs on PRs that touch the scripts and on every tag, in its own workflow
+# (path filters are per workflow). One condition per check: an && chain would hide which grep failed.
+mac=.github/workflows/macos.yml
+on_pr="$(awk '/^  pull_request:/ { p = 1; next } /^  [a-z_]+:/ { p = 0 } p' "$mac" 2>/dev/null || true)"
+on_push="$(awk '/^  push:/ { p = 1; next } /^  [a-z_]+:/ { p = 0 } p' "$mac" 2>/dev/null || true)"
+check "when macos.yml is read, then it runs on pull requests touching extension/scripts/" 'grep -qF -- "- \"extension/scripts/**\"" <<<"$on_pr"'
+check "then it runs on pull requests touching bin/" 'grep -qF -- "- \"bin/**\"" <<<"$on_pr"'
+check "then it runs on pull requests touching hooks/" 'grep -qF -- "- \"hooks/**\"" <<<"$on_pr"'
+check "then it runs on every tag" 'grep -qF "tags: [\"**\"]" <<<"$on_push"'
+check "then no if: in macos.yml names github.event_name (it would skip the PR and tag runs)" '[[ -f "$mac" ]] && ! grep -qE "^ *if:.*github\.event_name" "$mac"'
+check "then test.yml has no macOS job left" '! grep -qE "runs-on: *macos" .github/workflows/test.yml'
 
 # The spec-kit version jit-speckit is tested with is written in three places; they must agree.
 sk="$(sed -nE 's/^SPECKIT_VERSION="(v[0-9.]+)".*/\1/p' bin/setup.sh)"
