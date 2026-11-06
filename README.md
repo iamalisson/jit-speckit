@@ -123,7 +123,7 @@ files.
 | Constitution defaults | KISS, secrets, tests for logic, task = issue = PR | + security baseline, stack idioms, dependency policy, integration tests | + threat model per feature, data integrity, observability, releases |
 | Added to the repo | git hooks, PR template, `.claude/settings.json` without AI attribution (only when the project has none yet) | + CI for your stack, security CI, Dependabot | + Semgrep in CI, CODEOWNERS, SECURITY.md, release workflow |
 | Before each PR | asks first, then the independent review, recorded and required | the independent review, recorded and required | the same, and evidence is required |
-| `/speckit-analyze` | optional | optional | required before any task |
+| `/speckit-analyze` | optional | optional | required before any task: its report is recorded, and a changed `tasks.md` needs a new one |
 
 Your stack is detected and shapes the CI and the constitution; your files are never overwritten.
 Details, the configuration keys and what runs automatically: [docs/reference.md](docs/reference.md).
