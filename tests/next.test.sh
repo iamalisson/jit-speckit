@@ -88,12 +88,38 @@ check "when only one feature has tasks to start, then it is served without askin
   'out="$("$n")"; [[ "$out" == *"NEXT=T001"* ]] && ! grep -q CHOOSE <<<"$out"'
 rm -rf specs/002-reports; echo '{ "feature_directory": "specs/001-demo" }' > .specify/feature.json; closed 1 2 3
 
+# FR-036: every other startable [P] task gets a line that makes its worktree and claims it.
+tasks3='- [ ] T001 First in `a` — #1
+- [ ] T002 [P] Second in `b` — #2
+- [ ] T003 Third in `c` — #3'
+commit_tasks "$tasks3"'
+- [ ] T006 [P] Sixth in `f` (depends on T001) — #9
+- [ ] T007 [P] Seventh in `g` — #10
+- [ ] T008 Eighth, not [P] itself, in `h` — #11'
+closed; open_prs
+top="$(git rev-parse --show-toplevel)"
+par() { echo "parallel $1 (git worktree add --quiet --detach $top-001-$2 origin/develop && cd $top-001-$2 && bash .specify/extensions/jit/scripts/branch.sh 001 $1)"; }
+check "when open [P] tasks exist besides NEXT, then each gets a parallel line with its worktree and branch.sh command, and DONE= stays last" \
+  'out="$("$n")"; grep -qxF "$(par T002 t002)" <<<"$out" && grep -qxF "$(par T007 t007)" <<<"$out" && [[ "$(tail -1 <<<"$out")" == "DONE=0/6 IN_PROGRESS=0 NEXT=T001" ]]'
+check "then NEXT, a blocked [P] task, a task without [P] and one with [P] later in its line get no parallel line" \
+  'out="$("$n")"; ! grep -qE "^parallel (T001|T003|T006|T008) " <<<"$out"'
+closed 1
+check "when NEXT itself is a [P] task, then it gets no parallel line and the other [P] tasks do" \
+  'out="$("$n")"; [[ "$out" == *"NEXT=T002"* ]] && ! grep -q "^parallel T002 " <<<"$out" && grep -qxF "$(par T007 t007)" <<<"$out"'
+# The test repo git-ignores .specify, so the new worktree runs the scripts from here.
+check "when a printed parallel line is run, then the task is claimed on origin and the next run shows it in progress with no line" \
+  'line="$("$n" | grep "^parallel T007 ")"; cmd="${line#parallel T007 (}"; cmd="${cmd%)}"; (eval "${cmd//bash .specify\/extensions\/jit\/scripts/bash $SCRIPTS}") && git ls-remote --exit-code --heads origin feat/001-t007-seventh && out="$("$n")" && grep -q "^in-progress T007" <<<"$out" && ! grep -q "^parallel T007 " <<<"$out"'
+git worktree remove --force "$top-001-t007" 2>/dev/null || true
+git branch --quiet -D feat/001-t007-seventh 2>/dev/null || true
+git push --quiet origin --delete feat/001-t007-seventh 2>/dev/null || true
+commit_tasks "$tasks3"; closed 1 2 3
+
 printf '%s\n' '- [ ] T004 Fourth in `d`' >> specs/001-demo/tasks.md
 check "when a task has no issue, then it is listed as no-issue and not picked" \
   'out="$("$n")"; grep -q "^no-issue T004" <<<"$out" && [[ "$out" == *"NEXT="* && "$out" != *"NEXT=T004"* ]]'
 mkdir -p specs/003-bare; printf '%s\n' '- [ ] T001 Nothing linked yet in `n`' > specs/003-bare/tasks.md
 check "when no task of the feature has an issue, then no issue-state query is made" \
-  ': > "$GH_LOG"; "$n" 003 | grep -q "^no-issue T001" && ! grep -q "^api graphql" "$GH_LOG"'
+  ': > "$GH_LOG"; out="$("$n" 003)"; grep -q "^no-issue T001" <<<"$out" && ! grep -q "^api graphql" "$GH_LOG"'
 rm -rf specs/003-bare; echo '{ "feature_directory": "specs/001-demo" }' > .specify/feature.json
 
 mkdir -p "$TMP/mono/apps/web/.specify" && git -C "$TMP/mono" init --quiet
