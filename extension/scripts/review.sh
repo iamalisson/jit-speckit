@@ -39,7 +39,7 @@ case "$action" in
     { echo "state: $(state)"; echo "assessment: $verdict"; echo; cat "$report"; } > "$record"
     echo "REVIEW=$verdict" ;;
   check|report)
-    [[ -f "$record" ]] || die "no independent review recorded for $what; run /speckit-jit-review and record its report: review.sh record${plan:+ --plan} <report-file>"
+    [[ -f "$record" ]] || die "no independent review recorded for $what; run /speckit-jit-review and record its report: review.sh record$($plan && echo ' --plan') <report-file>"
     [[ "$(sed -n 's/^state: //p' "$record")" == "$(state)" ]] \
       || die "$what changed since the last review; run /speckit-jit-review again and record it"
     [[ "$(sed -n 's/^assessment: //p' "$record")" == ready ]] \

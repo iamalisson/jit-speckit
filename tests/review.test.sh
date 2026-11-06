@@ -11,6 +11,8 @@ commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
 echo 'export const search = 1' > search.ts; git add search.ts; git commit --quiet -m "feat: search"
 
 check "when no review was recorded, then check refuses and says how to record one" 'fails_with "no independent review" "$r" check'
+check "when no task review was recorded on a task branch, then the hint is review.sh record <report-file>, without --plan" \
+  'fails_with "record its report: review.sh record <report-file>" "$r" check'
 printf 'Looks fine to me.\n' > "$TMP/report.md"
 check "when the report has no assessment line, then it is refused" 'fails_with "Assessment" "$r" record "$TMP/report.md"'
 printf 'Assessment: not ready, changes needed\n' > "$TMP/report.md"
@@ -72,6 +74,7 @@ check "when the base is merged in without touching the change, then the review s
 # Plan review: tied to tasks.md, ignoring the issue numbers issues.sh appends.
 git switch --quiet main
 check "when no plan review was recorded, then check --plan refuses" 'fails_with "no independent review" "$r" check --plan'
+check "then the plan hint keeps --plan" 'fails_with "record its report: review.sh record --plan <report-file>" "$r" check --plan'
 report ready
 check "when the plan review said ready, then check --plan passes" '"$r" record --plan "$TMP/report.md" >/dev/null && "$r" check --plan'
 sed -i.bak 's/ — #5$/ — #9/' specs/001-demo/tasks.md
