@@ -84,6 +84,10 @@ check "when the skill's advisory call is read, then the JSON after --input - nam
 check "then a --paginate lookup of the advisories comes before the -X POST" \
   'p="$(grep -n -- "--paginate" <<<"$adv" | head -1 | cut -d: -f1)"; x="$(grep -n -- "-X POST" <<<"$adv" | head -1 | cut -d: -f1)"; [[ -n "$p" && -n "$x" ]] && ((p < x))'
 
+# F4.5: Semgrep's rules are not in the extension (their license forbids it): the docs say where they come from.
+check "when the README CI row and the security doc's CI row are read, then they say the rules come from the Semgrep registry" \
+  'grep -E "^\| \*\*every PR, and weekly\*\* \|" README.md | grep -q "Semgrep registry" && grep -E "^\| Every PR, push and week \|" docs/security.md | grep -q "Semgrep registry"'
+
 # A link copied from the README into docs/ keeps its docs/ prefix and breaks; every relative link
 # in a markdown file must point at a file that exists next to it.
 broken=""

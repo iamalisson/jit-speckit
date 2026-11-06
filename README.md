@@ -106,7 +106,7 @@ Why one task = one issue = one branch = one PR, with the evidence: [docs/design.
 | **every command Claude runs** | blocks `--no-verify`, `git add -A`, commits on base branches and pushes to them |
 | **every push** | re-checks every outgoing commit, including ones made with `--no-verify` |
 | **before each PR** | an **independent review** by a fresh agent that reads the whole repository, not the diff (siblings' guards, claims re-run, one mutation, the real upgrade path), scanners on the changed files (the PR is refused until they ran on its exact diff), `/security-review`; then GitHub Copilot code review is asked for on the PR, and the output says whether GitHub added it |
-| **every PR, and weekly** | CI gate: Gitleaks, OSV-Scanner and zizmor (Semgrep with the OWASP rules on `full`; trivy on Dockerfiles and Terraform when the project has them), all pinned and checksum-verified |
+| **every PR, and weekly** | CI gate: Gitleaks, OSV-Scanner and zizmor (Semgrep with the OWASP rules on `full`, from its image pinned by digest, its rules fetched from the Semgrep registry at run time; trivy on Dockerfiles and Terraform when the project has them), all pinned and checksum-verified |
 | **before a release** | `/jit-speckit:security`, the full audit |
 
 Why each layer exists, and what it can't do: **[docs/security.md](docs/security.md)**.
