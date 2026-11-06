@@ -105,7 +105,7 @@ Why one task = one issue = one branch = one PR, with the evidence: [docs/design.
 | **every commit** | refuses `.env`, keys and credential files, and tokens or passwords in the code. Under a second. |
 | **every command Claude runs** | blocks `--no-verify`, `git add -A`, commits on base branches and pushes to them |
 | **every push** | re-checks every outgoing commit, including ones made with `--no-verify` |
-| **before each PR** | an **independent review** by a fresh agent that reads the whole repository, not the diff (siblings' guards, claims re-run, one mutation, the real upgrade path), scanners on the changed files (the PR is refused until they ran on its exact diff), `/security-review`; then GitHub Copilot code review is asked for on the PR, and the output says whether GitHub added it |
+| **before each PR** | an **independent review** by a fresh agent (`jit-speckit:reviewer`, on Opus unless `review_model:` says `sonnet` or `fable`) that reads the whole repository, not the diff (siblings' guards, claims re-run, one mutation, the real upgrade path), scanners on the changed files (the PR is refused until they ran on its exact diff), `/security-review`; then GitHub Copilot code review is asked for on the PR, and the output says whether GitHub added it |
 | **every PR, and weekly** | CI gate (standard and full): Gitleaks, OSV-Scanner and zizmor (Semgrep with the OWASP rules on `full`, from its image pinned by digest, its rules fetched from the Semgrep registry at run time; trivy on Dockerfiles and Terraform when the project has them), all pinned and checksum-verified |
 | **before a release** | `/jit-speckit:security`, the full audit |
 
