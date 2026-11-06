@@ -27,9 +27,12 @@ rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"
 new_repo standard
 "$SCRIPTS/level.sh" standard --no-branches >/dev/null
 rm -f .specify/jit-files.sha256
-git add .github/workflows/security.yml; git commit --quiet -m security
+git add .github/workflows/security.yml .github/workflows/ci.yml; git commit --quiet -m workflows
+echo "# my step" >> .github/workflows/ci.yml
 out="$(rm_out)"
 check "when there is no record, then a tracked unchanged marked file is removed and an untracked one is kept" \
   '[[ ! -e .github/workflows/security.yml && -f .github/dependabot.yml ]] && grep -qxF "kept (edited): .github/dependabot.yml" <<<"$out"'
+check "when there is no record and a tracked marked file is edited and not committed, then it is kept and prints kept (edited)" \
+  '[[ -f .github/workflows/ci.yml ]] && grep -qxF "kept (edited): .github/workflows/ci.yml" <<<"$out"'
 
 exit "$FAIL"
