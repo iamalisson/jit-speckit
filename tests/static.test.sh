@@ -179,13 +179,13 @@ v_ext="$(sed -nE 's/^  version: *"([^"]+)".*/\1/p' extension/extension.yml | hea
 v_preset="$(sed -nE 's/^  version: *"([^"]+)".*/\1/p' preset/preset.yml | head -1)"
 check "when the plugin, extension and preset versions are read, then they are equal ($v_plugin, $v_ext, $v_preset)" \
   '[[ -n "$v_plugin" && "$v_plugin" == "$v_ext" && "$v_plugin" == "$v_preset" ]]'
-# FR-025: the release notes name every finding feature 002 fixed (a reader finds each id's change).
+# FR-025: the release notes have a table row for every finding feature 002 fixed (a reader finds each id's change).
 notes="docs/releases/$v_plugin.md"; missing=""
 if [[ "$v_plugin" == 1.8.0 ]]; then
   for id in F1.1 F1.2 F1.6 F1.7 F1.8 F1.9 F2.3 F2.4 F3.1 F3.3 F3.4 F3.5 F3.6 F3.7 F3.8 F3.9 F4.1 F4.2 F4.3 F4.4 F4.5 F4.7 F5.2 F5.3 F5.4 F5.6 "#41"; do
-    grep -qF -- "$id" "$notes" 2>/dev/null || missing+="$id "
+    grep -qF -- "| $id |" "$notes" 2>/dev/null || missing+="$id "
   done
-  check "when docs/releases/1.8.0.md is read, then it names every fixed id${missing:+ — missing: $missing}" '[[ -f "$notes" && -z "$missing" ]]'
+  check "when docs/releases/1.8.0.md is read, then it has a row for every fixed id${missing:+ — missing: $missing}" '[[ -f "$notes" && -z "$missing" ]]'
 fi
 
 exit "$FAIL"
