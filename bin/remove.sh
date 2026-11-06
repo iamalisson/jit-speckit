@@ -2,12 +2,15 @@
 # Remove jit-speckit from one project (the reverse of setup.sh). Spec-kit, your specs and your edits stay.
 # Usage: remove.sh [project-dir] [--with-speckit]
 #   --with-speckit  also delete spec-kit's own files (.specify/, .claude/skills/speckit-*) for a reinstall from zero; specs/ is never touched
-# Deletes only what jit-speckit created: files that still carry its "managed file" marker or are identical
-# to its scaffold, its lines in hook configs, and its block in the constitution. Safe to re-run.
+# Deletes only what jit-speckit created: files that still carry its "managed file" marker and are
+# unchanged since it wrote them (.specify/jit-files.sha256), files identical to its scaffold, its
+# lines in hook configs, and its block in the constitution. Safe to re-run.
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")/.." && pwd)"
-die() { echo "jit: $*" >&2; exit 1; }
+# shellcheck source=../extension/scripts/lib.sh
+source "$here/extension/scripts/lib.sh" # sha256
+die(){ echo "jit: $*" >&2; exit 1; }
 usage() { sed -n '3p' "$0" | sed 's/^# Usage/Usage/' >&2; exit 2; }
 
 dir="."; speckit=false
@@ -36,9 +39,18 @@ fi
 rm -rf .claude/skills/speckit-jit-*
 
 # ── Files added to the repo ──────────────────────────────────────────────────
+record=.specify/jit-files.sha256 # "<sha256> <path>" for each file level.sh wrote
 ours() { # ours <file>: created by jit-speckit and not taken over by the user
   [[ -f "$1" ]] || return 1
-  if head -2 "$1" | grep -q '^# jit-speckit: managed file'; then return 0; fi
+  if head -2 "$1" | grep -q '^# jit-speckit: managed file'; then
+    local want; want="$(awk -v p="$1" '$2 == p { print $1 }' "$record" 2>/dev/null || true)"
+    # No record (set up before 1.8.0): only a committed, unchanged file is known to be jit's.
+    if [[ -n "$want" && "$(sha256 < "$1")" == "$want" ]] \
+      || { [[ -z "$want" ]] && git ls-files --error-unmatch "$1" >/dev/null 2>&1 && git diff --quiet HEAD -- "$1" 2>/dev/null; }; then
+      return 0
+    fi
+    echo "kept (edited): $1"; return 1
+  fi
   local l
   for l in lite standard full; do
     if [[ -f "$here/extension/scaffold/$l/$1" ]] && cmp -s "$1" "$here/extension/scaffold/$l/$1"; then return 0; fi
@@ -50,6 +62,7 @@ ours() { # ours <file>: created by jit-speckit and not taken over by the user
 } | sort -u | while IFS= read -r f; do
   if ours "$f"; then rm "$f"; gone "$f"; fi
 done
+rm -f "$record"
 rmdir -p .githooks .github/workflows 2>/dev/null || true
 
 # ── Git hooks ────────────────────────────────────────────────────────────────

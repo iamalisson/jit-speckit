@@ -11,11 +11,12 @@ disable-model-invocation: true
    implement command go back to spec-kit's), the files jit-speckit created and the user never
    took over (`.githooks/`, its workflows, Dependabot, PR template, `SECURITY.md`, `CODEOWNERS`,
    `.claude/settings.json`), its lines in `.pre-commit-config.yaml` or `.husky/`, and its block
-   in the constitution. With `--with-speckit`, also spec-kit's own files (`.specify/`,
+   in the constitution. A file it wrote that changed since (edited, committed or not) is kept and
+   named `kept (edited): <file>`. With `--with-speckit`, also spec-kit's own files (`.specify/`,
    `.claude/skills/speckit-*`); `specs/` is never touched. Deleted files that were never
    committed cannot be recovered: ask once before running.
 2. Run `bash "${CLAUDE_PLUGIN_ROOT}/bin/remove.sh" .` (add `--with-speckit` when asked). On
    failure, show the output and stop.
-3. Report what it printed, and what it leaves for the user: the `develop`/`staging` branches and
+3. Report what it printed (the `kept (edited)` files are the user's to keep or delete), and what it leaves for the user: the `develop`/`staging` branches and
    the GitHub protections, with the commands it gave. To set up again: `/jit-speckit:init`. To
    remove the plugin from Claude Code itself: `/plugin uninstall jit-speckit`.

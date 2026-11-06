@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
 # Set up a project (new or existing) with spec-kit + jit-speckit.
-# Usage: setup.sh [project-dir] [--level lite|standard|full] [--integration claude] [--no-branches]
+# Usage: setup.sh [project-dir] [--level lite|standard|full] [--integration claude] [--no-branches] [--downgrade]
 # Idempotent: re-running updates the extension and preset and re-applies the level.
 set -euo pipefail
 
 SPECKIT_VERSION="v1.2.5" # the spec-kit release CI tests against
 here="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=../extension/scripts/lib.sh
+source "$here/extension/scripts/lib.sh" # version_newer
 die() { echo "jit: $*" >&2; exit 1; }
 usage() { sed -n '3p' "$0" | sed 's/^# Usage/Usage/' >&2; exit 2; }
 
-dir="."; level=""; integration="claude"; extra=()
+dir="."; level=""; integration="claude"; extra=(); downgrade=false
 while (($#)); do
   case "$1" in
     --level) [[ -n "${2:-}" ]] || usage; level="$2"; shift 2 ;;
     --integration) [[ -n "${2:-}" ]] || usage; integration="$2"; shift 2 ;;
     --no-branches) extra+=(--no-branches); shift ;;
+    --downgrade) downgrade=true; shift ;;
     -h|--help) usage ;;
     -*) echo "jit: unknown option $1" >&2; usage ;;
     *) dir="$1"; shift ;;
@@ -40,6 +43,14 @@ fi
 
 mkdir -p "$dir" && cd "$dir"
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { git init --quiet -b main && echo "git: initialized"; }
+
+# An older plugin copy would take the project back, dropping the gates it has. The indented
+# version: line is the extension's own (not schema_version or speckit_version).
+ext_version() { sed -nE 's/^[[:space:]]+version:[[:space:]]*"?([^" ]*)"?.*/\1/p' "$1" 2>/dev/null | head -1 || true; }
+plugin_v="$(ext_version "$here/extension/extension.yml")"; project_v="$(ext_version .specify/extensions/jit/extension.yml)"
+if ! $downgrade && version_newer "$project_v" "$plugin_v"; then
+  die "this plugin copy is $plugin_v, the project is at $project_v; run /reload-plugins (or setup.sh --downgrade)"
+fi
 
 if [[ ! -d .specify/templates ]]; then
   # The agent's own CLI may be installed later (or never, e.g. in CI); the warning above covers it.

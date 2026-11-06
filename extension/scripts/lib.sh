@@ -153,13 +153,30 @@ constitution_cmd() {
 # test_path_re: TEST_PATH_RE, plus the constitution's optional `tests: <regex>` line (grep -E) for
 # any other layout. Dies on an invalid one: callers read it in a plain assignment, `|| exit 1`.
 test_path_re() {
-  local extra rc=0
+  local extra err rc=0
   extra="$(sed -nE 's/^tests:[[:space:]]*//p' .specify/memory/constitution.md 2>/dev/null | head -1)"
   extra="${extra%"${extra##*[![:space:]]}"}"
   if [[ -z "$extra" ]]; then echo "$TEST_PATH_RE"; return; fi
-  grep -E -- "$extra" </dev/null >/dev/null 2>&1 || rc=$? # 2: the regex does not compile
-  ((rc != 2)) || die "the constitution's tests: regex is invalid: $extra"
+  # One input line: busybox grep compiles the pattern only when it reads a line. Exit > 1, or any
+  # message, means the regex does not compile (GNU and BSD exit 2; busybox prints "bad regex").
+  err="$(echo x | grep -E -- "$extra" 2>&1 >/dev/null)" || rc=$?
+  ((rc <= 1)) && [[ -z "$err" ]] || die "the constitution's tests: regex is invalid: $extra"
   echo "$TEST_PATH_RE|$extra"
+}
+
+# version_newer <a> <b>: true when both are dotted numbers (optional leading v) and a > b; a missing
+# part counts as 0 (v2 = v2.0.0). Anything else (a branch name) is never newer. No `sort -V` (BSD).
+version_newer() {
+  local a="${1#v}" b="${2#v}" x y re='^[0-9]+(\.[0-9]+)*$'
+  [[ "$a" =~ $re && "$b" =~ $re ]] || return 1
+  while [[ -n "$a$b" ]]; do
+    x="${a%%.*}"; y="${b%%.*}"
+    if ((10#${x:-0} > 10#${y:-0})); then return 0; fi
+    if ((10#${x:-0} < 10#${y:-0})); then return 1; fi
+    if [[ "$a" == *.* ]]; then a="${a#*.}"; else a=""; fi
+    if [[ "$b" == *.* ]]; then b="${b#*.}"; else b=""; fi
+  done
+  return 1
 }
 
 # The task line for an ID, e.g. "- [ ] T003 [P] [US1] Do x in src/x.py — #12".

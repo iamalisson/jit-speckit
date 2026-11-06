@@ -58,3 +58,14 @@ Files jit-speckit generates carry a `# jit-speckit: managed file` first line and
 on `/jit-speckit:level`; delete that line and the file is yours. Files it cannot mark (the PR
 template, `.claude/settings.json`, `SECURITY.md`) are written only when missing. `remove` deletes
 only what still matches what it wrote.
+
+When a managed workflow is re-created, an action pin newer than jit-speckit's own (a Dependabot
+bump: `uses: <action>@<sha> # <version>`) is kept and named `kept newer pin: <action> <version>`.
+A `container.image` digest is not such a line and goes back to jit-speckit's.
+
+Releases before the marker (1.0.0 to 1.3.1) wrote some files byte for byte;
+`extension/scripts/old-files.sha256` lists them. Their two git hooks are replaced and marked. Their
+`close-linked-issues.yml` and `release.yml` are kept and named (`kept (written by jit-speckit
+<versions>, no marker)`), since a 1.4.0+ copy with its marker deleted has the same bytes; and once
+an old hook matched, so are the generated workflows, Dependabot and `CODEOWNERS` (`<versions> or
+older`). Delete one to get the current version.
