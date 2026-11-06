@@ -11,10 +11,15 @@ and collects what could not be checked.
 Of 28 promises, 4 hold (P09, P18, P22, P23), 14 are `limit`, 8 are `broken` and 2 are reported
 privately. 36 findings: 3 High (one private), 22 Medium, 11 Low.
 
-Ranks follow FR-009: High is a broken promise of the kinds it lists (a secret can leave, a
-protected branch can change, a user's file can be lost, a gate passes without what it claims); a
-broken promise without one of those harms is Medium, like a misleading one; a `limit` stays Low
-only when its docs describe it honestly, and its block says why.
+How the ranks apply FR-009. High is a broken promise of the kinds it lists (a secret can leave, a
+protected branch can change, a user's file can be lost, a gate passes without what it claims), and
+Medium a promise kept that a user could be misled about. FR-009 has no tier for a broken promise
+without one of those harms: this report ranks those Medium (F1.1, F1.2, F1.6, F1.8, F3.3, F4.2,
+F4.3), and Low when the only effect is a wrong hint that the next refusal corrects (F3.7). A
+`limit` whose docs mislead is Medium. A `limit` is Low when its docs describe it (F1.3, F5.1, and
+F4.6 and F5.5, whose blocks say why), and also, departing from data-model's "always Low" only for
+honest docs, when the docs say nothing either way and the gap costs a retry or a message (F1.4,
+F1.5, F1.9, F2.2, F2.5, F3.2).
 
 | id | rank | promise | finding | proposed fix | section |
 |---|---|---|---|---|---|

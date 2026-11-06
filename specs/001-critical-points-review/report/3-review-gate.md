@@ -101,6 +101,10 @@ Also checked, no finding:
   (`.specify/memory/constitution.md:11`). Only `extension/commands/pr.md:10-11` asks for it, and
   `pr.sh` never runs the test, lint or build command (section B: 0 mentions). Section B: with the
   project's check exiting 1, `pr.sh task` prints `PR=…`. CI runs afterwards, on the open PR.
+  Ranked Medium, not High: no gate in jit claims to run the checks (`pr.md` asks, and section 3's
+  table says "nothing" refuses), so no gate passes without what it claims; and opening a PR changes
+  no branch. On standard and full, CI on the PR plus branch protection keep red code from merging;
+  on lite nothing does, which is F4.4's gap, and the merge is still the user's own click.
 - **reproduction**: section B of the script below.
 - **exposure**: public.
 - **fix**: `pr.sh task` runs the constitution's `test` command (`constitution_cmd test`, already
