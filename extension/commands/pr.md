@@ -30,10 +30,7 @@ description: "Review, commit, push and open the task's pull request"
 4. **Independent review**, the gate that catches what this session cannot see about its own
    work. Launch the reviewer exactly as `commands/review.md` (`/speckit-jit-review`) says: one
    fresh general-purpose subagent, given that file and the facts it lists, and nothing of what you
-   think about the code. While it runs:
-   - `bash .specify/extensions/jit/scripts/security-scan.sh --changed`. Read every finding and fix
-     the real ones. List the false positives with the reason.
-   - `/security-review` on the branch.
+   think about the code. While it runs, run `/security-review` on the branch.
 
    Save the report as it came to a file outside the repository (`mktemp`) and record it:
    `bash .specify/extensions/jit/scripts/review.sh record <file>`. Then fix every **High** and
@@ -57,6 +54,12 @@ description: "Review, commit, push and open the task's pull request"
      step 6 refuses a PR without a `mutants.sh` result for this diff, and refuses `survivors` when
      *Evidence* says nothing about them; without one, it adds "Mutation testing: not run" to the
      body.
+   - **The scanners on the changed files.** Run
+     `bash .specify/extensions/jit/scripts/security-scan.sh --changed` (it also scans uncommitted
+     files, so after the last commit). Read every finding and fix the real ones (then commit and
+     run it again). List the false positives with the reason, and any `missing` scanner. The
+     script in step 6 refuses a PR without a scan for this diff; findings and `missing` scanners
+     do not refuse, they go in the body.
 5. **PR body**, written to a temporary file. Keep it short to read: what a reviewer needs is
    visible, the rest folds away.
    - one or two sentences on what changed;

@@ -46,6 +46,20 @@ EOF
   export PATH="$TMP/bin:$PATH" GH_LOG="$TMP/gh.log" GH_N="$TMP/gh.n" GH_PR="$TMP/gh.pr" GH_CLOSED="$TMP/gh.closed" GH_OPEN="$TMP/gh.open"
 }
 
+# no_scanners: builds $TMP/none, a PATH with every system tool except the scanners (and the tools
+# that could fetch them), so a scan never depends on what this machine has installed, nor on the network.
+no_scanners() {
+  local f name
+  [[ -d "$TMP/none" ]] && return
+  mkdir -p "$TMP/none"
+  for f in /usr/local/bin/* /usr/bin/* /bin/*; do
+    name="${f##*/}"
+    case "$name" in gitleaks|osv-scanner|semgrep|zizmor|trivy|uv|uvx|pipx|docker|podman) continue ;; esac
+    [[ -e "$TMP/none/$name" || -L "$TMP/none/$name" ]] || ln -s "$f" "$TMP/none/$name"
+  done
+  ln -sf "$(command -v git)" "$TMP/none/git"; ln -sf "$(command -v bash)" "$TMP/none/bash"
+}
+
 # set_cfg <key> <value>: edit a config line in place, as a user would.
 set_cfg() { sed -i.bak "s|^$1:.*|$1: $2|" .specify/extensions/jit/jit-config.yml; }
 

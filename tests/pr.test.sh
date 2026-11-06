@@ -5,6 +5,7 @@ source "$(dirname "$0")/helpers.sh"
 fake_gh
 p="$SCRIPTS/pr.sh"
 reviewed() { printf 'What changed: x\n\nAssessment: ready\n' > "$TMP/review.md"; "$SCRIPTS/review.sh" record "$TMP/review.md" >/dev/null; }
+scanned() { no_scanners; PATH="$TMP/none" bash "$SCRIPTS/security-scan.sh" --changed >/dev/null; }
 
 new_repo standard
 commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
@@ -23,6 +24,9 @@ check "when no independent review was recorded for the diff, then it refuses at 
 reviewed
 check "when the body has no Review section, then it refuses" \
   'fails_with "Review" "$p" task T001 "feat(search): add search" "$TMP/unreviewed.md"'
+check "when no scan was recorded for this diff, then it refuses and names security-scan.sh" \
+  'fails_with "no security-scan.sh --changed result for this diff; run bash .specify/extensions/jit/scripts/security-scan.sh --changed after the last commit" "$p" task T001 "feat(search): add search" "$TMP/body.md"'
+scanned # with no scanner installed: every one is "missing", and that is enough
 # A test command that prints 30 lines and fails: the refusal shows the last 20 (11 to 30).
 mkdir -p .specify/memory
 printf '#!/usr/bin/env bash\nfor i in $(seq 1 30); do echo "red line $i"; done\nexit 1\n' > "$TMP/red.sh"
@@ -57,7 +61,7 @@ check "when the level is full and the body has no Evidence section, then it refu
 sed -i.bak 's/^level: .*/level: standard/' .specify/extensions/jit/jit-config.yml
 echo 'export const x = 2' >> search.ts; git commit --quiet -am "feat: more"
 check "when the code changed after the review, then the PR is refused until a new review is recorded" \
-  'fails_with "changed since" "$p" task T001 "feat(search): add search" "$TMP/body.md" && reviewed && "$p" task T001 "feat(search): add search" "$TMP/body.md" | grep -q "^PR="'
+  'fails_with "changed since" "$p" task T001 "feat(search): add search" "$TMP/body.md" && reviewed && scanned && "$p" task T001 "feat(search): add search" "$TMP/body.md" | grep -q "^PR="'
 git switch --quiet main; rm -f "$GH_PR"
 mkdir -p specs/002-new
 printf '%s\n' '- [ ] T001 Thing in `a` — #11' '- [ ] T002 Other in `b` — #12' > specs/002-new/tasks.md
@@ -102,7 +106,7 @@ check "when an existing test is edited and the body says nothing, then it refuse
 check "then no commit was pushed (origin still has only the empty claim)" \
   '[[ "$(git ls-remote origin "refs/heads/$(git branch --show-current)" | cut -f1)" == "$(git rev-parse origin/develop)" ]]'
 
-git rm --quiet src/keep.test.ts; git commit --quiet -m "chore: drop test"; reviewed
+git rm --quiet src/keep.test.ts; git commit --quiet -m "chore: drop test"; reviewed; scanned
 check "when an existing test is deleted, then it refuses too" 'fails_with "src/keep.test.ts" "$p" task T001 "feat(search): add search" "$TMP/plain.md"'
 
 printf 'Adds search.\n\n## Review\n\nready: no findings\n\n## Test changes\n\nThe spec changed the price rule (FR-002).\n' > "$TMP/why.md"
@@ -121,7 +125,7 @@ git remote set-url origin "$TMP/origin.git"; git fetch --quiet origin; git branc
 
 # A fresh branch for this scenario: drop the pushed one and start again from the base.
 git push --quiet origin --delete "$(git branch --show-current)" 2>/dev/null || true; git reset --quiet --hard origin/develop; rm -f "$GH_PR"
-echo 'assert 2 == 2' > tests/test_new.py; git add tests/test_new.py; git commit --quiet -m "test: add"; reviewed
+echo 'assert 2 == 2' > tests/test_new.py; git add tests/test_new.py; git commit --quiet -m "test: add"; reviewed; scanned
 check "when only new tests are added, then no explanation is needed" '"$p" task T001 "feat(search): add search" "$TMP/plain.md" | grep -q "^PR="'
 
 # ── Mutation testing ran on this diff, when the constitution has a mutate command ──
@@ -134,12 +138,12 @@ mutate() { printf '**Commands**: build `[BUILD_COMMAND]` · test `[TEST_COMMAND]
 mutate true
 check "when a mutate command is set and mutants.sh was not run on this diff, then it refuses and names mutants.sh" \
   'fails_with "no mutants.sh result for this diff; run bash .specify/extensions/jit/scripts/mutants.sh after the last commit" "$p" task T001 "feat(search): add search" "$TMP/body.md"'
-"$SCRIPTS/mutants.sh" >/dev/null
+"$SCRIPTS/mutants.sh" >/dev/null; scanned
 check "when mutants.sh ran on this diff, then the PR opens" '"$p" task T001 "feat(search): add search" "$TMP/body.md" | grep -q "^PR="'
 echo 'export const more = 2' >> src/search.ts; git commit --quiet -am "feat: more"; reviewed; rm -f "$GH_PR"
 check "when a commit follows the mutants.sh run, then it refuses again" \
   'fails_with "no mutants.sh result for this diff" "$p" task T001 "feat(search): add search" "$TMP/body.md"'
-mutate false; "$SCRIPTS/mutants.sh" >/dev/null
+mutate false; "$SCRIPTS/mutants.sh" >/dev/null; scanned
 check "when mutants.sh found survivors and Evidence does not mention them, then it refuses" \
   'fails_with "mutants.sh found surviving mutants; say in '"'"'## Evidence'"'"' why each changes nothing, or add the test that kills it" "$p" task T001 "feat(search): add search" "$TMP/body.md"'
 printf 'Adds search.\n\n## Review\n\nready: no findings\n\n## Evidence\n\nOne survivor, in a log line: it changes nothing observable.\n' > "$TMP/survivor.md"

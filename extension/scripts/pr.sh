@@ -77,6 +77,9 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
     else
       body+=$'\n\n'"Mutation testing: not run (no mutate command in the constitution)"
     fi
+    # And the scanners on the changed files: a missing scanner or a finding is for the body to say.
+    [[ -f "$(diff_record jit-security)" ]] \
+      || die "no security-scan.sh --changed result for this diff; run bash .specify/extensions/jit/scripts/security-scan.sh --changed after the last commit"
     # Never open a PR on red checks. One log per branch, so parallel worktrees never share one.
     test_cmd="$(constitution_cmd test)"
     if [[ -n "$test_cmd" ]]; then

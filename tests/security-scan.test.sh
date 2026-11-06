@@ -15,15 +15,7 @@ exit 0
 EOF
   chmod +x "$TMP/tools/$t"
 done
-# A PATH with every system tool except the scanners (and the tools that could fetch them), so the
-# result never depends on what this machine has installed.
-mkdir -p "$TMP/none"
-for f in /usr/local/bin/* /usr/bin/* /bin/*; do
-  name="${f##*/}"
-  case "$name" in gitleaks|osv-scanner|semgrep|zizmor|trivy|uv|uvx|pipx|docker|podman) continue ;; esac
-  [[ -e "$TMP/none/$name" || -L "$TMP/none/$name" ]] || ln -s "$f" "$TMP/none/$name"
-done
-ln -sf "$(command -v git)" "$TMP/none/git"; ln -sf "$(command -v bash)" "$TMP/none/bash"
+no_scanners
 
 new_repo standard
 mkdir -p .github/workflows; echo "on: push" > .github/workflows/ci.yml
@@ -49,5 +41,13 @@ git switch --quiet -c feat/x; echo "x = 1" > app.py; git add app.py; git commit 
 : > "$TMP/semgrep.log"
 PATH="$TMP/tools:$PATH" bash "$scan" --changed >/dev/null
 check "when --changed, then semgrep only scans the files this branch changed" 'grep -q " app.py$" "$TMP/semgrep.log" && ! grep -q " \.$" "$TMP/semgrep.log"'
+
+out="$(PATH="$TMP/none" bash "$scan" --changed)"
+check "when --changed, then its summary lines are recorded for this diff (what pr.sh task requires)" \
+  'rec="$(source "$SCRIPTS/lib.sh" && diff_record jit-security)"; [[ "$(cat "$rec")" == "$(grep -v "^REPORT_DIR=" <<<"$out")" ]] && grep -q "^gitleaks *missing" "$rec"'
+git switch --quiet -c feat/empty origin/develop
+PATH="$TMP/none" bash "$scan" --changed >/dev/null
+check "when --changed finds no changed file, then that result is recorded for the empty diff too" \
+  '[[ "$(cat .git/jit-security/empty)" == "all skipped no changed files" ]]'
 
 exit "$FAIL"
