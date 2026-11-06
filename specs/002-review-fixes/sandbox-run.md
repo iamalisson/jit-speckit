@@ -28,8 +28,8 @@ master: "Branch not protected" · develop: "Branch not protected" · staging: "B
 The restore commands: `gh api -X PATCH repos/iamalisson/jit-speckit-sandbox -F allow_rebase_merge=true
 -F allow_merge_commit=true -F allow_squash_merge=true -f squash_merge_commit_title=COMMIT_OR_PR_TITLE
 -f squash_merge_commit_message=COMMIT_MESSAGES -F delete_branch_on_merge=false`, and
-`gh api -X DELETE …/branches/<b>/protection` for `master`, `develop` and `staging` (all three
-were unprotected). Private vulnerability reporting stays as it was: 404, never changed.
+`gh api -X DELETE …/branches/<b>/protection` for `master` and `develop` (both unprotected);
+`staging` did not exist, so a `staging` the run creates is deleted. Private vulnerability reporting stays as it was: 404, never changed.
 
 ## Step 1. Install from `main`, `init` at lite, then `level standard`, then `level full`
 
@@ -192,7 +192,9 @@ Agent tool, so the `general-purpose` fallback is not what ships.
 
 ## Step 7. Cleanup
 
-Created by the run, and what happened to each:
+Created by the run, and what happened to each. The titles `issues.sh` and `pr.sh` wrote (issues
+#19–#21 `[098] T00n: …`, PRs #22, #23) do not carry `[002 sandbox T008]`, as the Impact line
+asks: those scripts make their own titles. Everything else the run named itself carries it.
 
 | Item | Now |
 |---|---|
@@ -223,8 +225,9 @@ run created is left open.
   job does not print it; the digest fixes the image either way) and whether Dependabot bumps a
   `container.image` digest.
 - **R6** (`init` settings): confirmed that the merge settings apply on a private repo with no plan
-  restriction, and that private vulnerability reporting answers 404 there; still unverified: the
-  push-protection PATCH on a public user repo (the sandbox is private).
+  restriction. Still unverified: the private-vulnerability-reporting PUT on a private repo (422 or
+  not; only the GET ran, answering 404, and `init` does not offer the PUT on a private repo), and
+  the push-protection PATCH on a public user repo (the sandbox is private).
 - **R8** (pins): `version_newer` and `keep_pins` on bash 3.2 are confirmed by the `bash32` and
   macOS jobs on #70, and `keep_pins` live here (F4.7); still unverified: Dependabot's real run on
   `pins.yml`'s `if: false` job (merged today; no Dependabot run yet).
