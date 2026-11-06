@@ -80,6 +80,13 @@ check "the review prompt's Report section and pr.md step 5 say a security findin
 check "the review prompt takes the range's start from origin/<base>, as review.sh record does" \
   'grep -qF "git merge-base HEAD origin/<base>" extension/commands/review.md && ! grep -qF "git merge-base HEAD <base>" extension/commands/review.md'
 
+# The installed copies (specify extension add --dev extension --force) are what this repo runs: they match the source.
+stale=""
+for f in extension/commands/*.md extension/scripts/*.sh; do
+  d="${f#extension/}"; cmp -s "$f" ".specify/extensions/jit/$d" || stale+="$d "
+done
+check "every extension command and script equals its .specify/extensions/jit copy${stale:+ — stale: $stale(fix: specify extension add --dev extension --force)}" '[[ -z "$stale" ]]'
+
 # A link copied from the README into docs/ keeps its docs/ prefix and breaks; every relative link
 # in a markdown file must point at a file that exists next to it.
 broken=""

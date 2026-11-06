@@ -52,7 +52,7 @@ new full review.
    a write to the user's files. Those are deep too. Deep means steps 2 to 7 in full. Everything
    else is sampled (read the hunk and its callers once) or proven (an existing test fails if it
    breaks: name it as `file:line`). Steps 4 and 5 still cover the whole diff.
-   `git diff <base>...HEAD`. For every changed file, open what it calls and what calls it (search each symbol). For every new file of a kind
+   `git diff origin/<base>...HEAD`. For every changed file, open what it calls and what calls it (search each symbol). For every new file of a kind
    the repository already has (migration, workflow, endpoint, model, job, script), open the newest
    two siblings and list every guard they have: existence checks, idempotent writes, timeouts,
    authorization, refusal to run against production. A guard the siblings have and the new file
@@ -111,7 +111,7 @@ Written for the author, who fixes it, and for the human who merges:
   shows it as one line, `Security: reported privately (<id>)`: its detail goes to the author only,
   never into a public PR.
 - Before the last line, each on its own line: `Reviewed: <from>..<head>`, the full shas you
-  reviewed (`git merge-base HEAD <base>` and `git rev-parse HEAD`; for a delta, `<sha>` and
+  reviewed (`git merge-base HEAD origin/<base>`, the local `<base>` only without an origin copy, and `git rev-parse HEAD`; for a delta, `<sha>` and
   `git rev-parse HEAD`), and `Model: <your model id>`. A delta report also has `Delta from: <sha>`. A plan report
   has only `Model:`. `review.sh record` refuses a report without them, a range that is not the
   branch's (or the delta's), and a commit made after the review started.
