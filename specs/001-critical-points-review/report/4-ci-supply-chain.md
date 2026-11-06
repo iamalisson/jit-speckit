@@ -78,7 +78,7 @@ Also checked, no finding:
 - **reproduction**: the call above, as the skill writes it, on any public repository.
 - **exposure**: public (no finding is published; the path to file one privately fails).
 - **fix**: in `skills/security/SKILL.md`, send JSON with `--input -`, with `severity` and a
-  `vulnerabilities` entry (ecosystem `other`), and look up existing advisories by summary first.
+  `vulnerabilities` entry (ecosystem `other`), and look up existing advisories by summary first, so a retry makes no duplicate.
   Check for `tests/static.test.sh`: when the skill's advisory call is read, then the JSON after
   `--input -` names `summary`, `description`, `severity`, `vulnerabilities` and `ecosystem`, and a
   `--paginate` lookup comes before the `-X POST`. A file-wide grep for the words already passes

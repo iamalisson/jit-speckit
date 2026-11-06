@@ -73,10 +73,11 @@ repositories with a local bare origin for the two `bin/setup.sh` runs. Those nee
 - **reproduction**: the upgrade script below.
 - **exposure**: public (it needs the project's own copy of the script to be missing).
 - **fix**: `put` treats a file byte-identical to a hook an earlier release wrote (a list of
-  SHA-256s kept in the extension) as jit's, and names the others it recognizes: `kept (written by
-  jit-speckit <version>, no marker): <file> — delete it to get the current one`. Check for
-  `tests/level.test.sh`, with v1.3.0's hook as a committed fixture, since CI's checkout has no tags: when `.githooks/pre-commit` is v1.3.0's exact file, then `level.sh` replaces it and it
-  carries the marker. It fails today. (Corrected 2026-11-05 from feature 002's research,
+  SHA-256s kept in the extension) as jit's, and names the others it recognizes: `kept (written by jit-speckit <versions>, no marker): <file> — delete it to get
+  the current one` (and `<versions> or older` for generated files). Check for
+  `tests/level.test.sh`, with v1.3.0's hook as a committed fixture, since CI's checkout has no tags: when `.githooks/pre-commit` is v1.3.0's exact file, then `level.sh` replaces it and it carries the marker; and when
+  `close-linked-issues.yml` is v1.3.1's exact file, then it is kept and named (replacing it would
+  undo a take-over, since 1.4.0+'s copy without its marker has the same bytes). It fails today. (Corrected 2026-11-05 from feature 002's research,
   `specs/002-review-fixes/research.md` C1).
 
 ### F5.4 · High · P21, P10 · an older plugin copy downgrades a newer project, without a word, and takes the review gate with it
@@ -133,7 +134,8 @@ repositories with a local bare origin for the two `bin/setup.sh` runs. Those nee
 - **fix**: move the `macos` job from `test.yml` into its own `.github/workflows/macos.yml`, run on
   pull requests touching `extension/scripts/`, `bin/`, `hooks/` or `tests/` (a path filter is per
   workflow) and on every tag. Check for `tests/static.test.sh`: when `macos.yml` is read, then it
-  runs on pull requests touching `extension/scripts/`, `bin/` or `hooks/`, and on every tag. It fails today. (Corrected 2026-11-05 from feature 002's research,
+  runs on pull requests touching `extension/scripts/`, `bin/` or `hooks/`, and on every tag;
+  and `test.yml` has no `runs-on: macos` left. It fails today. (Corrected 2026-11-05 from feature 002's research,
   `specs/002-review-fixes/research.md` C1).
 
 ### Reproductions

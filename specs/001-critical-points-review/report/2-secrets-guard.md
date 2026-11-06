@@ -94,7 +94,8 @@ and the guard is "best effort", with "CI and branch protection" as the boundary.
 - **exposure**: public. It is the operator's own agent, and the documented boundary is CI plus
   branch protection (FR-013).
 - **fix**: refuse any prefix of `--no-verify` (at least 3 characters) for `commit`, `push`,
-  `merge`, `rebase` and `am`, and `am -n` like `commit -n`; and judge commits and `HEAD` pushes
+  `merge`, `rebase` and `am`, and `am -n` like `commit -n` (`cherry-pick` and `revert` take no `--no-verify` and keep their
+  exact-word check); and judge commits and `HEAD` pushes
   after a `git switch|checkout <branch>` in the same chain against every branch the chain may be
   on. Check for `tests/guard.test.sh`: when one of those subcommands uses an abbreviated
   `--no-verify` (built at run time), or `am -n`, or a chain switches to `main` and then commits,

@@ -162,7 +162,8 @@ F2.1's fix is in its private advisory.
 
 - **promise**: P08, the command guard within its documented scope.
 - **change**: refuse any prefix of `--no-verify` (at least 3 characters) for `commit`, `push`,
-  `merge`, `rebase` and `am`, and `am -n` like `commit -n`; and judge commits and `HEAD` pushes
+  `merge`, `rebase` and `am`, and `am -n` like `commit -n` (`cherry-pick` and `revert` take no `--no-verify` and keep their
+  exact-word check); and judge commits and `HEAD` pushes
   after a `git switch|checkout <branch>` in the same chain against every branch the chain may
   be on.
 - **check** (`tests/guard.test.sh`): when one of those subcommands uses an abbreviated
@@ -253,7 +254,7 @@ F2.1's fix is in its private advisory.
 
 - **promise**: P25, security findings go to a private place.
 - **change**: in `skills/security/SKILL.md`, send JSON with `--input -`, with `severity` and a
-  `vulnerabilities` entry (ecosystem `other`), and look up existing advisories by summary first.
+  `vulnerabilities` entry (ecosystem `other`), and look up existing advisories by summary first, so a retry makes no duplicate.
 - **check** (`tests/static.test.sh`): when the skill's advisory call is read, then the JSON after
   `--input -` names `summary`, `description`, `severity`, `vulnerabilities` and `ecosystem`, and
   a `--paginate` lookup comes before the `-X POST`. A file-wide grep for the words already passes
@@ -303,11 +304,12 @@ F2.1's fix is in its private advisory.
 
 - **promise**: P19, P21.
 - **change**: `put` treats a file byte-identical to a hook an earlier release wrote (a list of
-  SHA-256s kept in the extension) as jit's, and names the others it recognizes: `kept (written
-  by jit-speckit <version>, no marker): <file> — delete it to get the current one`.
+  SHA-256s kept in the extension) as jit's, and names the others it recognizes: `kept (written by jit-speckit <versions>, no marker): <file> — delete it to get
+  the current one` (and `<versions> or older` for generated files).
 - **check** (`tests/level.test.sh`, with v1.3.0's hook as a committed fixture, since CI's checkout
-  has no tags): when `.githooks/pre-commit` is v1.3.0's exact file, then `level.sh` replaces it
-  and it carries the marker.
+  has no tags): when `.githooks/pre-commit` is v1.3.0's exact file, then `level.sh` replaces it and it carries the marker; and when
+  `close-linked-issues.yml` is v1.3.1's exact file, then it is kept and named (replacing it would
+  undo a take-over, since 1.4.0+'s copy without its marker has the same bytes).
 
 ### Fix F5.6 · the macOS job runs on PRs that touch scripts, and on tags
 
@@ -316,7 +318,8 @@ F2.1's fix is in its private advisory.
   run on pull requests touching `extension/scripts/`, `bin/`, `hooks/` or `tests/` (a path
   filter is per workflow) and on every tag.
 - **check** (`tests/static.test.sh`): when `macos.yml` is read, then it runs on pull requests
-  touching `extension/scripts/`, `bin/` or `hooks/`, and on every tag.
+  touching `extension/scripts/`, `bin/` or `hooks/`, and on every tag;
+  and `test.yml` has no `runs-on: macos` left.
 
 
 **Low findings** get no fix entry. Those marked "none (docs honest)" in the summary, like F1.3,
