@@ -7,7 +7,8 @@
 # blocked until T003's issue is closed.
 # Prints a line per task ("done|resume|in-progress|blocked|open|no-issue Tnnn #N description"), then
 # DONE=x/y IN_PROGRESS=n NEXT=<Tnnn> (NEXT empty when nothing is left to start).
-# With no argument and several features that have tasks to start, it prints one "feature <name>
+# With no argument on a task branch (<prefix>/NNN-tNNN-...), it serves that branch's feature.
+# Otherwise, with several features that have tasks to start, it prints one "feature <name>
 # DONE=x/y" line each and CHOOSE=<names>; run it again with the chosen one.
 set -euo pipefail
 # shellcheck source=lib.sh
@@ -25,10 +26,20 @@ pr_heads=" $(gh pr list --state open --limit 500 --json headRefName --jq '.[].he
 
 # scan <feature dir> <print>: one line per task when print=true; sets DONE_N TOTAL BUSY NEXT_ID
 scan() {
-  local fdir="$1" show="$2" num closed line id issue key state resume="" d dl di
+  local fdir="$1" show="$2" num closed=" " nums q="" i out line id issue key state resume="" d dl di
   num="$(feature_key "$fdir")"
-  # One API call per feature: its task issues have "[<feature number>] T" in the title.
-  closed=" $(gh issue list --state closed --limit 500 --search "$num in:title" --json number --jq '.[].number' | tr '\n' ' ') "
+  # One API call per feature, by issue number, so a renamed issue still counts. None when no task
+  # has an issue (an empty repository { } is an invalid query).
+  # shortcut: one query per feature, fine for hundreds of tasks; split into batches of ~100 if a feature ever nears GitHub's 10 s timeout
+  nums="$(sed -nE '/^- \[.\] T[0-9]{3,} /s/.* — #([0-9]+)[[:space:]]*$/\1/p' "$fdir/tasks.md" | sort -u)"
+  if [[ -n "$nums" ]]; then
+    for i in $nums; do q+="i$i: issue(number: $i) { number state } "; done
+    out="$(gh api graphql -F owner='{owner}' -F name='{repo}' \
+      -f query="query(\$owner: String!, \$name: String!) { repository(owner: \$owner, name: \$name) { $q} }" \
+      --jq '.data.repository[] | select(.state == "CLOSED") | .number')" \
+      || die "cannot read the state of feature $num's task issues; fix or remove the issue number it names in $fdir/tasks.md"
+    closed=" $(tr '\n' ' ' <<<"$out") "
+  fi
   NEXT_ID=""; DONE_N=0; TOTAL=0; BUSY=0
   while IFS= read -r line; do
     id="$(sed -E 's/^- \[.\] (T[0-9]{3,}) .*/\1/' <<<"$line")"
@@ -58,6 +69,8 @@ scan() {
 if [[ -n "${1:-}" ]]; then
   fdir="$(resolve_feature "$1")"
   mkdir -p .specify; printf '{ "feature_directory": "%s" }\n' "$fdir" > .specify/feature.json
+elif fdir="$(branch_feature)" && [[ -n "$fdir" ]]; then
+  : # on a task branch, its feature (no feature.json: the branch decides on every call)
 else
   # Several features with tasks to start: say so instead of silently serving the last one touched.
   startable=(); summary=""

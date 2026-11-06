@@ -70,7 +70,10 @@ creates carries its number: issues `[001] T003: ...`, branches `feat/001-t003-..
 git-ignored): `/speckit-specify` sets it to the new feature, and `/jit-speckit:next 002` or
 `/speckit-implement 002 T001` set it explicitly. With no argument, `next` serves the active
 feature; when more than one feature has tasks to start, it lists them and asks. On a task branch
-the branch name decides, so a worktree never follows the main checkout.
+the branch name decides, for `next` too, so a worktree never follows the main checkout. A task is
+done when the issue number on its line is closed: `next` reads every task's issue by number in one
+query per feature, so a renamed issue still counts, and a number it cannot read stops it with
+GitHub's error.
 
 A task whose line says `(depends on T003)` is **blocked** until T003's issue closes, so `next`
 never offers work whose prerequisite has not merged.
