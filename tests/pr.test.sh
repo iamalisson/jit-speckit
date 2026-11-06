@@ -124,6 +124,30 @@ git push --quiet origin --delete "$(git branch --show-current)" 2>/dev/null || t
 echo 'assert 2 == 2' > tests/test_new.py; git add tests/test_new.py; git commit --quiet -m "test: add"; reviewed
 check "when only new tests are added, then no explanation is needed" '"$p" task T001 "feat(search): add search" "$TMP/plain.md" | grep -q "^PR="'
 
+# ── Mutation testing ran on this diff, when the constitution has a mutate command ──
+rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR"
+new_repo standard
+commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
+"$SCRIPTS/branch.sh" T001 >/dev/null
+mkdir -p src .specify/memory; echo 'export const search = 1' > src/search.ts; git add src; git commit --quiet -m "feat: search"; reviewed
+mutate() { printf '**Commands**: build `[BUILD_COMMAND]` · test `[TEST_COMMAND]` · lint `[LINT_COMMAND]` · mutate `%s`\n' "$1" > .specify/memory/constitution.md; }
+mutate true
+check "when a mutate command is set and mutants.sh was not run on this diff, then it refuses and names mutants.sh" \
+  'fails_with "no mutants.sh result for this diff; run bash .specify/extensions/jit/scripts/mutants.sh after the last commit" "$p" task T001 "feat(search): add search" "$TMP/body.md"'
+"$SCRIPTS/mutants.sh" >/dev/null
+check "when mutants.sh ran on this diff, then the PR opens" '"$p" task T001 "feat(search): add search" "$TMP/body.md" | grep -q "^PR="'
+echo 'export const more = 2' >> src/search.ts; git commit --quiet -am "feat: more"; reviewed; rm -f "$GH_PR"
+check "when a commit follows the mutants.sh run, then it refuses again" \
+  'fails_with "no mutants.sh result for this diff" "$p" task T001 "feat(search): add search" "$TMP/body.md"'
+mutate false; "$SCRIPTS/mutants.sh" >/dev/null
+check "when mutants.sh found survivors and Evidence does not mention them, then it refuses" \
+  'fails_with "mutants.sh found surviving mutants; say in '"'"'## Evidence'"'"' why each changes nothing, or add the test that kills it" "$p" task T001 "feat(search): add search" "$TMP/body.md"'
+printf 'Adds search.\n\n## Review\n\nready: no findings\n\n## Evidence\n\nOne survivor, in a log line: it changes nothing observable.\n' > "$TMP/survivor.md"
+check "when Evidence says why the survivor changes nothing, then the PR opens" \
+  '"$p" task T001 "feat(search): add search" "$TMP/survivor.md" | grep -q "^PR="'
+rm .specify/memory/constitution.md; rm -f "$GH_PR"; : > "$GH_LOG"
+check "when there is no mutate command, then the body says mutation testing was not run" \
+  '"$p" task T001 "feat(search): add search" "$TMP/body.md" | grep -q "^PR=" && grep -qxF "Mutation testing: not run (no mutate command in the constitution)" "$GH_LOG"'
 
 # ── The spec folder survives a refused branch switch ──
 rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR"

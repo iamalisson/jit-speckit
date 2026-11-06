@@ -116,6 +116,22 @@ base_ref() {
   if git rev-parse --verify --quiet "origin/$b" >/dev/null; then echo "origin/$b"; else echo "$b"; fi
 }
 
+# diff_id: the patch id of the branch against the base (empty for an empty diff). Merging the base
+# in keeps it, any edit changes it. --verbatim keeps whitespace, so a re-indent (Python, YAML,
+# Makefiles) counts.
+diff_id() {
+  local from opt=--verbatim; from="$(git merge-base HEAD "$(base_ref)" 2>/dev/null || echo HEAD)"
+  git patch-id --verbatim </dev/null >/dev/null 2>&1 || opt=--stable # git < 2.39: whitespace-only edits slip
+  git diff "$from" HEAD | git patch-id "$opt" | cut -d' ' -f1
+}
+
+# diff_record <kind>: the file that holds this diff's <kind> record (jit-mutants, jit-security),
+# under .git so it never dirties the tree; its folder is created. Any commit makes it a new file.
+diff_record() {
+  local d id; d="$(git rev-parse --git-common-dir)/$1"; id="$(diff_id)"
+  mkdir -p "$d"; echo "$d/${id:-empty}"
+}
+
 # resolve_feature <NNN | folder name>: the specs/ folder of a feature named by number or folder.
 resolve_feature() {
   local m

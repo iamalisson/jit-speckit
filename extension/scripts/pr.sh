@@ -67,6 +67,16 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
     fi
     # The review has to have happened, on this diff, and said ready: a heading alone proves nothing.
     bash "$JIT_EXT_DIR/scripts/review.sh" check >/dev/null
+    # Mutation testing too, when the project has a mutate command: mutants.sh records it per diff.
+    if [[ -n "$(constitution_cmd mutate)" ]]; then
+      mutants="$(diff_record jit-mutants)"
+      [[ -f "$mutants" ]] || die "no mutants.sh result for this diff; run bash .specify/extensions/jit/scripts/mutants.sh after the last commit"
+      if grep -q '^mutants survivors' "$mutants" && ! sed -n '/^## Evidence/,/^## /p' <<<"$body" | grep -qi surviv; then
+        die "mutants.sh found surviving mutants; say in '## Evidence' why each changes nothing, or add the test that kills it"
+      fi
+    else
+      body+=$'\n\n'"Mutation testing: not run (no mutate command in the constitution)"
+    fi
     # Never open a PR on red checks. One log per branch, so parallel worktrees never share one.
     test_cmd="$(constitution_cmd test)"
     if [[ -n "$test_cmd" ]]; then

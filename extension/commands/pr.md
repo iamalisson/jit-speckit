@@ -20,12 +20,7 @@ description: "Review, commit, push and open the task's pull request"
    - if an existing test really must change (the spec changed, or the test was wrong), the PR
      body needs a `## Test changes` section saying why. The script refuses the PR without it.
 
-   **Mutation testing proves those tests can fail.** Run
-   `bash .specify/extensions/jit/scripts/mutants.sh` (the constitution's `mutate` command on this
-   branch's changes). `ok` goes in *Evidence*. `survivors` means a behavior no test checks: for
-   each surviving mutant in the changed lines, add the test that kills it, or write one line in
-   *Evidence* saying why it changes nothing observable (log or help text). `missing` means the
-   constitution has no `mutate` command: say so in *Evidence* and suggest `/jit-speckit:adopt`.
+   Mutation testing runs once the commits are final: see the end of step 4.
 3. **Commit.** Commit the task's changes, and only those. Stage files by name, never
    `git add -A`. Use a Conventional Commit message, `<type>(<scope>): <summary>`, with a body line
    `Refs #<ISSUE>`. Attribution lines (`Co-Authored-By` for Claude, "Generated with") follow the
@@ -49,6 +44,19 @@ description: "Review, commit, push and open the task's pull request"
    round was clean: the second round reviews the fixes. This step runs at **every level**: the
    script in step 6 refuses a PR without a recorded `ready` review for the exact diff, so a
    commit after the review means one more review.
+
+   **After the last commit** (the review's fix rounds included), run what is recorded for the
+   exact diff; any later commit means running it again:
+   - **Mutation testing proves the tests can fail.** Run
+     `bash .specify/extensions/jit/scripts/mutants.sh` (the constitution's `mutate` command on
+     this branch's changes). `ok` goes in *Evidence*. `survivors` means a behavior no test checks:
+     for each surviving mutant in the changed lines, add the test that kills it (then commit and
+     run it again), or write one line in *Evidence* naming the survivor and why it changes nothing
+     observable (log or help text). `missing` means the constitution has no `mutate` command: say
+     so in *Evidence* and suggest `/jit-speckit:adopt`. With a `mutate` command, the script in
+     step 6 refuses a PR without a `mutants.sh` result for this diff, and refuses `survivors` when
+     *Evidence* says nothing about them; without one, it adds "Mutation testing: not run" to the
+     body.
 5. **PR body**, written to a temporary file. Keep it short to read: what a reviewer needs is
    visible, the rest folds away.
    - one or two sentences on what changed;
