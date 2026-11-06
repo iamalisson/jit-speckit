@@ -8,7 +8,8 @@ description: "Review, commit, push and open the task's pull request"
    - **lite**: ask "Review and open the PR now?" and continue only on yes.
    - **standard** and **full**: continue.
 2. **Checks.** Run the constitution's test command, plus lint and build if they exist. If
-   anything fails, stop and report it. Never open a PR on red checks.
+   anything fails, stop and report it. Never open a PR on red checks: `pr.sh` (step 6) runs the
+   test command again before the push and refuses the PR, with its last 20 lines, when it fails.
 
    **Tests are evidence, not decoration.** Each test comes from the task's *Completed when* and
    the spec's acceptance scenarios, and must fail if the behavior breaks:
@@ -19,12 +20,7 @@ description: "Review, commit, push and open the task's pull request"
    - if an existing test really must change (the spec changed, or the test was wrong), the PR
      body needs a `## Test changes` section saying why. The script refuses the PR without it.
 
-   **Mutation testing proves those tests can fail.** Run
-   `bash .specify/extensions/jit/scripts/mutants.sh` (the constitution's `mutate` command on this
-   branch's changes). `ok` goes in *Evidence*. `survivors` means a behavior no test checks: for
-   each surviving mutant in the changed lines, add the test that kills it, or write one line in
-   *Evidence* saying why it changes nothing observable (log or help text). `missing` means the
-   constitution has no `mutate` command: say so in *Evidence* and suggest `/jit-speckit:adopt`.
+   Mutation testing runs once the commits are final: see the end of step 4.
 3. **Commit.** Commit the task's changes, and only those. Stage files by name, never
    `git add -A`. Use a Conventional Commit message, `<type>(<scope>): <summary>`, with a body line
    `Refs #<ISSUE>`. Attribution lines (`Co-Authored-By` for Claude, "Generated with") follow the
@@ -34,26 +30,49 @@ description: "Review, commit, push and open the task's pull request"
 4. **Independent review**, the gate that catches what this session cannot see about its own
    work. Launch the reviewer exactly as `commands/review.md` (`/speckit-jit-review`) says: one
    fresh general-purpose subagent, given that file and the facts it lists, and nothing of what you
-   think about the code. While it runs:
-   - `bash .specify/extensions/jit/scripts/security-scan.sh --changed`. Read every finding and fix
-     the real ones. List the false positives with the reason.
-   - `/security-review` on the branch.
+   think about the code. While it runs, run `/security-review` on the branch.
 
    Save the report as it came to a file outside the repository (`mktemp`) and record it:
    `bash .specify/extensions/jit/scripts/review.sh record <file>`. Then fix every **High** and
    **Medium** finding in the code (a test changes only when the test was wrong: then
    `## Test changes`, step 2). Commit the fixes (same rules), re-run step 2, and run the review
    again until it says `ready`, at most three rounds; after that stop and show the user what
-   remains. **Low** findings are fixed or listed with a reason. Skip nothing because the first
+   remains. Round 2 is a **delta**: pass the reviewer the `REVIEWED=` sha and the last report, and
+   record it with `review.sh record --delta <file>`; when that refuses (the fix grew, or the branch
+   was rebased), run a new full review instead. **Low** findings are fixed or listed with a reason. Skip nothing because the first
    round was clean: the second round reviews the fixes. This step runs at **every level**: the
    script in step 6 refuses a PR without a recorded `ready` review for the exact diff, so a
    commit after the review means one more review.
+
+   **After the last commit** (the review's fix rounds included), run what is recorded for the
+   exact diff; any later commit means running it again:
+   - **Mutation testing proves the tests can fail.** Run
+     `bash .specify/extensions/jit/scripts/mutants.sh` (the constitution's `mutate` command on
+     this branch's changes). `ok` goes in *Evidence*. `survivors` means a behavior no test checks:
+     for each surviving mutant in the changed lines, add the test that kills it (then commit and
+     run it again), or write one line in *Evidence* naming the survivor and why it changes nothing
+     observable (log or help text). `missing` means the constitution has no `mutate` command: say
+     so in *Evidence* and suggest `/jit-speckit:adopt`. With a `mutate` command, the script in
+     step 6 refuses a PR without a `mutants.sh` result for this diff, and refuses `survivors` when
+     *Evidence* says nothing about them; without one, it adds "Mutation testing: not run" to the
+     body.
+   - **The scanners on the changed files.** Run
+     `bash .specify/extensions/jit/scripts/security-scan.sh --changed` (it also scans uncommitted
+     files, so after the last commit). Read every finding and fix the real ones (then commit and
+     run it again). List the false positives with the reason, and any `missing` scanner. The
+     script in step 6 refuses a PR without a scan for this diff; findings and `missing` scanners
+     do not refuse, they go in the body.
 5. **PR body**, written to a temporary file. Keep it short to read: what a reviewer needs is
    visible, the rest folds away.
    - one or two sentences on what changed;
-   - `## Review`: the reviewer's *What changed* line, each High and Medium finding and the commit
-     that fixed it, the Low ones left with their reason, and the final assessment. The script
-     refuses a body without this section, at every level;
+   - `## Review`: your summary of the review, the only place it reaches the PR: what changed, each
+     High and Medium finding and the commit that fixed it, the Low ones left with their reason, and
+     the final assessment. A security finding is one line, `Security: reported privately (<id>)`,
+     and nothing more: no file, no scenario. The script refuses a body without this section, at
+     every level, and adds only what it can verify in a folded "Independent review" block: that a
+     review was recorded for this diff (its patch id), its `Assessment:` line, the model it ran on
+     and any warning about it, and the risk map as paths only (`Risk map (round 1)` and, after a
+     delta, `Risk map (fix round)`). It never copies the report's text;
    - `## Evidence`: one visible line per result (e.g. "tests 42/42 · lint clean · scanners: no
      findings"), showing the task's *Completed when* is met. On **full** the script refuses a body
      without this section.
@@ -63,6 +82,7 @@ description: "Review, commit, push and open the task's pull request"
    - attribution lines only if the project's settings ask for them (see step 3).
 6. Run `bash .specify/extensions/jit/scripts/pr.sh task <TASK_ID> "<commit title>" <body-file>`.
    It pushes (the pre-push hook re-checks every commit for secrets), adds `Closes #<ISSUE>` and
-   prints `PR=<url>`, and asks GitHub Copilot code review for a second independent read when the
-   account has it. The `Security` and `CI` workflows then run on the PR; they are the gate.
+   prints `PR=<url>`, and asks GitHub Copilot code review for a second independent read: it prints
+   `copilot: code review requested` only when GitHub lists Copilot as a reviewer, and
+   `copilot: not requested (GitHub did not add the reviewer)` otherwise. The `Security` and `CI` workflows then run on the PR; they are the gate.
 7. End with the PR URL.

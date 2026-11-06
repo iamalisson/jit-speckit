@@ -120,10 +120,45 @@ echo "constitution: jit block set to '$level' in $const"
 source "$JIT_EXT_DIR/scripts/pins.sh"
 
 MARKER="# jit-speckit: managed file. /jit-speckit:level re-creates it while this line stays; delete the line to keep your own edits."
-put() { # put <dest> (content on stdin): write only if missing, or if ours (the marker in its first lines)
-  if [[ -e "$1" ]] && ! head -2 "$1" | grep -qxF "$MARKER"; then cat >/dev/null; echo "kept:    $1"; return; fi
+# Files releases before the marker (1.0.0-1.3.1) wrote byte for byte: "<sha256> <path> <versions> <replace|name>".
+OLD_FILES="$JIT_EXT_DIR/scripts/old-files.sha256"; old_hook=""
+put() { # put <dest> [generated] (content on stdin): write only if missing, ours (the marker in its first lines) or an old release's hook
+  if [[ -e "$1" ]] && ! head -2 "$1" | grep -qxF "$MARKER"; then
+    local old; old="$(awk -v h="$(sha256 < "$1")" -v p="$1" '$1 == h && $2 == p { print $3, $4 }' "$OLD_FILES")"
+    if [[ "$old" == *" replace" ]]; then old_hook="${old% *}" # an old hook: rewritten below, now marked
+    else
+      cat >/dev/null
+      if [[ -n "$old" ]]; then echo "kept (written by jit-speckit ${old% *}, no marker): $1 — delete it to get the current one"
+      elif [[ -n "${2:-}" && -n "$old_hook" ]]; then echo "kept (written by jit-speckit $old_hook or older, no marker): $1 — delete it to get the current one"
+      else echo "kept:    $1"; fi
+      return
+    fi
+  fi
   local verb=created; [[ -e "$1" ]] && verb=updated
-  mkdir -p "$(dirname "$1")"; cat > "$1.tmp" && mv "$1.tmp" "$1"; echo "$verb: $1"
+  mkdir -p "$(dirname "$1")"; cat > "$1.tmp"
+  if [[ $verb == updated ]]; then keep_pins "$1" "$1.tmp"; fi
+  mv "$1.tmp" "$1"; echo "$verb: $1"
+  # What jit wrote, so remove.sh can tell an edited file from an untouched one.
+  { if [[ -f "$RECORD" ]]; then awk -v p="$1" '$2 != p' "$RECORD"; fi; echo "$(sha256 < "$1") $1"; } > "$RECORD.tmp" && mv "$RECORD.tmp" "$RECORD"
+}
+RECORD=.specify/jit-files.sha256
+# keep_pins <old file> <new file>: a "uses: <action>@<sha> # <version>" pin in the old file that is
+# newer than the new file's (Dependabot bumped it) is kept. A container.image digest is not a pin here.
+keep_pins() {
+  local line a v o ov msgs="" said=" " re='uses: ([^@ ]+)@[0-9a-f]+ # ([^ ]+)'
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" =~ $re ]]; then
+      a="${BASH_REMATCH[1]}"; v="${BASH_REMATCH[2]}"; ov=""
+      o="$(grep -m1 -F "uses: $a@" "$1" || true)"
+      if [[ "$o" =~ $re ]]; then ov="${BASH_REMATCH[2]}"; fi
+      if [[ -n "$ov" ]] && version_newer "$ov" "$v"; then
+        if [[ "$said" != *" $a "* ]]; then msgs+="kept newer pin: $a $ov"$'\n'; said+="$a "; fi
+        line="${line%%uses: *}uses: ${o#*uses: }"
+      fi
+    fi
+    printf '%s\n' "$line"
+  done < "$2" > "$2.pins"
+  mv "$2.pins" "$2"; printf '%s' "$msgs"
 }
 # Workflows that already check pull requests and are not ours: then no second CI is generated.
 pr_gate() {
@@ -192,7 +227,8 @@ security_yaml() {
   cat <<EOF
 $MARKER
 # Security gate: runs on every pull request, on pushes to long-lived branches, and weekly
-# (new CVEs land in dependencies nobody touched). Tools are pinned and checksum-verified.
+# (new CVEs land in dependencies nobody touched). Tools are pinned and checksum-verified;
+# Semgrep's rule sets (full level) are fetched from the Semgrep registry at run time.
 name: Security
 
 on:
@@ -266,10 +302,12 @@ EOF
   code:
     name: Code (semgrep, OWASP rules)
     runs-on: ubuntu-latest
+    # The image is verified by its digest; the rule sets come from the Semgrep registry at run time.
+    container:
+      image: semgrep/semgrep@sha256:$SEMGREP_DIGEST # $SEMGREP_VERSION
     steps:
 $(checkout_step)
-      - uses: $PIN_SETUP_UV
-      - run: uvx --from semgrep==$SEMGREP_VERSION semgrep scan --config p/default --config p/owasp-top-ten --error --metrics off
+      - run: semgrep scan --config p/default --config p/owasp-top-ten --error --metrics off
 EOF
   fi
 }
@@ -323,11 +361,11 @@ for l in "${levels[@]}"; do
     lite) chmod +x .githooks/* ;;
     standard) gate="$(pr_gate)"
               if [[ -n "$gate" ]]; then echo "kept:    $(tr '\n' ' ' <<<"$gate")(already checks pull requests; no ci.yml generated)"
-              else ci_yaml | put .github/workflows/ci.yml; fi
-              security_yaml | put .github/workflows/security.yml
-              dependabot_yaml | put .github/dependabot.yml ;;
+              else ci_yaml | put .github/workflows/ci.yml generated; fi
+              security_yaml | put .github/workflows/security.yml generated
+              dependabot_yaml | put .github/dependabot.yml generated ;;
     full) owner="$(repo_slug)"; owner="${owner%%/*}"
-          printf '# Every change needs a review from an owner.\n* @%s\n' "${owner:-OWNER}" | put .github/CODEOWNERS ;;
+          printf '# Every change needs a review from an owner.\n* @%s\n' "${owner:-OWNER}" | put .github/CODEOWNERS generated ;;
   esac
 done
 

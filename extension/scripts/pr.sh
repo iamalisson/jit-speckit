@@ -3,8 +3,9 @@
 #   pr.sh task T003 "feat(api): add price search" [body-file]
 #       On the task's branch, with the work already committed. Adds "Closes #N".
 #       Every level requires a "## Review" section in the body and a recorded independent review
-#       that said "ready" for this exact diff (review.sh), whose patch id and Assessment line it
-#       adds to the body, folded; "full" also requires "## Evidence".
+#       that said "ready" for this exact diff (review.sh), whose recorded facts it adds to the
+#       body, folded: patch id, Assessment line, model, any warning and the risk maps as paths;
+#       "full" also requires "## Evidence".
 #       Runs the constitution's test command before the push and refuses when it fails.
 #   pr.sh spec
 #       Commits the active feature's spec folder on spec/<feature> and opens a docs PR.
@@ -128,9 +129,12 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
     # still refuses if someone pushed to it since we last fetched.
     if $fresh; then git push --quiet --force-with-lease -u origin "$branch"; else git push --quiet -u origin "$branch"; fi
     issues="$(grep -oE ' — #[0-9]+$' "$fdir/tasks.md" | grep -oE '#[0-9]+' | tr '\n' ' ')"
+    # The plan review's model warning, from its record (issues.sh refuses a missing or stale one).
+    warn="$(bash "$JIT_EXT_DIR/scripts/review.sh" report --plan 2>/dev/null | sed -n 's/^warning: /**Plan review:** /p' || true)"
+    [[ -z "$warn" ]] || warn=$'\n\n'"$warn"
     open_pr "docs(specs): $feature" "Spec, plan and tasks for \`$feature\`.
 
-**Task issues:** ${issues:-none yet}
+**Task issues:** ${issues:-none yet}$warn
 
 Merge this before starting tasks: \`/speckit-implement Tnnn\` branches from \`$base\`, so it needs \`tasks.md\` there.
 

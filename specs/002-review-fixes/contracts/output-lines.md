@@ -36,6 +36,7 @@ non-zero); warnings go to stderr with exit 0; results go to stdout.
 | `review.sh record` | an invalid `review_model:` in `jit-config.yml` | `jit: review_model must be sonnet, opus or fable` |
 | `/speckit-jit-review` prompt | `review_model:` not sonnet, opus or fable | `jit: review_model must be sonnet, opus or fable` |
 | `review.sh record` | a report with `Delta from:` recorded without `--delta` | `this is a delta report: record it with --delta, or run a new full review` |
+| `review.sh record --plan` | no `Model:` line | `the report must state Model: <id> for the plan: run the review again` |
 | `hooks/guard-review.sh` | a reviewer launch whose model is missing or not sonnet, opus or fable | `jit: the review must run on sonnet, opus or fable (review_model:), not <model or "the session's model">` (exit 2) |
 | `hooks/guard-review.sh` | a fork carrying the reviewer sentinel | `jit: the review must run in a fresh agent, not a fork of this session` (exit 2) |
 | `review.sh check` | no task record on a task branch | today's message, hint `review.sh record <report-file>` (no `--plan`) |
@@ -53,6 +54,7 @@ non-zero); warnings go to stderr with exit 0; results go to stdout.
 | `pr.sh` | Copilot listed in GitHub's answer | `copilot: code review requested` |
 | `pr.sh` | anything else | `copilot: not requested (GitHub did not add the reviewer)` |
 | `issues.sh` | a task's issue already exists | `<Tnnn> → #<n> (existing)` |
+| `issues.sh` | the plan review's record has a `warning:` | `jit: warning: <reason>; the review did not run on the configured model` (stderr, exit 0), before the issues are created |
 | `level.sh` `put()` | a managed workflow has a newer pin | `kept newer pin: <action> <version>` |
 | `level.sh` `put()` | an old release's file, `name` | `kept (written by jit-speckit <versions>, no marker): <file> — delete it to get the current one` |
 | `level.sh` `put()` | a generated file kept after an old hook matched | `kept (written by jit-speckit <versions> or older, no marker): <file> — delete it to get the current one` |
@@ -68,8 +70,12 @@ non-zero); warnings go to stderr with exit 0; results go to stdout.
   line `Independent review recorded for this diff (patch id <first 12 of the recorded state>)` and
   the line `Assessment: ready`; then `</details>`. The script never copies the report's text; the
   summary is the agent's `## Review`.
-- Added by `pr.sh task`, from the record: `Model: <id>`, any `warning:` lines, and the risk map as
-  paths only under `Risk map (round 1)` and, after a delta, `Risk map (fix round)`.
+- Added by `pr.sh task`, from the record: `Model: <id>`, any `warning:` lines
+  (`warning: <reason>; the review did not run on the configured model`), and the risk map as
+  paths only (`- deep: <path>`, `- proven: <path>`) under `Risk map (round 1)` and, after a delta,
+  `Risk map (fix round)`.
+- Added by `pr.sh spec`, after the task issues, when the plan review's record has a warning:
+  `**Plan review:** <reason>; the review did not run on the configured model`.
 - Added by `pr.sh task` when no mutate command is set: `Mutation testing: not run (no mutate
   command in the constitution)`.
 

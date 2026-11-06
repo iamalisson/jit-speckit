@@ -1,0 +1,6 @@
+903953427c5b7caa9a0341c371480d3e6f217c6e9cb22aca13892bdedbe9c1d2 .githooks/pre-commit 1.2.0,1.3.0,1.3.1 replace
+a13a20b484651a924201db4abe773831b6a3944a6fe114eacc6139ba9e613dff .githooks/pre-push 1.2.0,1.3.0,1.3.1 replace
+e7c472f62fc0ba893c28a8455cdc546ec3556bb81d6ed306ec6c1c780247c769 .github/workflows/close-linked-issues.yml 1.0.0,1.2.0,1.3.0,1.3.1 name
+79bb5727cc1db62eeb010317b7c7818a111c98269137336225cabdd16c42bb39 .github/workflows/release.yml 1.0.0 name
+7937ed97e6ada4c7d6bd4b84ea669c05ff0fb44a39d40cb7bd9586648b5f3f62 .github/workflows/release.yml 1.2.0,1.3.0 name
+53fc9c53de51bd540a195bd32dbc967c389656dc989bfa997fa39cbff5a5bd2a .github/workflows/release.yml 1.3.1 name

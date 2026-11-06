@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Run the deterministic security scanners that are installed and collect their reports.
 #   security-scan.sh [--changed]
-#     --changed  only the files this branch changed against the base branch (pre-PR check)
+#     --changed  only the files this branch changed against the base branch (pre-PR check); the
+#                summary lines are kept as this diff's record (.git/jit-security/<diff id>)
 # Scanners (each optional; missing ones are reported with how to install them):
 #   gitleaks     secrets in files and git history
 #   osv-scanner  known vulnerabilities in dependencies (every lockfile)
@@ -18,6 +19,13 @@ jit_cd_root
 changed=false; [[ "${1:-}" == --changed ]] && changed=true
 dir="$(git rev-parse --git-common-dir)/jit-security/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$dir"
+summary="$dir/summary.txt"; : > "$summary"
+
+report() { printf '%-12s %-9s %s\n' "$1" "$2" "$3" | tee -a "$summary"; }
+missing() { report "$1" missing "install: $2"; }
+# With --changed, the summary lines become this diff's record, which pr.sh task requires. Copied
+# only once the scan is done, so an interrupted scan records nothing.
+finish() { if $changed; then cp "$summary" "$(diff_record jit-security)"; fi; echo "REPORT_DIR=$dir"; exit 0; }
 
 files=()
 if $changed; then
@@ -25,11 +33,8 @@ if $changed; then
   ref="origin/$base"; git show-ref --verify --quiet "refs/remotes/$ref" || ref="$base"
   while IFS= read -r f; do [[ -f "$f" ]] && files+=("$f"); done \
     < <(git diff --name-only --diff-filter=ACMR "$(git merge-base HEAD "$ref" 2>/dev/null || echo HEAD)" HEAD; git diff --name-only --diff-filter=ACMR)
-  if ((${#files[@]} == 0)); then echo "all skipped no changed files"; echo "REPORT_DIR=$dir"; exit 0; fi
+  if ((${#files[@]} == 0)); then echo "all skipped no changed files" | tee "$summary"; finish; fi
 fi
-
-report() { printf '%-12s %-9s %s\n' "$1" "$2" "$3"; }
-missing() { report "$1" missing "install: $2"; }
 
 # gitleaks: exit 1 = leaks found
 if command -v gitleaks >/dev/null; then
@@ -77,4 +82,4 @@ if [[ -n "$(infra_files)" || -n "$(git ls-files '*.yaml' '*.yml' 2>/dev/null | g
   else missing trivy "https://trivy.dev (verify the release; trivy-action was compromised in March 2026)"; fi
 else report trivy skipped "no Dockerfile/Terraform/Kubernetes files"; fi
 
-echo "REPORT_DIR=$dir"
+finish

@@ -37,7 +37,9 @@ description: "Review, commit, push and open the task's pull request"
    **Medium** finding in the code (a test changes only when the test was wrong: then
    `## Test changes`, step 2). Commit the fixes (same rules), re-run step 2, and run the review
    again until it says `ready`, at most three rounds; after that stop and show the user what
-   remains. **Low** findings are fixed or listed with a reason. Skip nothing because the first
+   remains. Round 2 is a **delta**: pass the reviewer the `REVIEWED=` sha and the last report, and
+   record it with `review.sh record --delta <file>`; when that refuses (the fix grew, or the branch
+   was rebased), run a new full review instead. **Low** findings are fixed or listed with a reason. Skip nothing because the first
    round was clean: the second round reviews the fixes. This step runs at **every level**: the
    script in step 6 refuses a PR without a recorded `ready` review for the exact diff, so a
    commit after the review means one more review.
@@ -68,8 +70,9 @@ description: "Review, commit, push and open the task's pull request"
      the final assessment. A security finding is one line, `Security: reported privately (<id>)`,
      and nothing more: no file, no scenario. The script refuses a body without this section, at
      every level, and adds only what it can verify in a folded "Independent review" block: that a
-     review was recorded for this diff (its patch id) and its `Assessment:` line. It never copies
-     the report's text;
+     review was recorded for this diff (its patch id), its `Assessment:` line, the model it ran on
+     and any warning about it, and the risk map as paths only (`Risk map (round 1)` and, after a
+     delta, `Risk map (fix round)`). It never copies the report's text;
    - `## Evidence`: one visible line per result (e.g. "tests 42/42 · lint clean · scanners: no
      findings"), showing the task's *Completed when* is met. On **full** the script refuses a body
      without this section.

@@ -98,6 +98,23 @@ check "then for a PUBLIC repo it offers secret scanning with push protection and
 check "when the docs are read, then the README CI row names (standard and full), the security doc says lite has no CI gate, and the design doc ties the one-revert promise to one commit per task PR" \
   'grep -E "^\| \*\*every PR, and weekly\*\* \|" README.md | grep -qF "(standard and full)" && grep -q "On lite there is no CI gate" docs/security.md && sed -n "/^## One task = one issue/,/^## /p" docs/design.md | grep -q "one commit per task PR"'
 
+# review.sh record compares against the merge-base with origin's base (lib.sh base_ref): the prompt names the same one.
+check "the review prompt takes the range's start from origin/<base>, as review.sh record does" \
+  'grep -qF "git merge-base HEAD origin/<base>" extension/commands/review.md && ! grep -qF "git merge-base HEAD <base>" extension/commands/review.md'
+
+# The installed copies (specify extension add --dev extension --force) are what this repo runs: they match the source.
+stale=""
+for f in extension/commands/*.md extension/scripts/*.sh; do
+  d="${f#extension/}"; cmp -s "$f" ".specify/extensions/jit/$d" || stale+="$d "
+done
+# The skill .claude/skills links to is generated from each command: its body (after spec-kit's frontmatter) is the command's.
+body() { awk 'n >= 2 { print } /^---$/ { n++ }' "$1"; }
+for f in extension/commands/*.md; do
+  s=".specify-dev/agent-commands/claude/speckit-jit-$(basename "$f" .md)/SKILL.md"
+  [[ -f ".specify/extensions/jit/$s" && "$(body "$f")" == "$(body ".specify/extensions/jit/$s")" ]] || stale+="$s "
+done
+check "every extension command and script equals its .specify/extensions/jit copy${stale:+ — stale: $stale(fix: specify extension add --dev extension --force)}" '[[ -z "$stale" ]]'
+
 # A link copied from the README into docs/ keeps its docs/ prefix and breaks; every relative link
 # in a markdown file must point at a file that exists next to it.
 broken=""
