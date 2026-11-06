@@ -14,8 +14,8 @@ disable-model-invocation: true
    doesn't want `develop`/`staging` created on `origin`.
 3. Bump the constitution's version line (MINOR going up a level, PATCH going down) and set
    *Last Amended* to today.
-4. Going **up** to standard or full: offer the GitHub protections from `/jit-speckit:init`
-   step 4.
+4. Going **up** to standard or full: offer the branch protection from `/jit-speckit:init`
+   step 5.
 5. Report what the script printed: the level change, branches created, files created and kept.
    Going down never deletes files; list the ones the user may want to delete by hand. Nothing is
    committed.

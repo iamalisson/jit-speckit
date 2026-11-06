@@ -65,8 +65,9 @@ today's, not the ones you remember: look them up.
    chose.
 7. **Set up jit-speckit.** These are user-only commands, so do their work directly instead of
    invoking them. If there is no git repo, run `git init`. Then run
-   `bash "${CLAUDE_PLUGIN_ROOT}/bin/setup.sh" . --level <level from step 2>`, and follow step
-   4 of `${CLAUDE_PLUGIN_ROOT}/skills/init/SKILL.md` (GitHub protections, offered one by one)
+   `bash "${CLAUDE_PLUGIN_ROOT}/bin/setup.sh" . --level <level from step 2>`, and follow steps
+   4 and 5 of `${CLAUDE_PLUGIN_ROOT}/skills/init/SKILL.md` (GitHub settings and branch
+   protection, offered one by one)
    and then every step of `${CLAUDE_PLUGIN_ROOT}/skills/adopt/SKILL.md` (fill the constitution
    from the project). In its "Project principles", copy the `GUIDELINES.md` rules that apply to
    this project (for example "When you add a database" for a service with data), so later
