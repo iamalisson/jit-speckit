@@ -6,22 +6,25 @@
 #   JIT_DIFF_FILE      a unified diff of this branch against the base (cargo mutants --in-diff)
 #   JIT_CHANGED_FILES  the changed source files, space-separated, tests excluded (stryker --mutate)
 # Prints one line: "mutants ok|survivors|missing|skipped <detail>", then REPORT_DIR=<dir>.
-# Output goes to .git/jit-mutants/<timestamp>/ so it is never committed.
+# Output goes to .git/jit-mutants/<timestamp>/ so it is never committed; the result line is also
+# this diff's record (.git/jit-mutants/<diff id>), which pr.sh task requires.
 set -uo pipefail
 # shellcheck source=lib.sh
 source "$(dirname "$0")/lib.sh"
 jit_cd_root
+# No set -e here: a die inside $(…) only ends the subshell, and an empty pattern would drop every file.
+re="$(test_path_re)" || exit 1
 
 dir="$(git rev-parse --git-common-dir)/jit-mutants/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$dir"
-finish() { echo "mutants $1 $2"; echo "REPORT_DIR=$dir"; exit 0; }
+finish() { echo "mutants $1 $2" | tee "$(diff_record jit-mutants)"; echo "REPORT_DIR=$dir"; exit 0; }
 
 cmd="$(constitution_cmd mutate)"
 [[ -n "$cmd" ]] || finish missing "no 'mutate' command in the constitution's **Commands** line; /jit-speckit:adopt fills it"
 
 from="$(git merge-base HEAD "$(base_ref)" 2>/dev/null || echo HEAD)"
 git diff "$from" HEAD > "$dir/changes.diff"
-changed="$(git diff --name-only --diff-filter=ACMR "$from" HEAD | grep -vE "$TEST_PATH_RE" | tr '\n' ' ')"
+changed="$(git diff --name-only --diff-filter=ACMR "$from" HEAD | grep -vE "$re" | tr '\n' ' ')"
 changed="${changed% }"
 [[ -n "$changed" ]] || finish skipped "no changed source files"
 

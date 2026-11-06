@@ -11,7 +11,10 @@ metadata:
 
 Every task gets its own GitHub issue, and its number is written at the end of the task's line in
 `tasks.md` (`— #12`). This runs automatically after `/speckit-tasks`; running it again only
-creates issues for tasks that don't have one yet.
+creates issues for tasks that don't have one yet. A task whose exact title (`[NNN] Tnnn: <summary>`)
+is already an open issue, one GitHub created on a run that failed before the number came back,
+gets that number written back (`Tnnn → #N (existing)`) instead of a second issue; a closed issue
+or one with another summary never matches.
 
 1. **Ground the plan in the code** before anyone reviews it. A plan that was never checked against
    the repo breaks on the first task. Check, and fix `tasks.md`, `plan.md` and `quickstart.md`

@@ -7,6 +7,8 @@ SCRIPTS="$ROOT/extension/scripts"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 FAIL=0
+# A session that forces one subagent model would add a warning to every review record.
+unset CLAUDE_CODE_SUBAGENT_MODEL_FORCE
 
 # Each check runs in a subshell with set -e: an `exit` inside it can't end the test file, and in
 # "a; b" a failing a fails the check (not just b).
