@@ -86,3 +86,7 @@ Written for the author, who fixes it, and for the human who merges:
   never into a public PR.
 - The last line, exactly: `Assessment: ready`, or `Assessment: changes needed` when there is any
   High or Medium. `review.sh record` reads that line; without it the report cannot be recorded.
+
+The PR never shows this report: its "Independent review" block holds only the recorded fact (a
+review of this diff, by patch id) and the `Assessment:` line. The summary is the author's
+`## Review`, a security finding as one line.

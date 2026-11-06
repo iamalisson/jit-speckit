@@ -65,8 +65,9 @@ non-zero); warnings go to stderr with exit 0; results go to stdout.
 - `## Review` (written by the agent, `pr.md` step 5): a security finding is one line,
   `Security: reported privately (<id>)`.
 - Added by `pr.sh task`, before `Closes #N`: `<details><summary>Independent review</summary>`, the
-  recorded report's *What changed* section and its `Assessment:` line; then `</details>`. The
-  script never copies findings.
+  line `Independent review recorded for this diff (patch id <first 12 of the recorded state>)` and
+  the line `Assessment: ready`; then `</details>`. The script never copies the report's text; the
+  summary is the agent's `## Review`.
 - Added by `pr.sh task`, from the record: `Model: <id>`, any `warning:` lines, and the risk map as
   paths only under `Risk map (round 1)` and, after a delta, `Risk map (fix round)`.
 - Added by `pr.sh task` when no mutate command is set: `Mutation testing: not run (no mutate

@@ -63,12 +63,13 @@ description: "Review, commit, push and open the task's pull request"
 5. **PR body**, written to a temporary file. Keep it short to read: what a reviewer needs is
    visible, the rest folds away.
    - one or two sentences on what changed;
-   - `## Review`: the reviewer's *What changed* line, each High and Medium finding and the commit
-     that fixed it, the Low ones left with their reason, and the final assessment. A security
-     finding is one line, `Security: reported privately (<id>)`, and nothing more: no file, no
-     scenario. The script refuses a body without this section, at every level, and adds the
-     recorded review's *What changed* and `Assessment:` line in a folded "Independent review"
-     block; it never copies findings;
+   - `## Review`: your summary of the review, the only place it reaches the PR: what changed, each
+     High and Medium finding and the commit that fixed it, the Low ones left with their reason, and
+     the final assessment. A security finding is one line, `Security: reported privately (<id>)`,
+     and nothing more: no file, no scenario. The script refuses a body without this section, at
+     every level, and adds only what it can verify in a folded "Independent review" block: that a
+     review was recorded for this diff (its patch id) and its `Assessment:` line. It never copies
+     the report's text;
    - `## Evidence`: one visible line per result (e.g. "tests 42/42 · lint clean · scanners: no
      findings"), showing the task's *Completed when* is met. On **full** the script refuses a body
      without this section.

@@ -23,47 +23,14 @@ report "changes needed"
 check "when the review said changes needed, then check refuses" '"$r" record "$TMP/report.md" && fails_with "changes needed" "$r" check'
 report ready
 check "when the review said ready on this diff, then check passes" '"$r" record "$TMP/report.md" | grep -q "^REVIEW=ready" && "$r" check'
-# F3.1/F4.3: report prints What changed and the Assessment line, and never a finding, wherever it is.
-printf 'Preamble: FINDING-1 before the marker\n\n- **What changed**: Adds search.\n  Wraps here.\n- **Findings**, ranked:\n  - High: FINDING-2 in src/a.ts:3\n\nAssessment: ready\n' > "$TMP/report.md"
+# F3.1/F4.3: report prints only what the script checked (the patch id and the verdict), never the report's text.
+printf 'Preamble LEAK-1\n\n- **What changed**: Adds LEAK-2 search.\n- **Findings**:\n  - High: LEAK-3 in src/a.ts:3\n  - Security: LEAK-4 token logged\n\nAssessment: ready\n' > "$TMP/report.md"
 "$r" record "$TMP/report.md" >/dev/null; out="$("$r" report 2>&1)" || true
-check "when a review is recorded, then report prints its What changed and its Assessment line" \
-  '[[ "$out" == "- **What changed**: Adds search."$'"'"'\n'"'"'"  Wraps here."$'"'"'\n\n'"'"'"Assessment: ready" ]]'
-check "then report copies no finding, before or after the Findings marker" '! grep -q FINDING <<<"$out"'
-printf '## What changed\n\nAdds search.\n\nFINDING-3 in src/auth.ts:9, with no Findings marker\n\nAssessment: ready\n' > "$TMP/report.md"
-"$r" record "$TMP/report.md" >/dev/null; out="$("$r" report 2>&1)" || true
-check "when the report has no Findings marker, then report copies only What changed's paragraph" \
-  'grep -qx "Adds search." <<<"$out" && grep -qx "Assessment: ready" <<<"$out" && ! grep -q FINDING <<<"$out"'
-printf 'What changed: Adds search.\n\nFINDING-8 in its own paragraph\n\nAssessment: ready\n' > "$TMP/report.md"
-"$r" record "$TMP/report.md" >/dev/null; out="$("$r" report 2>&1)" || true
-check "when an unlabeled paragraph follows a one-line What changed, then report stops at the blank line" \
-  'grep -qx "What changed: Adds search." <<<"$out" && ! grep -q FINDING <<<"$out"'
-printf 'What changed: Adds search.\nHigh: FINDING-4 in src/a.ts:3\nSecurity: FINDING-5\n\nAssessment: ready\n' > "$TMP/report.md"
-"$r" record "$TMP/report.md" >/dev/null; out="$("$r" report 2>&1)" || true
-check "when a finding follows What changed with no blank line, then report stops before it" \
-  'grep -qx "What changed: Adds search." <<<"$out" && ! grep -q FINDING <<<"$out"'
-printf 'What changed: one\ntwo\nthree\nFINDING-7 as a fourth line\n\nAssessment: ready\n' > "$TMP/report.md"
-"$r" record "$TMP/report.md" >/dev/null; out="$("$r" report 2>&1)" || true
-check "when What changed runs past three lines, then report keeps the first three only" \
-  'grep -qx three <<<"$out" && ! grep -q FINDING <<<"$out"'
-printf 'FINDING-6 only, no What changed\n\nAssessment: ready\n' > "$TMP/report.md"
-"$r" record "$TMP/report.md" >/dev/null; out="$("$r" report 2>&1)" || true
-check "when the report has no What changed, then report prints only the Assessment line" '[[ "$out" == "Assessment: ready" ]]'
-# Only prose is copied: any other shape after the label, or on the label line, ends the copy.
-for shape in 'Finding: LEAK-1 in src/a.ts:3' '[High] LEAK-1 in src/a.ts:3' '1) High LEAK-1 in src/a.ts:3' \
-             'Critical: LEAK-1 in src/a.ts:3' 'H1 (High) LEAK-1 in src/a.ts:3'; do
-  printf 'What changed: Adds search.\n%s\n\nAssessment: ready\n' "$shape" > "$TMP/report.md"
-  "$r" record "$TMP/report.md" >/dev/null; out="$("$r" report 2>&1)" || true
-  check "when '${shape%% LEAK*}' follows What changed, then report stops before it" \
-    'grep -qx "What changed: Adds search." <<<"$out" && ! grep -q LEAK <<<"$out"'
-  printf 'What changed: %s\n\nAssessment: ready\n' "$shape" > "$TMP/report.md"
-  "$r" record "$TMP/report.md" >/dev/null; out="$("$r" report 2>&1)" || true
-  check "when '${shape%% LEAK*}' is right after the label, then report copies nothing of it" \
-    '[[ "$out" == "Assessment: ready" ]]'
-done
-printf 'what changed in src/a.ts:3 lets LEAK-2 through\n\nWhat changed: Adds search.\n\nAssessment: ready\n' > "$TMP/report.md"
-"$r" record "$TMP/report.md" >/dev/null; out="$("$r" report 2>&1)" || true
-check "when a finding line starts with 'what changed' before the real label, then report skips it" \
-  'grep -qx "What changed: Adds search." <<<"$out" && ! grep -q LEAK <<<"$out"'
+id="$(sed -n 's/^state: //p' "$(git rev-parse --git-common-dir)/jit-review/task-$(git branch --show-current | sed 's|/|__|g')" | cut -c1-12)"
+check "when a review is recorded, then report prints exactly the patch-id line and the Assessment line" \
+  '[[ ${#id} == 12 && "$out" == "Independent review recorded for this diff (patch id $id)"$'"'"'\n'"'"'"Assessment: ready" ]]'
+check "then report prints nothing from the report body (What changed, findings, the security finding)" \
+  '! grep -qiE "LEAK|search|what changed|findings|token" <<<"$out"'
 report "changes needed"; "$r" record "$TMP/report.md" >/dev/null
 check "when the review said changes needed, then report refuses as check does" 'fails_with "changes needed" "$r" report'
 report ready; "$r" record "$TMP/report.md" >/dev/null

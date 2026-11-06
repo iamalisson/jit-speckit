@@ -47,16 +47,16 @@ check "when the constitution's test command exits 0, then it opens the PR with n
   '[[ -f "$TMP/green.ran" && "$out" == *"PR=https://github.com/acme/app/pull/99" ]] && grep -q "^pr create" "$GH_LOG" && ! grep -q "^jit:" "$TMP/pr.err"'
 rm -f "$GH_PR"; : > "$GH_LOG" # the checks below are about the next run's PR alone
 # F3.1/F4.3: the recorded review reaches the body; its findings never do, wherever the report puts them.
-printf 'FINDING-1 before the marker\n\n- **What changed**: Adds search.\n- **Findings**:\n  - High: FINDING-2 in src/a.ts:3\n\nSecurity: FINDING-3\n\nAssessment: ready\n' > "$TMP/review.md"
+printf 'LEAK-1 before the marker\n\n- **What changed**: Adds LEAK-2 search.\n- **Findings**:\n  - High: LEAK-3 in src/a.ts:3\n\nSecurity: LEAK-4 token logged\n\nAssessment: ready\n' > "$TMP/review.md"
 "$SCRIPTS/review.sh" record "$TMP/review.md" >/dev/null
 rm .specify/memory/constitution.md
 out="$("$p" task T001 "feat(search): add search" "$TMP/body.md" 2>"$TMP/pr.err")"
 check "when the constitution has no test command, then it says the tests were not run and opens the PR" \
   'grep -qx "jit: tests not run before the PR (no test command in the constitution)" "$TMP/pr.err" && [[ "$out" == *"PR=https://github.com/acme/app/pull/99" ]]'
-check "when a review is recorded, then the body sent to gh pr create has its What changed and Assessment line, folded, before Closes" \
-  'sed -n "/^pr create/,\$p" "$GH_LOG" | grep -A4 -xF "<details><summary>Independent review</summary>" | grep -xF -e "- **What changed**: Adds search." -e "Assessment: ready" | wc -l | grep -qx " *2" \
+check "when a review is recorded, then the body sent to gh pr create has the patch-id and Assessment lines, folded, before Closes" \
+  'sed -n "/^pr create/,\$p" "$GH_LOG" | grep -A4 -xF "<details><summary>Independent review</summary>" | grep -xE -e "Independent review recorded for this diff \(patch id [0-9a-f]{12}\)" -e "Assessment: ready" | wc -l | grep -qx " *2" \
    && [[ "$(grep -nxF "</details>" "$GH_LOG" | tail -1 | cut -d: -f1)" -lt "$(grep -n "Closes #5" "$GH_LOG" | cut -d: -f1)" ]]'
-check "then no recorded finding reaches the body" '! grep -q FINDING "$GH_LOG"'
+check "then none of the report's text reaches the body" '! grep -qE "LEAK|What changed|token logged" "$GH_LOG"'
 check "when the work is committed, then it pushes and opens the PR into the base" \
   '[[ "$out" == *"PR=https://github.com/acme/app/pull/99" ]] && git ls-remote --exit-code origin "$(git branch --show-current)" && grep -q -- "--base develop" "$GH_LOG"'
 check "then the body links the issue with Closes #N" 'grep -q "Closes #5" "$GH_LOG"'

@@ -3,8 +3,8 @@
 #   review.sh record <report-file>          task review: tied to the branch's exact diff against the base
 #   review.sh record --plan <report-file>   plan review: tied to the feature's plan.md and tasks.md (issue numbers aside)
 #   review.sh check [--plan]                exit 0 when a review that said "ready" matches the current state
-#   review.sh report [--plan]               check, then print the report's What changed and Assessment line
-#                                           (never its findings: pr.sh puts this in the public PR body)
+#   review.sh report [--plan]               check, then print two lines: the recorded patch id and "Assessment: ready"
+#                                           (never the report's text: pr.sh puts this in the public PR body)
 # The report ends with a line "Assessment: ready" or "Assessment: changes needed".
 # Records live in .git, so they never dirty the tree; a new commit or an edited tasks.md needs a new review.
 set -euo pipefail
@@ -45,21 +45,8 @@ case "$action" in
     [[ "$(sed -n 's/^assessment: //p' "$record")" == ready ]] \
       || die "the last review said 'changes needed'; fix the findings, then review again and record it"
     if [[ "$action" == check ]]; then echo "REVIEW=ready"; exit 0; fi
-    # What changed: its label line and paragraph, 3 lines at most (the Report's limit). Only prose is
-    # copied: a line must start with a letter or backtick, its first word must not end in ":" or ")",
-    # and it must not name a severity or a finding; the first other line ends the copy. The label is
-    # "What changed" followed by ":" or the line's end, so a finding that only starts with those words
-    # is skipped like anything else before the label.
-    section="$(sed '1,/^$/d' "$record" | awk '
-      function prose(s) { s = tolower(s); return s ~ /^[ \t]*[a-z`]/ && s !~ /^[ \t]*[^ \t]+[:)]/ &&
-        s !~ /(^|[^a-z])(findings?|high|medium|low|critical|severity|security|assessment|verdict)([^a-z]|$)/ }
-      !on { if (!match(tolower($0), /^[ \t]*([-*+][ \t]+)?(#+[ \t]+)?[*_]*what changed[*_]*[ \t]*(:|$)[*_ \t]*/)) next
-            rest = substr($0, RLENGTH + 1); bare = (rest == ""); if (!bare && !prose(rest)) exit
-            on = 1; print; n = 1; next }
-      bare && n == 1 && /^[ \t]*$/ { next }
-      n >= 3 || !prose($0) { exit }
-      { print; n++ }')"
-    [[ -z "$section" ]] || printf '%s\n\n' "$section"
+    # Only facts checked above: no reviewer prose can be filtered for findings reliably (F3.1/F4.3).
+    echo "Independent review recorded for this diff (patch id $(sed -n 's/^state: //p' "$record" | cut -c1-12))"
     echo "Assessment: ready" ;;
   *) die "usage: review.sh record [--plan] <report-file> | review.sh check|report [--plan]" ;;
 esac

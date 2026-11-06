@@ -47,9 +47,11 @@ the request and add no one. The review is a gate, not a prompt: its
 report is recorded against the exact diff (`review.sh`), and `pr.sh` refuses the PR without a
 recorded `ready` for that diff, at every level; the same holds for the plan review before issues.
 What the gate proves is that a fresh reader reviewed this exact diff and said `ready`: the PR body
-shows that review's *What changed* and `Assessment:` line, folded under "Independent review". The
-script never copies findings, so a security finding's detail cannot reach a public PR through it;
-findings reach the PR only through the author's `## Review`, a security finding as the one line
+shows that fact and nothing else, folded under "Independent review": the review was recorded for
+this diff (its patch id), and its `Assessment:` line. The script copies none of the reviewer's
+prose, because no filter on wording can be sure to keep a finding out of it, so a security
+finding's detail cannot reach a public PR through the script. The review's summary reaches the PR
+only through the author's `## Review`, a security finding as the one line
 `Security: reported privately (<id>)`.
 
 ## Levels instead of one setup
