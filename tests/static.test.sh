@@ -61,6 +61,16 @@ done
 check "when hooks.json uses onFailure, then every \"Claude Code X or newer\" in the docs is 2.1.295 or newer (found: ${mins:-none}${low:+; too low:$low}) and the README says nothing about older versions" \
   '! grep -q "\"onFailure\"" hooks/hooks.json || { [[ -n "$mins" && -z "$low" ]] && ! grep -qi "older versions" README.md; }'
 
+# F1.6: close-linked-issues' step, its run: block run as Actions runs it (bash -e), with a fake gh
+# that fails to close #12.
+sed -n '/^        run: |$/,$p' extension/scaffold/standard/.github/workflows/close-linked-issues.yml | sed '1d; s/^          //' > "$TMP/close-step.sh"
+mkdir -p "$TMP/closebin"
+printf '#!/bin/sh\necho "$*" >> "%s"\n[ "$3" = 12 ] || exit 0\necho "HTTP 403: Resource not accessible" >&2; exit 1\n' "$TMP/close.log" > "$TMP/closebin/gh"
+chmod +x "$TMP/closebin/gh"
+check "when the body says \"fixes #12\" and \"Closes #3\" and closing 12 fails, then the step exits non-zero and names #12" \
+  'out="$(BODY="fixes #12 and Closes #3" REPO=acme/app PR=7 BASE=develop PATH="$TMP/closebin:$PATH" bash -eo pipefail "$TMP/close-step.sh" 2>&1)" && exit 1; grep -q "could not close: #12" <<<"$out"'
+check "then gh issue close 3 is still called" 'grep -q "^issue close 3 " "$TMP/close.log"'
+
 # A link copied from the README into docs/ keeps its docs/ prefix and breaks; every relative link
 # in a markdown file must point at a file that exists next to it.
 broken=""

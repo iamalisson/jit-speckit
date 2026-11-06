@@ -73,7 +73,9 @@ feature; when more than one feature has tasks to start, it lists them and asks. 
 the branch name decides, for `next` too, so a worktree never follows the main checkout. A task is
 done when the issue number on its line is closed: `next` reads every task's issue by number in one
 query per feature, so a renamed issue still counts, and a number it cannot read stops it with
-GitHub's error.
+GitHub's error. GitHub closes a PR's `Closes #N` issues only on a merge into the default branch;
+on standard and full, the managed `close-linked-issues.yml` closes them on a merge into `develop`
+or `staging`, and its job fails, naming `could not close: #N`, when one of them cannot be closed.
 
 A task whose line says `(depends on T003)` is **blocked** until T003's issue closes, so `next`
 never offers work whose prerequisite has not merged.
