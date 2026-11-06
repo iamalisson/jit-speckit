@@ -101,6 +101,11 @@ repositories with a local bare origin for the two `bin/setup.sh` runs. Those nee
 - **evidence**: `README.md:67`: "It changes nothing in your code and commits nothing". In
   `skills/init/SKILL.md`, step 7 is "Offer to commit it" and, on yes, commits, pushes and opens a
   PR. It asks first, so nothing is committed without a yes, but the README sentence is out of date.
+- **rank**: Low, checked against FR-009 on 2026-11-05 (T011). The sentence is out of date, but it
+  cannot lead a user into a commit they did not agree to: step 7 asks one explicit question that
+  names the branch and the PR ("Commit this on `chore/jit-speckit-<version>` and open the PR?"),
+  and on no it leaves everything uncommitted and says so. The question corrects the sentence at
+  the one moment it matters.
 - **reproduction**: read the two lines.
 - **exposure**: public.
 - **note**: "It commits nothing unless you say yes to its one question".

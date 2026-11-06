@@ -102,15 +102,33 @@ and the guard is "best effort", with "CI and branch protection" as the boundary.
   switch to `main` followed by a commit in one chain, then `guard.sh` exits 2. It fails today
   (exit 0).
 
-### F2.4 · Low · P08 · on Claude Code before 2.1.295 a guard that times out or crashes lets the command through
+### F2.4 · Medium · P08 · the docs give Claude Code 2.1.275 as the plugin's minimum, but the guard fails closed only from 2.1.295
 
-- **verdict**: limit
+- **verdict**: limit (the docs mislead)
 - **evidence**: `hooks/hooks.json` relies on `onFailure: "block"`, which the hooks reference
   says requires v2.1.295 or later. On older versions a timeout, a crash or exit 1 is a
-  non-blocking error and the command runs. Nothing in jit checks the Claude Code version. Not
-  run on an older version, so this rests on the docs and `guard.sh:10-16`.
-- **note**: `docs/security.md:28` could name the minimum version, or `/jit-speckit:init` could
-  check `claude --version`.
+  non-blocking error and the command runs. Nothing in jit checks the Claude Code version. The
+  only versions the docs give are lower: the constitution's "Stack" says "the plugin needs Claude
+  Code 2.1.275 or newer" (`.specify/memory/constitution.md:19`), and `README.md:44` says of the
+  one-line install command "Needs Claude Code 2.1.275 or newer; on older versions use two
+  prompts", which also tells users below 2.1.275 how to install. So every user below 2.1.295 is
+  told they are supported, while there the guard
+  fails open on a timeout or crash, a case `docs/security.md:28`'s "best effort: an unusual shell
+  trick can get past it" does not describe. Ranked Medium on that documented mismatch (FR-009: "a
+  promise kept but a user could be misled about it"), not on a run: the fail-open behavior itself
+  rests on the hooks reference and `guard.sh:10-16`, and stays in `report.md`'s *Unverified*.
+- **reproduction**: read `README.md:44`, the constitution's "Stack" (`.specify/memory/constitution.md:19`)
+  and the hooks reference's `onFailure` line ("Requires Claude Code v2.1.295 or later",
+  https://code.claude.com/docs/en/hooks), next to `hooks/hooks.json`.
+- **exposure**: public (it is about which version the docs promise, not a way past the guard).
+- **fix**: say 2.1.295 wherever the plugin's minimum is given: the constitution's "Stack",
+  `README.md` next to the install line, and `docs/security.md`'s guard row ("fails closed on a
+  timeout or crash from Claude Code 2.1.295"); and re-scope the README's "on older versions use
+  two prompts" fallback to versions at or above 2.1.295 (or drop it), since the one-line command's
+  own minimum is not the plugin's. Check for `tests/static.test.sh`: when `hooks/hooks.json` uses
+  `onFailure`, then every "Claude Code <version> or newer" in `README.md` and the constitution is
+  2.1.295 or newer, and the README offers no install path for versions below it. It fails today
+  (2.1.275, and the fallback for older versions).
 
 ### F2.5 · Low · P06 · secret formats the docs never list are not caught
 

@@ -9,7 +9,7 @@ and collects what could not be checked.
 ## Summary
 
 Of 28 promises, 4 hold (P09, P18, P22, P23), 13 are `limit`, 9 are `broken` and 2 are reported
-privately. 36 findings: 3 High (one private), 19 Medium, 14 Low.
+privately. 36 findings: 3 High (one private), 20 Medium, 13 Low.
 
 | id | rank | promise | finding | proposed fix | section |
 |---|---|---|---|---|---|
@@ -20,6 +20,7 @@ privately. 36 findings: 3 High (one private), 19 Medium, 14 Low.
 | F1.2 | Medium | P03, P04 | `next` finds closed issues by title search; a renamed closed issue counts as not done | look each task's issue up by number | [1](report/1-task-chain.md) |
 | F1.6 | Medium | P03, P04 | on standard and full a failed close in `close-linked-issues.yml` is silent | close every number, then fail the job | [1](report/1-task-chain.md) |
 | F1.8 | Medium | P05 | when `gh pr list` fails, `pr.sh spec` force-pushes over the open spec PR's branch | stop when the PR lookup fails | [1](report/1-task-chain.md) |
+| F2.4 | Medium | P08 | the docs give Claude Code 2.1.275 as the plugin's minimum, but the guard fails closed only from 2.1.295 | say 2.1.295 wherever the minimum is given | [2](report/2-secrets-guard.md) |
 | F2.3 | Medium | P08 | two forms inside the guard's documented scope get through | refuse them in `guard.sh` | [2](report/2-secrets-guard.md) |
 | F3.1 | Medium | P10, P11 | the review gate proves a report exists, not that a fresh reader wrote it | attach the recorded report to the PR; say what the gate proves | [3](report/3-review-gate.md) |
 | F3.3 | Medium | P12 | nothing stops a PR from opening while the checks fail | `pr.sh task` runs the test command first | [3](report/3-review-gate.md) |
@@ -41,7 +42,6 @@ privately. 36 findings: 3 High (one private), 19 Medium, 14 Low.
 | F1.7 | Low | P01 | an issue created on GitHub whose answer never arrives is created again | look for the title before creating | [1](report/1-task-chain.md) |
 | F1.9 | Low | P04 | on a task branch, `next` with no argument asks which feature | start from the branch's feature, or fix the doc | [1](report/1-task-chain.md) |
 | F2.2 | Low | P08 | the guard refuses valid commands | treat key reads as reads; follow `cd` and `switch` | [2](report/2-secrets-guard.md) |
-| F2.4 | Low | P08 | on Claude Code before 2.1.295 a guard that times out or crashes lets the command through | state the minimum version | [2](report/2-secrets-guard.md) |
 | F2.5 | Low | P06 | secret formats the docs never list are not caught | list the covered formats | [2](report/2-secrets-guard.md) |
 | F3.2 | Low | P11 | editing `spec.md`, `research.md` or `quickstart.md` after the plan review keeps it valid | hash the whole feature folder | [3](report/3-review-gate.md) |
 | F3.7 | Low | P10 | the hint for a missing task review tells the user to record a plan review | `$($plan && echo ' --plan')` | [3](report/3-review-gate.md) |
@@ -114,6 +114,17 @@ F2.1's fix is in its private advisory.
   open spec PR: <gh's error>"`.
 - **check** (`tests/pr.test.sh`): when `gh pr list` fails while a spec PR is open with someone
   else's commit, then `pr.sh spec` exits non-zero and origin's spec branch still has that commit.
+
+### Fix F2.4 · the docs give 2.1.295 as the plugin's minimum Claude Code version
+
+- **promise**: P08, the guard blocks a command when it fails, on every supported version.
+- **change**: the constitution's "Stack", `README.md` next to the install line, and
+  `docs/security.md`'s guard row say Claude Code 2.1.295 or newer, the version `onFailure` needs;
+  the README's "on older versions use two prompts" fallback covers only versions at or above it
+  (or goes).
+- **check** (`tests/static.test.sh`): when `hooks/hooks.json` uses `onFailure`, then every
+  "Claude Code <version> or newer" in `README.md` and the constitution is 2.1.295 or newer, and
+  the README offers no install path for versions below it.
 
 ### Fix F2.3 · `guard.sh` refuses abbreviated `--no-verify` and judges a commit by the branch switched to
 
