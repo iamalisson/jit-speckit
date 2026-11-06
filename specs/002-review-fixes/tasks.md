@@ -202,8 +202,10 @@ them.
   - Completed when: every part's *Completed when* below holds; plus the common check
   - **Part a**: Put the recorded review in the PR body, with security findings as one line, in extension/scripts/review.sh and pr.sh
     - Comes from: FR-009, F3.1, F4.3, US2 scenario 5, edge case "a security finding … on a private repository"; research R9 F3.1+F4.3
-    - What: `review.sh report` prints the recorded report's *What changed* section and its
-      `Assessment:` line only; `pr.sh task` adds them to the body in
+    - What: `review.sh report` prints only facts from the record, never reviewer prose (user,
+      2026-11-06: filtering findings out of prose by wording cannot be made leak-proof):
+      `Independent review recorded for this diff (patch id <12 chars>)` and its `Assessment:` line;
+      `pr.sh task` adds them to the body in
       `<details><summary>Independent review</summary>`. Findings are never copied by the script (a
       report that put a security finding's detail anywhere would otherwise go public): they reach the
       PR only through the agent's `## Review`, where `review.md`'s Report section and `pr.md` step 5
@@ -213,7 +215,8 @@ them.
       `extension/commands/pr.md` step 5, `docs/design.md` "The review is independent" (`:35`),
       `tests/pr.test.sh`,
       `tests/review.test.sh`, `tests/static.test.sh` (`# F3.1/F4.3`)
-    - Completed when: FR-009's row passes (the report's *What changed* and `Assessment:` in the body;
+    - Completed when: FR-009's row passes (the patch-id line and `Assessment:` in the body, nothing
+      from the report's text;
       a recorded finding's text, security or not, never copied by the script, even when the report
       puts detail before or without the marker; both prompts say one line); plus the common check
   - **Part b**: Name the right record command in the missing-review hint, in extension/scripts/review.sh
@@ -468,8 +471,9 @@ them.
     three rounds" stays; step 5 and `pr.sh` add the risk map to the body as paths only
   - Impact: `review.sh` (after T002 part b's `diff_id` and T003's `report` action), `pr.sh` task block
     (after T003), `extension/commands/review.md` (after T003 part a), `extension/commands/pr.md` steps
-    4–5, `docs/design.md` "The review is independent" (the risk map and deltas, and that the PR's
-    review block then shows the delta's *What changed*), `docs/reference.md` (the `tests:` regex also
+    4–5, `docs/design.md` "The review is independent" (the risk map and deltas; the PR's review
+    block stays facts only, as T003 part a built it: paths, model, warnings and assessment from the
+    record, never reviewer prose), `docs/reference.md` (the `tests:` regex also
     widens the delta's size exemption), `tests/review.test.sh`, `tests/pr.test.sh`; the installed
     `.claude/skills/speckit-jit-*` copies regenerated with `specify extension add --dev extension
     --force`; `data-model.md` "Review record" is the format
