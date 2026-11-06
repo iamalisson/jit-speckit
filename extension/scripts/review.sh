@@ -3,6 +3,8 @@
 #   review.sh record <report-file>          task review: tied to the branch's exact diff against the base
 #   review.sh record --plan <report-file>   plan review: tied to the feature's plan.md and tasks.md (issue numbers aside)
 #   review.sh check [--plan]                exit 0 when a review that said "ready" matches the current state
+#   review.sh report [--plan]               check, then print two lines: the recorded patch id and "Assessment: ready"
+#                                           (never the report's text: pr.sh puts this in the public PR body)
 # The report ends with a line "Assessment: ready" or "Assessment: changes needed".
 # Records live in .git, so they never dirty the tree; a new commit or an edited tasks.md needs a new review.
 set -euo pipefail
@@ -36,12 +38,15 @@ case "$action" in
     if ! $plan && [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then die "commit the work first: the review is recorded for the committed diff"; fi
     { echo "state: $(state)"; echo "assessment: $verdict"; echo; cat "$report"; } > "$record"
     echo "REVIEW=$verdict" ;;
-  check)
-    [[ -f "$record" ]] || die "no independent review recorded for $what; run /speckit-jit-review and record its report: review.sh record${plan:+ --plan} <report-file>"
+  check|report)
+    [[ -f "$record" ]] || die "no independent review recorded for $what; run /speckit-jit-review and record its report: review.sh record$($plan && echo ' --plan') <report-file>"
     [[ "$(sed -n 's/^state: //p' "$record")" == "$(state)" ]] \
       || die "$what changed since the last review; run /speckit-jit-review again and record it"
     [[ "$(sed -n 's/^assessment: //p' "$record")" == ready ]] \
       || die "the last review said 'changes needed'; fix the findings, then review again and record it"
-    echo "REVIEW=ready" ;;
-  *) die "usage: review.sh record [--plan] <report-file> | review.sh check [--plan]" ;;
+    if [[ "$action" == check ]]; then echo "REVIEW=ready"; exit 0; fi
+    # Only facts checked above: no reviewer prose can be filtered for findings reliably (F3.1/F4.3).
+    echo "Independent review recorded for this diff (patch id $(sed -n 's/^state: //p' "$record" | cut -c1-12))"
+    echo "Assessment: ready" ;;
+  *) die "usage: review.sh record [--plan] <report-file> | review.sh check|report [--plan]" ;;
 esac

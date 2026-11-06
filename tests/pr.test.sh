@@ -46,20 +46,32 @@ out="$("$p" task T001 "feat(search): add search" "$TMP/body.md" 2>"$TMP/pr.err")
 check "when the constitution's test command exits 0, then it opens the PR with no warning" \
   '[[ -f "$TMP/green.ran" && "$out" == *"PR=https://github.com/acme/app/pull/99" ]] && grep -q "^pr create" "$GH_LOG" && ! grep -q "^jit:" "$TMP/pr.err"'
 rm -f "$GH_PR"; : > "$GH_LOG" # the checks below are about the next run's PR alone
+# F3.1/F4.3: the recorded review reaches the body; its findings never do, wherever the report puts them.
+printf 'LEAK-1 before the marker\n\n- **What changed**: Adds LEAK-2 search.\n- **Findings**:\n  - High: LEAK-3 in src/a.ts:3\n\nSecurity: LEAK-4 token logged\n\nAssessment: ready\n' > "$TMP/review.md"
+"$SCRIPTS/review.sh" record "$TMP/review.md" >/dev/null
 rm .specify/memory/constitution.md
 out="$("$p" task T001 "feat(search): add search" "$TMP/body.md" 2>"$TMP/pr.err")"
 check "when the constitution has no test command, then it says the tests were not run and opens the PR" \
   'grep -qx "jit: tests not run before the PR (no test command in the constitution)" "$TMP/pr.err" && [[ "$out" == *"PR=https://github.com/acme/app/pull/99" ]]'
+check "when a review is recorded, then the body sent to gh pr create has the patch-id and Assessment lines, folded, before Closes" \
+  'sed -n "/^pr create/,\$p" "$GH_LOG" | grep -A4 -xF "<details><summary>Independent review</summary>" | grep -xE -e "Independent review recorded for this diff \(patch id [0-9a-f]{12}\)" -e "Assessment: ready" | wc -l | grep -qx " *2" \
+   && [[ "$(grep -nxF "</details>" "$GH_LOG" | tail -1 | cut -d: -f1)" -lt "$(grep -n "Closes #5" "$GH_LOG" | cut -d: -f1)" ]]'
+check "then none of the report's text reaches the body" '! grep -qE "LEAK|What changed|token logged" "$GH_LOG"'
 check "when the work is committed, then it pushes and opens the PR into the base" \
   '[[ "$out" == *"PR=https://github.com/acme/app/pull/99" ]] && git ls-remote --exit-code origin "$(git branch --show-current)" && grep -q -- "--base develop" "$GH_LOG"'
 check "then the body links the issue with Closes #N" 'grep -q "Closes #5" "$GH_LOG"'
 check "then a Copilot code review is requested on the new PR" \
-  'grep -q "^api -X POST repos/acme/app/pulls/99/requested_reviewers -f reviewers\[\]=copilot-pull-request-reviewer\[bot\]$" "$GH_LOG"'
+  'grep -q "^api -X POST repos/acme/app/pulls/99/requested_reviewers -f reviewers\[\]=copilot-pull-request-reviewer\[bot\] --jq .requested_reviewers\[\]\.login$" "$GH_LOG"'
+check "when GitHub answers with no reviewer, then the output says copilot: not requested, not code review requested" \
+  'grep -qxF "copilot: not requested (GitHub did not add the reviewer)" <<<"$out" && ! grep -q "code review requested" <<<"$out"'
 check "then the user is assigned and no milestone or project is guessed" \
   'grep -q -- "^pr edit https://github.com/acme/app/pull/99 --add-assignee @me" "$GH_LOG" && ! grep -qE -- "--milestone|--add-project" "$GH_LOG"'
 
 out="$("$p" task T001 "feat(search): add search" "$TMP/body.md")"
 check "when the PR already exists, then it is reused, not duplicated" '[[ "$(grep -c "^pr create" "$GH_LOG")" == 1 ]]'
+rm -f "$GH_PR"; out="$(GH_REVIEWERS=Copilot "$p" task T001 "feat(search): add search" "$TMP/body.md")"
+check "when GitHub lists Copilot among the requested reviewers, then the output says copilot: code review requested" \
+  'grep -qxF "copilot: code review requested" <<<"$out" && ! grep -q "not requested" <<<"$out"'
 
 sed -i.bak 's/^level: .*/level: full/' .specify/extensions/jit/jit-config.yml
 rm -f "$GH_PR"; printf 'No evidence here.\n' > "$TMP/thin.md"
@@ -99,6 +111,17 @@ check "when a later spec PR follows a squash-merged one, then it starts fresh fr
   'git merge-base --is-ancestor origin/develop HEAD && [[ "$(git branch --show-current)" == spec/002-new ]]'
 check "then the new spec PR carries only what changed: the converge task" \
   '[[ "$(git diff --name-only origin/develop..HEAD)" == specs/002-new/tasks.md ]] && git diff origin/develop..HEAD | grep -q "^+- \[ \] T003 Added by converge"'
+
+# F1.8: the spec PR is open and a teammate pushed to its branch; origin was fetched after that, so
+# only the lookup (not --force-with-lease) can stop the fresh start from overwriting their commit.
+git -C "$TMP" clone --quiet "$TMP/origin.git" mate 2>/dev/null
+(cd "$TMP/mate" && git config user.email m@m && git config user.name m && git switch --quiet spec/002-new \
+  && echo "teammate note" >> specs/002-new/tasks.md && git commit --quiet -am "docs: teammate" && git push --quiet origin spec/002-new)
+mate="$(git -C "$TMP/mate" rev-parse HEAD)"; git fetch --quiet origin
+out="$(GH_FAIL_PR_LIST=1 "$p" spec 2>&1)" && spec_rc=0 || spec_rc=$?
+check "when gh pr list fails while the spec PR is open with a teammate's commit, then pr.sh spec exits non-zero after gh's error" \
+  '((spec_rc != 0)) && grep -q "HTTP 502" <<<"$out" && grep -qxF "jit: could not check for an open spec PR" <<<"$out"'
+check "then origin's spec branch still has the teammate's commit" '[[ "$(git ls-remote origin refs/heads/spec/002-new | cut -f1)" == "$mate" ]]'
 
 # ── Changing existing tests needs a reason ──
 rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR"

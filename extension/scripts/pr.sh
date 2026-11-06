@@ -3,7 +3,8 @@
 #   pr.sh task T003 "feat(api): add price search" [body-file]
 #       On the task's branch, with the work already committed. Adds "Closes #N".
 #       Every level requires a "## Review" section in the body and a recorded independent review
-#       that said "ready" for this exact diff (review.sh); "full" also requires "## Evidence".
+#       that said "ready" for this exact diff (review.sh), whose patch id and Assessment line it
+#       adds to the body, folded; "full" also requires "## Evidence".
 #       Runs the constitution's test command before the push and refuses when it fails.
 #   pr.sh spec
 #       Commits the active feature's spec folder on spec/<feature> and opens a docs PR.
@@ -19,17 +20,17 @@ base="$(base_branch)"
 mode="${1:-}"
 
 open_pr() { # open_pr <title> <body>
-  local url
+  local url logins=""
   url="$(gh pr list --head "$(git branch --show-current)" --state open --json url --jq '.[0].url // empty' 2>/dev/null || true)"
   if [[ -z "$url" ]]; then
     url="$(gh pr create --base "$base" --head "$(git branch --show-current)" --title "$1" --body "$2")"
     add_meta pr "$url"
-    # A second independent reader when the account has GitHub Copilot code review. Without it the
-    # API refuses (422) and nothing is said: the review in the author's session already ran.
-    if [[ "$url" =~ /([^/]+/[^/]+)/pull/([0-9]+)$ ]] \
-      && gh api -X POST "repos/${BASH_REMATCH[1]}/pulls/${BASH_REMATCH[2]}/requested_reviewers" -f 'reviewers[]=copilot-pull-request-reviewer[bot]' >/dev/null 2>&1; then
-      echo "copilot: code review requested"
+    # A second independent reader when the account has GitHub Copilot code review. GitHub can
+    # accept the request and add no one, so the line says what its answer lists.
+    if [[ "$url" =~ /([^/]+/[^/]+)/pull/([0-9]+)$ ]]; then
+      logins="$(gh api -X POST "repos/${BASH_REMATCH[1]}/pulls/${BASH_REMATCH[2]}/requested_reviewers" -f 'reviewers[]=copilot-pull-request-reviewer[bot]' --jq '.requested_reviewers[].login' 2>/dev/null || true)"
     fi
+    if grep -qi copilot <<<"$logins"; then echo "copilot: code review requested"; else echo "copilot: not requested (GitHub did not add the reviewer)"; fi
   fi
   echo "PR=$url"
 }
@@ -67,7 +68,9 @@ case "$mode" in
 add a '## Test changes' section to the PR body saying why (spec changed, test was wrong). Never weaken a test to make it pass."
     fi
     # The review has to have happened, on this diff, and said ready: a heading alone proves nothing.
-    bash "$JIT_EXT_DIR/scripts/review.sh" check >/dev/null
+    # Only that recorded fact and its Assessment go in the body; the report's text never does (the agent's ## Review
+    # carries them, a security finding as one line), so nothing private reaches a public PR here.
+    review="$(bash "$JIT_EXT_DIR/scripts/review.sh" report)"
     # Mutation testing too, when the project has a mutate command: mutants.sh records it per diff.
     if [[ -n "$(constitution_cmd mutate)" ]]; then
       mutants="$(diff_record jit-mutants)"
@@ -92,6 +95,7 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
     else
       echo "jit: tests not run before the PR (no test command in the constitution)" >&2
     fi
+    body+=$'\n\n<details><summary>Independent review</summary>\n\n'"$review"$'\n\n</details>'
     grep -qiE "(close[sd]?|fix(e[sd])?|resolve[sd]?) #$issue([^0-9]|$)" <<<"$body" || body+=$'\n\n'"Closes #$issue"
     git push --quiet -u origin "$branch"
     open_pr "$title" "$body"
@@ -101,8 +105,10 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
     branch="spec/$feature"
     # An open spec PR is updated in place. Otherwise (first time, or a later run such as after
     # /speckit-converge, when the old spec PR may have been squash-merged) the branch starts
-    # fresh from the base, so the new PR shows only what changed.
-    open="$(gh pr list --head "$branch" --state open --json url --jq '.[0].url // empty' 2>/dev/null || true)"
+    # fresh from the base, so the new PR shows only what changed. A failed lookup stops here: taken
+    # for "none open", the fresh start would overwrite the open PR's branch, teammates' commits too.
+    open="$(gh pr list --head "$branch" --state open --json url --jq '.[0].url // empty')" \
+      || die "could not check for an open spec PR"
     fresh=false
     if [[ "$(git branch --show-current)" != "$branch" || -z "$open" ]]; then
       ref="$(base_ref)"

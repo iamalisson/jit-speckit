@@ -71,6 +71,11 @@ check "when the body says \"fixes #12\" and \"Closes #3\" and closing 12 fails, 
   'out="$(BODY="fixes #12 and Closes #3" REPO=acme/app PR=7 BASE=develop PATH="$TMP/closebin:$PATH" bash -eo pipefail "$TMP/close-step.sh" 2>&1)" && exit 1; grep -q "could not close: #12" <<<"$out"'
 check "then gh issue close 3 is still called" 'grep -q "^issue close 3 " "$TMP/close.log"'
 
+# F3.1/F4.3: a security finding reaches the PR as one line, never its detail: both prompts say so.
+check "the review prompt's Report section and pr.md step 5 say a security finding is one 'Security: reported privately (<id>)' line" \
+  'sed -n "/^## Report/,\$p" extension/commands/review.md | grep -qF "Security: reported privately (<id>)" \
+   && sed -n "/^5\. /,/^6\. /p" extension/commands/pr.md | grep -qF "Security: reported privately (<id>)"'
+
 # A link copied from the README into docs/ keeps its docs/ prefix and breaks; every relative link
 # in a markdown file must point at a file that exists next to it.
 broken=""

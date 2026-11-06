@@ -11,6 +11,8 @@ commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
 echo 'export const search = 1' > search.ts; git add search.ts; git commit --quiet -m "feat: search"
 
 check "when no review was recorded, then check refuses and says how to record one" 'fails_with "no independent review" "$r" check'
+check "when no task review was recorded on a task branch, then the hint is review.sh record <report-file>, without --plan" \
+  'fails_with "record its report: review.sh record <report-file>" "$r" check'
 printf 'Looks fine to me.\n' > "$TMP/report.md"
 check "when the report has no assessment line, then it is refused" 'fails_with "Assessment" "$r" record "$TMP/report.md"'
 printf 'Assessment: not ready, changes needed\n' > "$TMP/report.md"
@@ -21,6 +23,17 @@ report "changes needed"
 check "when the review said changes needed, then check refuses" '"$r" record "$TMP/report.md" && fails_with "changes needed" "$r" check'
 report ready
 check "when the review said ready on this diff, then check passes" '"$r" record "$TMP/report.md" | grep -q "^REVIEW=ready" && "$r" check'
+# F3.1/F4.3: report prints only what the script checked (the patch id and the verdict), never the report's text.
+printf 'Preamble LEAK-1\n\n- **What changed**: Adds LEAK-2 search.\n- **Findings**:\n  - High: LEAK-3 in src/a.ts:3\n  - Security: LEAK-4 token logged\n\nAssessment: ready\n' > "$TMP/report.md"
+"$r" record "$TMP/report.md" >/dev/null; out="$("$r" report 2>&1)" || true
+id="$(sed -n 's/^state: //p' "$(git rev-parse --git-common-dir)/jit-review/task-$(git branch --show-current | sed 's|/|__|g')" | cut -c1-12)"
+check "when a review is recorded, then report prints exactly the patch-id line and the Assessment line" \
+  '[[ ${#id} == 12 && "$out" == "Independent review recorded for this diff (patch id $id)"$'"'"'\n'"'"'"Assessment: ready" ]]'
+check "then report prints nothing from the report body (What changed, findings, the security finding)" \
+  '! grep -qiE "LEAK|search|what changed|findings|token" <<<"$out"'
+report "changes needed"; "$r" record "$TMP/report.md" >/dev/null
+check "when the review said changes needed, then report refuses as check does" 'fails_with "changes needed" "$r" report'
+report ready; "$r" record "$TMP/report.md" >/dev/null
 echo 'export const more = 2' >> search.ts; git commit --quiet -am "feat: more"
 check "when the code changed after the review, then check refuses until a new review is recorded" \
   'fails_with "changed since" "$r" check && "$r" record "$TMP/report.md" >/dev/null && "$r" check'
@@ -44,6 +57,7 @@ check "when the base is merged in without touching the change, then the review s
 # Plan review: tied to tasks.md, ignoring the issue numbers issues.sh appends.
 git switch --quiet main
 check "when no plan review was recorded, then check --plan refuses" 'fails_with "no independent review" "$r" check --plan'
+check "then the plan hint keeps --plan" 'fails_with "record its report: review.sh record --plan <report-file>" "$r" check --plan'
 report ready
 check "when the plan review said ready, then check --plan passes" '"$r" record --plan "$TMP/report.md" >/dev/null && "$r" check --plan'
 sed -i.bak 's/ — #5$/ — #9/' specs/001-demo/tasks.md

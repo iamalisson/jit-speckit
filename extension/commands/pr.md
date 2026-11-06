@@ -63,9 +63,13 @@ description: "Review, commit, push and open the task's pull request"
 5. **PR body**, written to a temporary file. Keep it short to read: what a reviewer needs is
    visible, the rest folds away.
    - one or two sentences on what changed;
-   - `## Review`: the reviewer's *What changed* line, each High and Medium finding and the commit
-     that fixed it, the Low ones left with their reason, and the final assessment. The script
-     refuses a body without this section, at every level;
+   - `## Review`: your summary of the review, the only place it reaches the PR: what changed, each
+     High and Medium finding and the commit that fixed it, the Low ones left with their reason, and
+     the final assessment. A security finding is one line, `Security: reported privately (<id>)`,
+     and nothing more: no file, no scenario. The script refuses a body without this section, at
+     every level, and adds only what it can verify in a folded "Independent review" block: that a
+     review was recorded for this diff (its patch id) and its `Assessment:` line. It never copies
+     the report's text;
    - `## Evidence`: one visible line per result (e.g. "tests 42/42 · lint clean · scanners: no
      findings"), showing the task's *Completed when* is met. On **full** the script refuses a body
      without this section.
@@ -75,6 +79,7 @@ description: "Review, commit, push and open the task's pull request"
    - attribution lines only if the project's settings ask for them (see step 3).
 6. Run `bash .specify/extensions/jit/scripts/pr.sh task <TASK_ID> "<commit title>" <body-file>`.
    It pushes (the pre-push hook re-checks every commit for secrets), adds `Closes #<ISSUE>` and
-   prints `PR=<url>`, and asks GitHub Copilot code review for a second independent read when the
-   account has it. The `Security` and `CI` workflows then run on the PR; they are the gate.
+   prints `PR=<url>`, and asks GitHub Copilot code review for a second independent read: it prints
+   `copilot: code review requested` only when GitHub lists Copilot as a reviewer, and
+   `copilot: not requested (GitHub did not add the reviewer)` otherwise. The `Security` and `CI` workflows then run on the PR; they are the gate.
 7. End with the PR URL.
