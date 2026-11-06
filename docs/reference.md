@@ -127,7 +127,9 @@ for the block back.
 From one project, `/jit-speckit:remove`: it unregisters the spec-kit extension and preset,
 deletes the files jit-speckit created and you never edited (hooks, workflows, Dependabot, PR
 template, `SECURITY.md`, `CODEOWNERS`), undoes its git hook setup and strips its block from the
-constitution. Your specs, commits and edits stay; `develop`/`staging` and the GitHub protections
+constitution. A managed file that changed since jit-speckit wrote it (against the SHA-256 it
+recorded in `.specify/jit-files.sha256`; for a project set up before 1.8.0, any file not committed
+or with uncommitted edits) is kept and named `kept (edited): <file>`. Your specs, commits and edits stay; `develop`/`staging` and the GitHub protections
 are listed for you to remove by hand. `/jit-speckit:remove --with-speckit` also removes spec-kit's
 own files, for a reinstall from zero with `/jit-speckit:init`.
 

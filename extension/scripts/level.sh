@@ -124,7 +124,10 @@ put() { # put <dest> (content on stdin): write only if missing, or if ours (the 
   if [[ -e "$1" ]] && ! head -2 "$1" | grep -qxF "$MARKER"; then cat >/dev/null; echo "kept:    $1"; return; fi
   local verb=created; [[ -e "$1" ]] && verb=updated
   mkdir -p "$(dirname "$1")"; cat > "$1.tmp" && mv "$1.tmp" "$1"; echo "$verb: $1"
+  # What jit wrote, so remove.sh can tell an edited file from an untouched one.
+  { if [[ -f "$RECORD" ]]; then awk -v p="$1" '$2 != p' "$RECORD"; fi; echo "$(sha256 < "$1") $1"; } > "$RECORD.tmp" && mv "$RECORD.tmp" "$RECORD"
 }
+RECORD=.specify/jit-files.sha256
 # Workflows that already check pull requests and are not ours: then no second CI is generated.
 pr_gate() {
   local f

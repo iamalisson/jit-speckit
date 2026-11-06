@@ -21,6 +21,8 @@ check "then the branch flow targets main" 'grep -qF "feat/* → main" .specify/m
 check "then an older config gains empty milestone and project keys (nothing is guessed)" \
   'grep -qx "milestone: \"\"" .specify/extensions/jit/jit-config.yml && grep -qx "project: \"\"" .specify/extensions/jit/jit-config.yml'
 check "then Claude settings drop AI attribution from commits and PRs" 'grep -q "\"attribution\"" .claude/settings.json'
+check "then every file it wrote is recorded with its SHA-256 (what remove.sh compares against)" \
+  'h="$(sha256sum < .githooks/pre-commit 2>/dev/null || shasum -a 256 < .githooks/pre-commit)"; grep -qxF "${h%% *} .githooks/pre-commit" .specify/jit-files.sha256 && [[ "$(grep -c " .githooks/pre-commit$" .specify/jit-files.sha256)" == 1 ]] && "$l" lite >/dev/null && [[ "$(grep -c " .githooks/pre-commit$" .specify/jit-files.sha256)" == 1 ]]'
 
 mkdir -p .github/workflows; echo "# mine" > .github/workflows/ci.yml
 echo '{}' > .claude/settings.json
