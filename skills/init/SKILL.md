@@ -27,6 +27,9 @@ disable-model-invocation: true
 3. **Setup.** From the project root run
    `bash "${CLAUDE_PLUGIN_ROOT}/bin/setup.sh" . --level <level>`. Add `--no-branches` if the user
    doesn't want `develop`/`staging` pushed to `origin`. On failure, show the output and stop.
+   When it refuses because `this plugin copy is <plugin>, the project is at <project>`, show that
+   line as is and suggest `/reload-plugins` (this session runs an older copy of the plugin); add
+   `--downgrade` only when the user asks to take the project back to the older version.
 4. **GitHub protections** (standard and full). Offer each one, explain it in one line, and run
    it only on yes:
    - Branch protection on the base branches, requiring a pull request and the checks to pass:
