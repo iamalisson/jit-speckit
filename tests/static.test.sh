@@ -76,6 +76,10 @@ check "the review prompt's Report section and pr.md step 5 say a security findin
   'sed -n "/^## Report/,\$p" extension/commands/review.md | grep -qF "Security: reported privately (<id>)" \
    && sed -n "/^5\. /,/^6\. /p" extension/commands/pr.md | grep -qF "Security: reported privately (<id>)"'
 
+# review.sh record compares against the merge-base with origin's base (lib.sh base_ref): the prompt names the same one.
+check "the review prompt takes the range's start from origin/<base>, as review.sh record does" \
+  'grep -qF "git merge-base HEAD origin/<base>" extension/commands/review.md && ! grep -qF "git merge-base HEAD <base>" extension/commands/review.md'
+
 # A link copied from the README into docs/ keeps its docs/ prefix and breaks; every relative link
 # in a markdown file must point at a file that exists next to it.
 broken=""
