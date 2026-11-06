@@ -8,7 +8,8 @@ description: "Review, commit, push and open the task's pull request"
    - **lite**: ask "Review and open the PR now?" and continue only on yes.
    - **standard** and **full**: continue.
 2. **Checks.** Run the constitution's test command, plus lint and build if they exist. If
-   anything fails, stop and report it. Never open a PR on red checks.
+   anything fails, stop and report it. Never open a PR on red checks: `pr.sh` (step 6) runs the
+   test command again before the push and refuses the PR, with its last 20 lines, when it fails.
 
    **Tests are evidence, not decoration.** Each test comes from the task's *Completed when* and
    the spec's acceptance scenarios, and must fail if the behavior breaks:

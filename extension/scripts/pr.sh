@@ -4,6 +4,7 @@
 #       On the task's branch, with the work already committed. Adds "Closes #N".
 #       Every level requires a "## Review" section in the body and a recorded independent review
 #       that said "ready" for this exact diff (review.sh); "full" also requires "## Evidence".
+#       Runs the constitution's test command before the push and refuses when it fails.
 #   pr.sh spec
 #       Commits the active feature's spec folder on spec/<feature> and opens a docs PR.
 # Prints: PR=<url>
@@ -66,6 +67,17 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
     fi
     # The review has to have happened, on this diff, and said ready: a heading alone proves nothing.
     bash "$JIT_EXT_DIR/scripts/review.sh" check >/dev/null
+    # Never open a PR on red checks. One log per branch, so parallel worktrees never share one.
+    test_cmd="$(constitution_cmd test)"
+    if [[ -n "$test_cmd" ]]; then
+      log="$(git rev-parse --git-common-dir)/jit-test/${branch//\//__}.log"; mkdir -p "${log%/*}"
+      if ! bash -c "$test_cmd" </dev/null >"$log" 2>&1; then
+        tail -n 20 "$log" >&2
+        die "the test command failed ($test_cmd); fix it before opening the PR"
+      fi
+    else
+      echo "jit: tests not run before the PR (no test command in the constitution)" >&2
+    fi
     grep -qiE "(close[sd]?|fix(e[sd])?|resolve[sd]?) #$issue([^0-9]|$)" <<<"$body" || body+=$'\n\n'"Closes #$issue"
     git push --quiet -u origin "$branch"
     open_pr "$title" "$body"

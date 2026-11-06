@@ -23,7 +23,21 @@ check "when no independent review was recorded for the diff, then it refuses at 
 reviewed
 check "when the body has no Review section, then it refuses" \
   'fails_with "Review" "$p" task T001 "feat(search): add search" "$TMP/unreviewed.md"'
-out="$("$p" task T001 "feat(search): add search" "$TMP/body.md")"
+# A test command that prints 30 lines and fails: the refusal shows the last 20 (11 to 30).
+mkdir -p .specify/memory
+printf '#!/usr/bin/env bash\nfor i in $(seq 1 30); do echo "red line $i"; done\nexit 1\n' > "$TMP/red.sh"
+printf '**Commands**: build `[BUILD_COMMAND]` · test `bash %s` · lint `[LINT_COMMAND]` · mutate `[MUTATE_COMMAND]`\n' "$TMP/red.sh" > .specify/memory/constitution.md
+claim="$(git ls-remote origin "refs/heads/$(git branch --show-current)")"
+red=0; out="$("$p" task T001 "feat(search): add search" "$TMP/body.md" 2>&1)" || red=$?
+check "when the constitution's test command exits 1, then it refuses, prints its last 20 lines and pushes nothing" \
+  '((red != 0)) && grep -qxF "jit: the test command failed (bash $TMP/red.sh); fix it before opening the PR" <<<"$out" \
+   && grep -qx "red line 30" <<<"$out" && grep -qx "red line 11" <<<"$out" && ! grep -qx "red line 10" <<<"$out" \
+   && [[ "$(git ls-remote origin "refs/heads/$(git branch --show-current)")" == "$claim" ]] && ! grep -q "^pr create" "$GH_LOG" \
+   && grep -qx "red line 1" "$(git rev-parse --git-common-dir)/jit-test/feat__001-t001-add-search.log"'
+rm .specify/memory/constitution.md
+out="$("$p" task T001 "feat(search): add search" "$TMP/body.md" 2>"$TMP/pr.err")"
+check "when the constitution has no test command, then it says the tests were not run and opens the PR" \
+  'grep -qx "jit: tests not run before the PR (no test command in the constitution)" "$TMP/pr.err" && [[ "$out" == *"PR=https://github.com/acme/app/pull/99" ]]'
 check "when the work is committed, then it pushes and opens the PR into the base" \
   '[[ "$out" == *"PR=https://github.com/acme/app/pull/99" ]] && git ls-remote --exit-code origin "$(git branch --show-current)" && grep -q -- "--base develop" "$GH_LOG"'
 check "then the body links the issue with Closes #N" 'grep -q "Closes #5" "$GH_LOG"'

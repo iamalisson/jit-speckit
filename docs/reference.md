@@ -84,7 +84,7 @@ branches on origin.
 | after `/speckit-analyze` | records the analysis (level `full` needs it before tasks start) |
 | after `/speckit-converge` | the new tasks it found get grounded, get issues, and reach the base branch through a spec PR |
 | before `/speckit-implement` | refuses without exactly one task, an issue, the merged spec and a clean tree; otherwise switches to `feat/<feature>-t00x-<slug>` and pushes it to origin at once (the claim). spec-kit's implement command is told to build only that task and not tick it (the issue closing is "done") |
-| after `/speckit-implement` | checks, mutation testing on the change, commit, security scan, `/security-review`, the independent review (recorded for the exact diff, fixed until `ready`), push, PR with `Closes #N` and `## Review`, Copilot code review requested. The PR is refused without a recorded `ready` review for the diff, at every level |
+| after `/speckit-implement` | checks, mutation testing on the change, commit, security scan, `/security-review`, the independent review (recorded for the exact diff, fixed until `ready`), push, PR with `Closes #N` and `## Review`, Copilot code review requested. The PR is refused without a recorded `ready` review for the diff, at every level, and when the constitution's test command fails (it runs before the push; with no test command, a warning says the tests were not run) |
 | every issue and PR | assigned to you; given the milestone and project if configured (a failure only warns); no AI attribution lines; long output folded into `<details>` |
 | a task PR that changes existing tests | refused unless the body has a `## Test changes` section saying why. New tests need no explanation; weakening one does |
 
