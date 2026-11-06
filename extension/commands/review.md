@@ -81,6 +81,8 @@ Written for the author, who fixes it, and for the human who merges:
   scenario of what goes wrong ("on a database built by `create_all` and stamped at the previous
   revision, `flask db upgrade` stops with 'already exists'"), and the evidence (the sibling's
   `file:line`, the command output). A finding you could not verify says so. No style, no naming,
-  no nits: they are what gets reviews ignored.
+  no nits: they are what gets reviews ignored. A **security** finding is listed last, and the PR
+  shows it as one line, `Security: reported privately (<id>)`: its detail goes to the author only,
+  never into a public PR.
 - The last line, exactly: `Assessment: ready`, or `Assessment: changes needed` when there is any
   High or Medium. `review.sh record` reads that line; without it the report cannot be recorded.

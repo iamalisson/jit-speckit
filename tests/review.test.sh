@@ -21,6 +21,34 @@ report "changes needed"
 check "when the review said changes needed, then check refuses" '"$r" record "$TMP/report.md" && fails_with "changes needed" "$r" check'
 report ready
 check "when the review said ready on this diff, then check passes" '"$r" record "$TMP/report.md" | grep -q "^REVIEW=ready" && "$r" check'
+# F3.1/F4.3: report prints What changed and the Assessment line, and never a finding, wherever it is.
+printf 'Preamble: FINDING-1 before the marker\n\n- **What changed**: Adds search.\n  Wraps here.\n- **Findings**, ranked:\n  - High: FINDING-2 in src/a.ts:3\n\nAssessment: ready\n' > "$TMP/report.md"
+"$r" record "$TMP/report.md" >/dev/null; out="$("$r" report 2>&1)" || true
+check "when a review is recorded, then report prints its What changed and its Assessment line" \
+  '[[ "$out" == "- **What changed**: Adds search."$'"'"'\n'"'"'"  Wraps here."$'"'"'\n\n'"'"'"Assessment: ready" ]]'
+check "then report copies no finding, before or after the Findings marker" '! grep -q FINDING <<<"$out"'
+printf '## What changed\n\nAdds search.\n\nFINDING-3 in src/auth.ts:9, with no Findings marker\n\nAssessment: ready\n' > "$TMP/report.md"
+"$r" record "$TMP/report.md" >/dev/null; out="$("$r" report 2>&1)" || true
+check "when the report has no Findings marker, then report copies only What changed's paragraph" \
+  'grep -qx "Adds search." <<<"$out" && grep -qx "Assessment: ready" <<<"$out" && ! grep -q FINDING <<<"$out"'
+printf 'What changed: Adds search.\n\nFINDING-8 in its own paragraph\n\nAssessment: ready\n' > "$TMP/report.md"
+"$r" record "$TMP/report.md" >/dev/null; out="$("$r" report 2>&1)" || true
+check "when an unlabeled paragraph follows a one-line What changed, then report stops at the blank line" \
+  'grep -qx "What changed: Adds search." <<<"$out" && ! grep -q FINDING <<<"$out"'
+printf 'What changed: Adds search.\nHigh: FINDING-4 in src/a.ts:3\nSecurity: FINDING-5\n\nAssessment: ready\n' > "$TMP/report.md"
+"$r" record "$TMP/report.md" >/dev/null; out="$("$r" report 2>&1)" || true
+check "when a finding follows What changed with no blank line, then report stops before it" \
+  'grep -qx "What changed: Adds search." <<<"$out" && ! grep -q FINDING <<<"$out"'
+printf 'What changed: one\ntwo\nthree\nFINDING-7 as a fourth line\n\nAssessment: ready\n' > "$TMP/report.md"
+"$r" record "$TMP/report.md" >/dev/null; out="$("$r" report 2>&1)" || true
+check "when What changed runs past three lines, then report keeps the first three only" \
+  'grep -qx three <<<"$out" && ! grep -q FINDING <<<"$out"'
+printf 'FINDING-6 only, no What changed\n\nAssessment: ready\n' > "$TMP/report.md"
+"$r" record "$TMP/report.md" >/dev/null; out="$("$r" report 2>&1)" || true
+check "when the report has no What changed, then report prints only the Assessment line" '[[ "$out" == "Assessment: ready" ]]'
+report "changes needed"; "$r" record "$TMP/report.md" >/dev/null
+check "when the review said changes needed, then report refuses as check does" 'fails_with "changes needed" "$r" report'
+report ready; "$r" record "$TMP/report.md" >/dev/null
 echo 'export const more = 2' >> search.ts; git commit --quiet -am "feat: more"
 check "when the code changed after the review, then check refuses until a new review is recorded" \
   'fails_with "changed since" "$r" check && "$r" record "$TMP/report.md" >/dev/null && "$r" check'

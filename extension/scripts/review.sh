@@ -3,6 +3,8 @@
 #   review.sh record <report-file>          task review: tied to the branch's exact diff against the base
 #   review.sh record --plan <report-file>   plan review: tied to the feature's plan.md and tasks.md (issue numbers aside)
 #   review.sh check [--plan]                exit 0 when a review that said "ready" matches the current state
+#   review.sh report [--plan]               check, then print the report's What changed and Assessment line
+#                                           (never its findings: pr.sh puts this in the public PR body)
 # The report ends with a line "Assessment: ready" or "Assessment: changes needed".
 # Records live in .git, so they never dirty the tree; a new commit or an edited tasks.md needs a new review.
 set -euo pipefail
@@ -36,12 +38,23 @@ case "$action" in
     if ! $plan && [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then die "commit the work first: the review is recorded for the committed diff"; fi
     { echo "state: $(state)"; echo "assessment: $verdict"; echo; cat "$report"; } > "$record"
     echo "REVIEW=$verdict" ;;
-  check)
+  check|report)
     [[ -f "$record" ]] || die "no independent review recorded for $what; run /speckit-jit-review and record its report: review.sh record${plan:+ --plan} <report-file>"
     [[ "$(sed -n 's/^state: //p' "$record")" == "$(state)" ]] \
       || die "$what changed since the last review; run /speckit-jit-review again and record it"
     [[ "$(sed -n 's/^assessment: //p' "$record")" == ready ]] \
       || die "the last review said 'changes needed'; fix the findings, then review again and record it"
-    echo "REVIEW=ready" ;;
-  *) die "usage: review.sh record [--plan] <report-file> | review.sh check [--plan]" ;;
+    if [[ "$action" == check ]]; then echo "REVIEW=ready"; exit 0; fi
+    # What changed: its label line and paragraph, 3 lines at most (the Report's limit). It stops at a
+    # blank line, a heading, a list item or a findings/assessment/security label, so a finding that
+    # follows is never copied; anything before the label is skipped.
+    section="$(sed '1,/^$/d' "$record" | awk '
+      !on { l = tolower($0); if (l ~ /^[#*_ \t-]*what changed/) { on = 1; print; n = 1; sub(/.*what changed/, "", l); gsub(/[*_: \t]/, "", l); bare = (l == "") }; next }
+      bare && n == 1 && /^[ \t]*$/ { next }
+      n >= 3 || /^[ \t]*$/ || /^[ \t]*([#>*+-]|[0-9]+\.)/ { exit }
+      tolower($0) ~ /^[ \t_]*(findings|high|medium|low|assessment|security|verdict)/ { exit }
+      { print; n++ }')"
+    [[ -z "$section" ]] || printf '%s\n\n' "$section"
+    echo "Assessment: ready" ;;
+  *) die "usage: review.sh record [--plan] <report-file> | review.sh check|report [--plan]" ;;
 esac

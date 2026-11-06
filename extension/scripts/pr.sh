@@ -3,7 +3,8 @@
 #   pr.sh task T003 "feat(api): add price search" [body-file]
 #       On the task's branch, with the work already committed. Adds "Closes #N".
 #       Every level requires a "## Review" section in the body and a recorded independent review
-#       that said "ready" for this exact diff (review.sh); "full" also requires "## Evidence".
+#       that said "ready" for this exact diff (review.sh), whose What changed and Assessment line it
+#       adds to the body, folded; "full" also requires "## Evidence".
 #       Runs the constitution's test command before the push and refuses when it fails.
 #   pr.sh spec
 #       Commits the active feature's spec folder on spec/<feature> and opens a docs PR.
@@ -67,7 +68,9 @@ case "$mode" in
 add a '## Test changes' section to the PR body saying why (spec changed, test was wrong). Never weaken a test to make it pass."
     fi
     # The review has to have happened, on this diff, and said ready: a heading alone proves nothing.
-    bash "$JIT_EXT_DIR/scripts/review.sh" check >/dev/null
+    # Its What changed and Assessment go in the body; its findings never do (the agent's ## Review
+    # carries them, a security finding as one line), so nothing private reaches a public PR here.
+    review="$(bash "$JIT_EXT_DIR/scripts/review.sh" report)"
     # Mutation testing too, when the project has a mutate command: mutants.sh records it per diff.
     if [[ -n "$(constitution_cmd mutate)" ]]; then
       mutants="$(diff_record jit-mutants)"
@@ -92,6 +95,7 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
     else
       echo "jit: tests not run before the PR (no test command in the constitution)" >&2
     fi
+    body+=$'\n\n<details><summary>Independent review</summary>\n\n'"$review"$'\n\n</details>'
     grep -qiE "(close[sd]?|fix(e[sd])?|resolve[sd]?) #$issue([^0-9]|$)" <<<"$body" || body+=$'\n\n'"Closes #$issue"
     git push --quiet -u origin "$branch"
     open_pr "$title" "$body"
