@@ -120,6 +120,9 @@ check "when a '- proven:' line names a line past the test file's end, then recor
 rep ready "${deep[@]}" "- proven: db/migrations/002_drop.sql by tests/drop.test.sh:3"
 check "when a '- proven:' line names an existing test line for a path flagged delete, then record refuses: only '- deep:' clears it" \
   'fails_with "the report does not check db/migrations/002_drop.sql (delete, migration): add '"'"'- deep: db/migrations/002_drop.sql'"'"'" "$r" record "$TMP/report.md"'
+rep ready "${deep[0]}" "- deep: db/migrations/002_drop.sql" "- proven: build.sh by tests/drop.test.sh:3"
+check "when a '- proven:' line names an existing test line for a non-test path flagged gate (build.sh), then record refuses: only '- deep:' clears it" \
+  'fails_with "the report does not check build.sh (gate): add '"'"'- deep: build.sh'"'"'" "$r" record "$TMP/report.md"'
 rep ready "- proven: src/authorization.py by tests/drop.test.sh:3 — asserts the check denies" "- deep: build.sh" "- deep: db/migrations/002_drop.sql"
 check "when every risky path is deep or proven by an existing test line, then record prints REVIEWED=<HEAD> then REVIEW=ready, and check passes" \
   'out="$("$r" record "$TMP/report.md")"; [[ "$out" == "$(printf "REVIEWED=%s\nREVIEW=ready" "$(git rev-parse HEAD)")" ]] && "$r" check'
