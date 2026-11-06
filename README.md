@@ -41,7 +41,7 @@ In Claude Code:
 /plugin install jit-speckit --marketplace iamalisson/jit-speckit
 ```
 
-<sub>Needs Claude Code 2.1.275 or newer; on older versions use two prompts: `/plugin marketplace add iamalisson/jit-speckit`, then `/plugin install jit-speckit@jit-speckit`.</sub>
+<sub>Needs Claude Code 2.1.295 or newer: from that version the command guard blocks a command when it times out or crashes.</sub>
 
 You also need `git` and the [GitHub CLI](https://cli.github.com), logged in. `/jit-speckit:init`
 installs spec-kit for you if it's missing.

@@ -51,6 +51,16 @@ sk="$(sed -nE 's/^SPECKIT_VERSION="(v[0-9.]+)".*/\1/p' bin/setup.sh)"
 check "the spec-kit version in setup.sh ($sk) matches the init skill and the README badge" \
   '[[ -n "$sk" ]] && grep -qF "spec-kit.git@$sk\`" skills/init/SKILL.md && grep -qF "spec--kit-$sk-" README.md && grep -qF "alt=\"spec-kit $sk\"" README.md'
 
+# F2.4: the guard's "onFailure": "block" needs Claude Code 2.1.295, so no doc may give a lower minimum.
+mins="$(grep -ohE "Claude Code v?[0-9]+\.[0-9]+\.[0-9]+ or (newer|later)" README.md docs/*.md .specify/memory/constitution.md | awk '{ sub(/^v/, "", $3); print $3 }' | tr '\n' ' ')"
+low=""
+for v in $mins; do
+  IFS=. read -r v1 v2 v3 <<<"$v"
+  if ((v1 < 2 || (v1 == 2 && (v2 < 1 || (v2 == 1 && v3 < 295))))); then low+=" $v"; fi
+done
+check "when hooks.json uses onFailure, then every \"Claude Code X or newer\" in the docs is 2.1.295 or newer (found: ${mins:-none}${low:+; too low:$low}) and the README says nothing about older versions" \
+  '! grep -q "\"onFailure\"" hooks/hooks.json || { [[ -n "$mins" && -z "$low" ]] && ! grep -qi "older versions" README.md; }'
+
 # A link copied from the README into docs/ keeps its docs/ prefix and breaks; every relative link
 # in a markdown file must point at a file that exists next to it.
 broken=""
