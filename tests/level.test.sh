@@ -175,4 +175,38 @@ out="$("$l" standard --no-branches)"
 check "when a workflow of the project's own already checks pull requests, then no second CI is generated and it says which" \
   '[[ ! -f .github/workflows/ci.yml && -f .github/workflows/security.yml ]] && grep -q "checks.yml" <<<"$out"'
 
+# ── Refresh: newer pins kept, files of releases before the marker recognized ──
+vn() { (source "$SCRIPTS/lib.sh"; version_newer "$@"); }
+check "when versions are compared, then v1.10.0 is newer than v1.9.9 (numbers, not text)" 'vn v1.10.0 v1.9.9 && ! vn v1.9.9 v1.10.0'
+check "then v7.0.1 is not newer than v7.1.0, and v2 equals v2.0.0" '! vn v7.0.1 v7.1.0 && vn v7.1.0 v7.0.1 && ! vn v2 v2.0.0 && ! vn v2.0.0 v2'
+check "then a branch name like master is never newer" '! vn master v1.0.0 && ! vn v1.0.0 master'
+
+source "$SCRIPTS/pins.sh"; co="${PIN_CHECKOUT%% *}"; co="${co%@*}"
+newer="$co@1111111111111111111111111111111111111111 # v99.0.0"; older="$co@2222222222222222222222222222222222222222 # v1.0.0"
+sed -i.bak "s|uses: $co@.*|uses: $newer|" .github/workflows/security.yml
+out="$("$l" standard --no-branches)"
+check "when a managed workflow has a newer checkout pin than pins.sh, then level.sh keeps it and prints kept newer pin" \
+  'grep -qF "uses: $newer" .github/workflows/security.yml && ! grep -qF "uses: $PIN_CHECKOUT" .github/workflows/security.yml && [[ "$(grep -cxF "kept newer pin: $co v99.0.0" <<<"$out")" == 1 ]]'
+sed -i.bak "s|uses: $co@.*|uses: $older|" .github/workflows/security.yml
+out="$("$l" standard --no-branches)"
+check "when it has an older pin, then it is replaced by pins.sh's" \
+  'grep -qF "uses: $PIN_CHECKOUT" .github/workflows/security.yml && ! grep -qF "$older" .github/workflows/security.yml && ! grep -q "kept newer pin" <<<"$out"'
+
+rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"
+new_repo standard
+mkdir -p .githooks .github/workflows
+cp "$ROOT/tests/fixtures/v1.3.0-pre-commit" .githooks/pre-commit
+cp "$ROOT/tests/fixtures/v1.3.1-close-linked-issues.yml" .github/workflows/close-linked-issues.yml
+printf 'version: 2\nupdates: []\n' > .github/dependabot.yml
+echo "my own hook" > .githooks/pre-push
+out="$("$l" standard --no-branches)"
+check "when .githooks/pre-commit is v1.3.0's exact file, then level.sh replaces it and it carries the marker" \
+  'head -2 .githooks/pre-commit | grep -q "^# jit-speckit: managed file" && grep -qxF "updated: .githooks/pre-commit" <<<"$out"'
+check "when close-linked-issues.yml is v1.3.1's, then it is kept and named with its versions" \
+  'cmp -s "$ROOT/tests/fixtures/v1.3.1-close-linked-issues.yml" .github/workflows/close-linked-issues.yml && grep -qF "kept (written by jit-speckit 1.0.0,1.2.0,1.3.0,1.3.1, no marker): .github/workflows/close-linked-issues.yml — delete it to get the current one" <<<"$out"'
+check "when an old hook matched, then a generated file without the marker is named as possibly an old release's" \
+  'grep -qF "kept (written by jit-speckit 1.2.0,1.3.0,1.3.1 or older, no marker): .github/dependabot.yml — delete it to get the current one" <<<"$out"'
+check "then a user's own unmarked file is still kept: as before" \
+  '[[ "$(cat .githooks/pre-push)" == "my own hook" ]] && grep -qxF "kept:    .githooks/pre-push" <<<"$out"'
+
 exit "$FAIL"

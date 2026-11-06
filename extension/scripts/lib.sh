@@ -133,6 +133,21 @@ constitution_cmd() {
   if [[ -n "$c" && "$c" != \[* ]]; then echo "$c"; fi
 }
 
+# version_newer <a> <b>: true when both are dotted numbers (optional leading v) and a > b; a missing
+# part counts as 0 (v2 = v2.0.0). Anything else (a branch name) is never newer. No `sort -V` (BSD).
+version_newer() {
+  local a="${1#v}" b="${2#v}" x y re='^[0-9]+(\.[0-9]+)*$'
+  [[ "$a" =~ $re && "$b" =~ $re ]] || return 1
+  while [[ -n "$a$b" ]]; do
+    x="${a%%.*}"; y="${b%%.*}"
+    if ((10#${x:-0} > 10#${y:-0})); then return 0; fi
+    if ((10#${x:-0} < 10#${y:-0})); then return 1; fi
+    if [[ "$a" == *.* ]]; then a="${a#*.}"; else a=""; fi
+    if [[ "$b" == *.* ]]; then b="${b#*.}"; else b=""; fi
+  done
+  return 1
+}
+
 # The task line for an ID, e.g. "- [ ] T003 [P] [US1] Do x in src/x.py — #12".
 task_line() { grep -m1 -E "^- \[.\] $2 " "$1/tasks.md" || true; }
 
