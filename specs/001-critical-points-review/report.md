@@ -257,7 +257,7 @@ F2.1's fix is in its private advisory.
   `vulnerabilities` entry (ecosystem `other`), and look up existing advisories by summary first, so a retry makes no duplicate.
 - **check** (`tests/static.test.sh`): when the skill's advisory call is read, then the JSON after
   `--input -` names `summary`, `description`, `severity`, `vulnerabilities` and `ecosystem`, and
-  a `--paginate` lookup comes before the `-X POST`. A file-wide grep for the words already passes
+  a `--paginate` lookup comes before the `-X POST`. A file-wide grep for `vulnerabilities` and `severity` already passes
   today, so the check reads the call only.
 
 ### Fix F4.3 · security findings are one line in the review report and in `## Review`
@@ -308,7 +308,8 @@ F2.1's fix is in its private advisory.
   the current one` (and `<versions> or older` for generated files).
 - **check** (`tests/level.test.sh`, with v1.3.0's hook as a committed fixture, since CI's checkout
   has no tags): when `.githooks/pre-commit` is v1.3.0's exact file, then `level.sh` replaces it and it carries the marker; and when
-  `close-linked-issues.yml` is v1.3.1's exact file, then it is kept and named (replacing it would
+  `close-linked-issues.yml` is v1.3.1's exact file, then it is kept and
+  named in a `kept (written by jit-speckit 1.3.1` line (replacing it would
   undo a take-over, since 1.4.0+'s copy without its marker has the same bytes).
 
 ### Fix F5.6 · the macOS job runs on PRs that touch scripts, and on tags

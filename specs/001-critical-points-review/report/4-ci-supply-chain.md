@@ -81,7 +81,7 @@ Also checked, no finding:
   `vulnerabilities` entry (ecosystem `other`), and look up existing advisories by summary first, so a retry makes no duplicate.
   Check for `tests/static.test.sh`: when the skill's advisory call is read, then the JSON after
   `--input -` names `summary`, `description`, `severity`, `vulnerabilities` and `ecosystem`, and a
-  `--paginate` lookup comes before the `-X POST`. A file-wide grep for the words already passes
+  `--paginate` lookup comes before the `-X POST`. A file-wide grep for `vulnerabilities` and `severity` already passes
   today, so the check reads the call only. It fails today. (Corrected 2026-11-05 from feature 002's
   research, `specs/002-review-fixes/research.md` C1).
 

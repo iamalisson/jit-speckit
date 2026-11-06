@@ -76,7 +76,8 @@ repositories with a local bare origin for the two `bin/setup.sh` runs. Those nee
   SHA-256s kept in the extension) as jit's, and names the others it recognizes: `kept (written by jit-speckit <versions>, no marker): <file> — delete it to get
   the current one` (and `<versions> or older` for generated files). Check for
   `tests/level.test.sh`, with v1.3.0's hook as a committed fixture, since CI's checkout has no tags: when `.githooks/pre-commit` is v1.3.0's exact file, then `level.sh` replaces it and it carries the marker; and when
-  `close-linked-issues.yml` is v1.3.1's exact file, then it is kept and named (replacing it would
+  `close-linked-issues.yml` is v1.3.1's exact file, then it is kept and
+  named in a `kept (written by jit-speckit 1.3.1` line (replacing it would
   undo a take-over, since 1.4.0+'s copy without its marker has the same bytes). It fails today. (Corrected 2026-11-05 from feature 002's research,
   `specs/002-review-fixes/research.md` C1).
 
