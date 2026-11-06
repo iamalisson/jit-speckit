@@ -16,9 +16,16 @@ it comments), and it is why they catch what a review inside the author's own ses
 session shares the author's assumptions and tests the same path the author tested.
 
 **Two roles.** If you are the author's session (`/speckit-jit-pr`, `/speckit-jit-issues`, or the
-user ran `/speckit-jit-review`): launch one general-purpose subagent whose prompt is this whole
-file plus the facts below, and nothing else: no summary of what you built, no "I already checked
-X". Wait for its report, save it as it came to a file outside the repository (`mktemp`), and record it:
+user ran `/speckit-jit-review`): launch one subagent of type `jit-speckit:reviewer` whose prompt
+starts with the line `jit-speckit review: independent reviewer`, then this whole file plus the
+facts below, and nothing else: no summary of what you built, no "I already checked X". Pass the
+call's `model`: `review_model:` from `.specify/extensions/jit/jit-config.yml` when it is `sonnet`,
+`opus` or `fable`, `opus` when the key is absent or empty. If `review_model:` holds any other
+value, print `jit: review_model must be sonnet, opus or fable` and stop.
+Never run the review on `haiku`, and never in a fork of this session. If the call refuses the type `jit-speckit:reviewer`
+(the plugin is not installed), launch a `general-purpose` subagent with the same prompt and the
+same `model`. The plugin's hook blocks a review launch without one of those models, or in a fork.
+Wait for its report, save it as it came to a file outside the repository (`mktemp`), and record it:
 `bash .specify/extensions/jit/scripts/review.sh record <file>` (`record --plan <file>` for a plan
 review, `record --delta <file>` for a fix round). The record is tied to the exact diff (or `tasks.md`): `pr.sh` and `issues.sh` refuse to
 open anything without a recorded review that said `ready` for the current state, at every level,

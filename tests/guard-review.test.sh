@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# shellcheck disable=SC2016  # checks are strings evaluated by check()
+# hooks/guard-review.sh: the PreToolUse hook on the subagent tool (Agent, and Task on older clients).
+# A review launch must run on sonnet, opus or fable, in a fresh agent, never on the session's model.
+# shellcheck source=helpers.sh
+source "$(dirname "$0")/helpers.sh"
+hook="$ROOT/hooks/guard-review.sh"
+S="jit-speckit review: independent reviewer"
+
+# launch <tool> <subagent_type> <model or ""> <prompt>: the hook's input, as JSON on stdin.
+launch() {
+  local m=""; [[ -z "$3" ]] || m=",\"model\":\"$3\""
+  printf '{"session_id":"s","cwd":"%s","hook_event_name":"PreToolUse","tool_name":"%s","tool_input":{"description":"review","subagent_type":"%s","prompt":"%s"%s}}' \
+    "$TMP" "$1" "$2" "$4" "$m"
+}
+# rc_of <json>: the hook's exit code; its stderr goes to $TMP/err.
+rc_of() { local rc=0; bash "$hook" <<<"$1" 2>"$TMP/err" || rc=$?; echo "$rc"; }
+blocked() { [[ "$(rc_of "$1")" == 2 ]] && grep -qF "$2" "$TMP/err"; }
+allowed() { [[ "$(rc_of "$1")" == 0 ]]; }
+
+for tool in Agent Task; do
+  check "when $tool launches jit-speckit:reviewer with model haiku, then it is blocked and names haiku" \
+    'blocked "$(launch $tool jit-speckit:reviewer haiku "Review the branch.")" "jit: the review must run on sonnet, opus or fable (review_model:), not haiku"'
+  check "when $tool launches jit-speckit:reviewer with no model, then it is blocked and names the session's model" \
+    'blocked "$(launch $tool jit-speckit:reviewer "" "Review the branch.")" "jit: the review must run on sonnet, opus or fable (review_model:), not the session'"'"'s model"'
+  check "when $tool launches general-purpose with the sentinel and model haiku, then it is blocked" \
+    'blocked "$(launch $tool general-purpose haiku "Do this.\\n$S\\nReview the branch.")" "not haiku"'
+  check "when $tool launches general-purpose with the sentinel and no model, then it is blocked" \
+    'blocked "$(launch $tool general-purpose "" "$S\\nReview the branch.")" "not the session'"'"'s model"'
+  check "when $tool launches a fork carrying the sentinel on opus, then it is blocked with the fork line" \
+    'blocked "$(launch $tool fork opus "$S\\nReview the branch.")" "jit: the review must run in a fresh agent, not a fork of this session"'
+  check "when $tool launches jit-speckit:reviewer on opus, then it is allowed" \
+    'allowed "$(launch $tool jit-speckit:reviewer opus "$S\\nReview the branch.")"'
+  check "when $tool launches general-purpose with the sentinel on opus, sonnet or fable, then it is allowed" \
+    'allowed "$(launch $tool general-purpose opus "$S")" && allowed "$(launch $tool general-purpose sonnet "$S")" && allowed "$(launch $tool general-purpose fable "$S")"'
+  check "when $tool launches general-purpose without the sentinel, on haiku or no model, then it is allowed" \
+    'allowed "$(launch $tool general-purpose haiku "Find the config.")" && allowed "$(launch $tool general-purpose "" "Find the config.")"'
+done
+
+# Without python3 the hook reads the fields with sed: the same decisions.
+mkdir -p "$TMP/nopy"
+for t in bash cat sed grep; do ln -sf "$(command -v "$t")" "$TMP/nopy/$t"; done
+check "when python3 is not on PATH, then a reviewer launch on haiku is still blocked and one on opus allowed" \
+  'rc=0; launch Agent jit-speckit:reviewer haiku "x" | PATH="$TMP/nopy" bash "$hook" 2>/dev/null || rc=$?; [[ $rc == 2 ]] && launch Agent jit-speckit:reviewer opus "x" | PATH="$TMP/nopy" bash "$hook"'
+
+check "when hooks.json is read, then it runs guard-review.sh on the Agent and Task tools with onFailure block" \
+  'python3 -c "import json,sys; h=[e for e in json.load(open(sys.argv[1]))[\"hooks\"][\"PreToolUse\"] if \"guard-review.sh\" in e[\"hooks\"][0][\"command\"]]; m=h[0][\"matcher\"].split(\"|\"); sys.exit(0 if \"Agent\" in m and \"Task\" in m and h[0][\"hooks\"][0][\"onFailure\"]==\"block\" else 1)" "$ROOT/hooks/hooks.json"'
+
+exit "$FAIL"

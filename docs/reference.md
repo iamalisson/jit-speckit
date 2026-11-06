@@ -124,6 +124,7 @@ These are spec-kit hooks, so you never type them. If you skip one, run it yourse
 | `issue_labels` | `type:task` | comma-separated labels for task issues |
 | `milestone` | *(empty)* | milestone for task issues and PRs, by name; empty means none |
 | `project` | *(empty)* | GitHub project (title) to add task issues and PRs to; needs `gh auth refresh -s project` |
+| `review_model` | *(empty: `opus`)* | the model of the independent and plan reviews, run in the plugin's `jit-speckit:reviewer` agent: `sonnet`, `opus` or `fable`; never `haiku`, any other value is refused. It is passed on every launch, so on a cheap session the review costs more than the session. `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` overrides it (the record then warns). The plugin's hook that blocks a review launch on another model, or in a fork, exists only where the plugin is installed |
 
 ## AI attribution
 
