@@ -14,8 +14,10 @@ field() { # field <name>: a string field of tool_input
   fi
 }
 type="$(field subagent_type)"
-# The sentinel has no character JSON escapes, so it reads the same with either parser.
-if [[ "$type" != jit-speckit:reviewer ]] && ! field prompt | grep -qF "jit-speckit review: independent reviewer"; then exit 0; fi
+# The sentinel has no character JSON escapes, so it reads the same with either parser. The prompt is
+# matched in a variable: a pipe into grep -q fails under pipefail on a prompt bigger than the pipe buffer.
+prompt="$(field prompt)"
+if [[ "$type" != jit-speckit:reviewer && "$prompt" != *"jit-speckit review: independent reviewer"* ]]; then exit 0; fi
 if [[ "$type" == fork ]]; then
   echo "jit: the review must run in a fresh agent, not a fork of this session" >&2; exit 2
 fi

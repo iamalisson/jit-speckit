@@ -37,6 +37,11 @@ for tool in Agent Task; do
     'allowed "$(launch $tool general-purpose haiku "Find the config.")" && allowed "$(launch $tool general-purpose "" "Find the config.")"'
 done
 
+# A prompt bigger than the pipe buffer (64 KB) is still read whole: the sentinel launch on haiku is blocked.
+big="$(head -c 400000 /dev/zero | tr '\0' x)"
+check "when general-purpose carries the sentinel in a 400 KB prompt with model haiku or none, then it is blocked" \
+  'blocked "$(launch Agent general-purpose haiku "$S\\n$big")" "not haiku" && blocked "$(launch Agent general-purpose "" "$S\\n$big")" "not the session"'
+
 # Without python3 the hook reads the fields with sed: the same decisions.
 mkdir -p "$TMP/nopy"
 for t in bash cat sed grep; do ln -sf "$(command -v "$t")" "$TMP/nopy/$t"; done
