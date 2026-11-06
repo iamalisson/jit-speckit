@@ -33,12 +33,12 @@ if $plan; then
   state() { # plan.md and tasks.md, without the issue numbers issues.sh appends
     { cat "$fdir/plan.md" 2>/dev/null; sed -E 's/ — #[0-9]+[[:space:]]*$//' "$fdir/tasks.md"; } | sha256
   }
-else
+elif [[ "$action" != risk ]]; then # risk reads only the diff, so it needs no branch
   branch="$(git branch --show-current)"; [[ -n "$branch" ]] || die "not on a branch (detached HEAD); switch to the task's branch first"
   name="task-${branch//\//__}"; what="this branch's diff"
   state() { diff_id; }
 fi
-record="$dir/$name"
+record="$dir/${name:-}"
 
 # hdr <key> [file]: the record's header values for <key>. The header ends at the first blank line,
 # so nothing in the report below it can add or override a field.

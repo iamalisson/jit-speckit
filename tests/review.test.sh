@@ -218,4 +218,9 @@ rep ready "${all[@]}" "- deep: tests/a.test.js" "- proven: tests/login.test.js b
 check "when a test path flagged only auth (tests/login.test.js) is 'proven' by its own line, then record refuses" \
   '"$r" risk | grep -qx "RISK=auth tests/login.test.js" && fails_with "the report does not check tests/login.test.js (auth): add '"'"'- deep: tests/login.test.js'"'"'" "$r" record "$TMP/report.md"'
 
+# review.sh risk reads only the diff, so it needs no branch.
+git checkout --quiet --detach
+check "when HEAD is detached, then review.sh risk still prints the risk map" '"$r" risk | grep -qx "RISK=gate tests/a.test.js"'
+git switch --quiet -
+
 exit "$FAIL"
