@@ -94,8 +94,10 @@ check "when review.md sets the reviewer model, then it names review_model:, the 
    && grep -qF "general-purpose" $f && grep -qF "jit-speckit review: independent reviewer" $f'
 check "when docs/reference.md is read, then the Configuration table has a review_model row, and it says CLAUDE_CODE_SUBAGENT_MODEL_FORCE overrides it and the hook exists only where the plugin is installed" \
   'grep -q "^| \`review_model\` |" docs/reference.md && grep -qF "CLAUDE_CODE_SUBAGENT_MODEL_FORCE" docs/reference.md && grep -qi "only where the plugin is installed" docs/reference.md'
+# The section is read into a variable: a pipe into grep -q can fail under pipefail (SIGPIPE on sed).
+sec_readme="$(sed -n "/^## Security, built in/,/^## Levels/p" README.md)"
 check "when the README's Security, built in table is read, then it names the reviewer's model" \
-  'sed -n "/^## Security, built in/,/^## Levels/p" README.md | grep -qF "jit-speckit:reviewer" && sed -n "/^## Security, built in/,/^## Levels/p" README.md | grep -q "Opus"'
+  '[[ "$sec_readme" == *"jit-speckit:reviewer"* && "$sec_readme" == *Opus* ]]'
 
 # The installed copies (specify extension add --dev extension --force) are what this repo runs: they match the source.
 stale=""

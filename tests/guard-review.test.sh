@@ -5,6 +5,7 @@
 # shellcheck source=helpers.sh
 source "$(dirname "$0")/helpers.sh"
 hook="$ROOT/hooks/guard-review.sh"
+# shellcheck disable=SC2034  # used inside the check strings
 S="jit-speckit review: independent reviewer"
 
 # launch <tool> <subagent_type> <model or ""> <prompt>: the hook's input, as JSON on stdin.
@@ -38,6 +39,7 @@ for tool in Agent Task; do
 done
 
 # A prompt bigger than the pipe buffer (64 KB) is still read whole: the sentinel launch on haiku is blocked.
+# shellcheck disable=SC2034  # used inside the check string
 big="$(head -c 400000 /dev/zero | tr '\0' x)"
 check "when general-purpose carries the sentinel in a 400 KB prompt with model haiku or none, then it is blocked" \
   'blocked "$(launch Agent general-purpose haiku "$S\\n$big")" "not haiku" && blocked "$(launch Agent general-purpose "" "$S\\n$big")" "not the session"'
