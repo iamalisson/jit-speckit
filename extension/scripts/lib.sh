@@ -52,9 +52,10 @@ cfg_set() {
 
 jit_level() { cfg level standard; }
 
-# Paths that hold tests, across the stacks jit-speckit supports.
-# shellcheck disable=SC2034  # used by pr.sh
-TEST_PATH_RE='(^|/)(tests?|__tests__|spec)/|[._-](test|spec)\.[a-z]+$|(^|/)test_[^/]*\.py$'
+# Paths that hold tests, across the stacks jit-speckit supports (Django's app/tests.py, SwiftPM's
+# Tests/, .NET's X.Tests/, Cypress). Case-sensitive: the PascalCase name is anchored on a lowercase
+# letter or digit before it, so Contests.java or Latests.cs stay source. Read it through test_path_re.
+TEST_PATH_RE='(^|/)([Tt]ests?|__tests__|spec|e2e|cypress)/|(^|/)[^/]*\.[Tt]ests?/|[._-]([Tt]est|[Ss]pec|cy)\.[a-zA-Z]+$|(^|/)tests?\.py$|(^|/)test_[^/]*\.py$|[a-z0-9]Tests?\.[a-z]+$'
 
 
 # The repository's default branch: origin/HEAD when set, otherwise whichever of main/master
@@ -116,6 +117,22 @@ base_ref() {
   if git rev-parse --verify --quiet "origin/$b" >/dev/null; then echo "origin/$b"; else echo "$b"; fi
 }
 
+# diff_id: the patch id of the branch against the base (empty for an empty diff). Merging the base
+# in keeps it, any edit changes it. --verbatim keeps whitespace, so a re-indent (Python, YAML,
+# Makefiles) counts.
+diff_id() {
+  local from opt=--verbatim; from="$(git merge-base HEAD "$(base_ref)" 2>/dev/null || echo HEAD)"
+  git patch-id --verbatim </dev/null >/dev/null 2>&1 || opt=--stable # git < 2.39: whitespace-only edits slip
+  git diff "$from" HEAD | git patch-id "$opt" | cut -d' ' -f1
+}
+
+# diff_record <kind>: the file that holds this diff's <kind> record (jit-mutants, jit-security),
+# under .git so it never dirties the tree; its folder is created. Any commit makes it a new file.
+diff_record() {
+  local d id; d="$(git rev-parse --git-common-dir)/$1"; id="$(diff_id)"
+  mkdir -p "$d"; echo "$d/${id:-empty}"
+}
+
 # resolve_feature <NNN | folder name>: the specs/ folder of a feature named by number or folder.
 resolve_feature() {
   local m
@@ -131,6 +148,20 @@ constitution_cmd() {
   local c
   c="$(sed -nE "s/.*\*\*Commands\*\*.*$1 \`([^\`]+)\`.*/\1/p" .specify/memory/constitution.md 2>/dev/null | head -1)"
   if [[ -n "$c" && "$c" != \[* ]]; then echo "$c"; fi
+}
+
+# test_path_re: TEST_PATH_RE, plus the constitution's optional `tests: <regex>` line (grep -E) for
+# any other layout. Dies on an invalid one: callers read it in a plain assignment, `|| exit 1`.
+test_path_re() {
+  local extra err rc=0
+  extra="$(sed -nE 's/^tests:[[:space:]]*//p' .specify/memory/constitution.md 2>/dev/null | head -1)"
+  extra="${extra%"${extra##*[![:space:]]}"}"
+  if [[ -z "$extra" ]]; then echo "$TEST_PATH_RE"; return; fi
+  # One input line: busybox grep compiles the pattern only when it reads a line. Exit > 1, or any
+  # message, means the regex does not compile (GNU and BSD exit 2; busybox prints "bad regex").
+  err="$(echo x | grep -E -- "$extra" 2>&1 >/dev/null)" || rc=$?
+  ((rc <= 1)) && [[ -z "$err" ]] || die "the constitution's tests: regex is invalid: $extra"
+  echo "$TEST_PATH_RE|$extra"
 }
 
 # version_newer <a> <b>: true when both are dotted numbers (optional leading v) and a > b; a missing

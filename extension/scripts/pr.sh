@@ -4,6 +4,7 @@
 #       On the task's branch, with the work already committed. Adds "Closes #N".
 #       Every level requires a "## Review" section in the body and a recorded independent review
 #       that said "ready" for this exact diff (review.sh); "full" also requires "## Evidence".
+#       Runs the constitution's test command before the push and refuses when it fails.
 #   pr.sh spec
 #       Commits the active feature's spec folder on spec/<feature> and opens a docs PR.
 # Prints: PR=<url>
@@ -59,13 +60,38 @@ case "$mode" in
     # --no-renames: a test moved out of a test folder counts as deleted, not as a new file.
     ref="$(base_ref)"
     git rev-parse --verify --quiet "$ref" >/dev/null || die "base branch '$base' not found locally or on origin"
-    changed_tests="$(git diff --no-renames --diff-filter=MD --name-only "$ref...HEAD" | grep -E "$TEST_PATH_RE" || true)"
+    re="$(test_path_re)" || exit 1
+    changed_tests="$(git diff --no-renames --diff-filter=MD --name-only "$ref...HEAD" | grep -E "$re" || true)"
     if [[ -n "$changed_tests" ]] && ! grep -qE '^## Test changes' <<<"$body"; then
       die "existing tests were changed: $(tr '\n' ' ' <<<"$changed_tests")
 add a '## Test changes' section to the PR body saying why (spec changed, test was wrong). Never weaken a test to make it pass."
     fi
     # The review has to have happened, on this diff, and said ready: a heading alone proves nothing.
     bash "$JIT_EXT_DIR/scripts/review.sh" check >/dev/null
+    # Mutation testing too, when the project has a mutate command: mutants.sh records it per diff.
+    if [[ -n "$(constitution_cmd mutate)" ]]; then
+      mutants="$(diff_record jit-mutants)"
+      [[ -f "$mutants" ]] || die "no mutants.sh result for this diff; run bash .specify/extensions/jit/scripts/mutants.sh after the last commit"
+      if grep -q '^mutants survivors' "$mutants" && ! sed -n '/^## Evidence/,/^## /p' <<<"$body" | grep -qi surviv; then
+        die "mutants.sh found surviving mutants; say in '## Evidence' why each changes nothing, or add the test that kills it"
+      fi
+    else
+      body+=$'\n\n'"Mutation testing: not run (no mutate command in the constitution)"
+    fi
+    # And the scanners on the changed files: a missing scanner or a finding is for the body to say.
+    [[ -f "$(diff_record jit-security)" ]] \
+      || die "no security-scan.sh --changed result for this diff; run bash .specify/extensions/jit/scripts/security-scan.sh --changed after the last commit"
+    # Never open a PR on red checks. One log per branch, so parallel worktrees never share one.
+    test_cmd="$(constitution_cmd test)"
+    if [[ -n "$test_cmd" ]]; then
+      log="$(git rev-parse --git-common-dir)/jit-test/${branch//\//__}.log"; mkdir -p "${log%/*}"
+      if ! bash -c "$test_cmd" </dev/null >"$log" 2>&1; then
+        tail -n 20 "$log" >&2
+        die "the test command failed ($test_cmd); fix it before opening the PR"
+      fi
+    else
+      echo "jit: tests not run before the PR (no test command in the constitution)" >&2
+    fi
     grep -qiE "(close[sd]?|fix(e[sd])?|resolve[sd]?) #$issue([^0-9]|$)" <<<"$body" || body+=$'\n\n'"Closes #$issue"
     git push --quiet -u origin "$branch"
     open_pr "$title" "$body"

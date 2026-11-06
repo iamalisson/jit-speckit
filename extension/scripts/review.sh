@@ -22,12 +22,7 @@ if $plan; then
 else
   branch="$(git branch --show-current)"; [[ -n "$branch" ]] || die "not on a branch (detached HEAD); switch to the task's branch first"
   name="task-${branch//\//__}"; what="this branch's diff"
-  state() { # the patch id of the branch against the base: merging the base in keeps it, any edit
-    # changes it. --verbatim keeps whitespace, so a re-indent (Python, YAML, Makefiles) counts.
-    local from opt=--verbatim; from="$(git merge-base HEAD "$(base_ref)" 2>/dev/null || echo HEAD)"
-    git patch-id --verbatim </dev/null >/dev/null 2>&1 || opt=--stable # git < 2.39: whitespace-only edits slip
-    git diff "$from" HEAD | git patch-id "$opt" | cut -d' ' -f1
-  }
+  state() { diff_id; }
 fi
 record="$dir/$name"
 
