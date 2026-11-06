@@ -119,13 +119,15 @@ Also checked, no finding:
   progress and offers it again (`next.sh:39,43`).
 - **reproduction**: section F of the script below.
 - **exposure**: public.
-- **fix**: keep closing the other numbers when one fails, and fail the job at the end:
-  `failed=""; for n in …; do gh issue close … || failed+=" #$n"; done; [ -z "$failed" ] || { echo "could not close:$failed"; exit 1; }`.
-  Only dropping `|| true` would be worse: under the step's `bash -e`, a failure on one number (a
-  "fixes #12" that is not an issue) would stop the loop before the task's own `Closes #3`. Check for
-  `tests/static.test.sh`, running the step with a fake `gh` that fails on 12: when the body says
-  "fixes #12" and "Closes #3", then `gh issue close 3` is still called and the step exits non-zero.
-  It fails today (exit 0).
+- **fix**: keep closing the other numbers when one fails, and fail the job at the end. Only
+  dropping `|| true` would be worse: under the step's `bash -e`, a failure on one number (a
+  "fixes #12" that is not an issue) would stop the loop before the task's own `Closes #3`. So
+  replace `|| true` with `failed+=" #$n"` inside the loop and `[ -z "$failed" ] || { echo
+  "could not close:$failed"; exit 1; }` after it. Check for `tests/static.test.sh`, the step run
+  with a fake `gh` failing on 12: when the body says "fixes #12" and "Closes #3", then the step
+  exits non-zero (fails today: exit 0), and `gh issue close 3` is still called (a guard: true
+  today too). (Corrected 2026-11-05 from feature 002's research,
+  `specs/002-review-fixes/research.md` C1).
 
 ### F1.7 · Medium · P01 · an issue created on GitHub whose answer never arrives is created again
 
@@ -162,10 +164,11 @@ Also checked, no finding:
   why this is Medium and not High.
 - **reproduction**: section H of the script below.
 - **exposure**: public.
-- **fix**: tell "no PR" from "could not ask": drop `2>/dev/null || true` at `pr.sh:79` and stop
-  with `die "could not check for an open spec PR: <gh's error>"`. Check for `tests/pr.test.sh`:
-  when `gh pr list` fails while a spec PR is open with a commit from someone else, then `pr.sh spec`
-  exits non-zero and origin's spec branch still has that commit. It fails today.
+- **fix**: drop `2>/dev/null || true` at `pr.sh:79`; on failure `die "could not check for an open
+  spec PR"` after gh's own error. Check for `tests/pr.test.sh`: when `gh pr list` fails while a
+  spec PR is open with someone else's commit, and the local clone has fetched origin after that
+  commit, then `pr.sh spec` exits non-zero and origin's spec branch still has that commit. Without
+  the fetch, `--force-with-lease` already refuses and the check proves nothing. It fails today. (Corrected 2026-11-05 from feature 002's research, `specs/002-review-fixes/research.md` C1).
 
 ### F1.9 · Medium · P04 · on a task branch, `next` with no argument asks which feature, while the docs say the branch decides
 

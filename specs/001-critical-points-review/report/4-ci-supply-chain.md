@@ -77,11 +77,13 @@ Also checked, no finding:
   choice, so the finding stays private, but the documented private place cannot be reached as written.
 - **reproduction**: the call above, as the skill writes it, on any public repository.
 - **exposure**: public (no finding is published; the path to file one privately fails).
-- **fix**: in `skills/security/SKILL.md`, send the body as JSON with `--input -`, with `severity` and
-  a `vulnerabilities` entry (ecosystem `other` and the repository name when no package ecosystem
-  fits), and look up existing advisories by summary first so a retry makes no duplicate. Check: a
-  `tests/static.test.sh` case that the skill's advisory example includes `vulnerabilities`. It
-  fails today.
+- **fix**: in `skills/security/SKILL.md`, send JSON with `--input -`, with `severity` and a
+  `vulnerabilities` entry (ecosystem `other`), and look up existing advisories by summary first.
+  Check for `tests/static.test.sh`: when the skill's advisory call is read, then the JSON after
+  `--input -` names `summary`, `description`, `severity`, `vulnerabilities` and `ecosystem`, and a
+  `--paginate` lookup comes before the `-X POST`. A file-wide grep for the words already passes
+  today, so the check reads the call only. It fails today. (Corrected 2026-11-05 from feature 002's
+  research, `specs/002-review-fixes/research.md` C1).
 
 ### F4.3 · Medium · P25 · the PR prompt copies a security finding from the review into the public PR body
 
@@ -229,11 +231,11 @@ Round 2: reviewed the fix commit (bound parameter, plus a test with a quote in t
   keeps the pins current.
 - **reproduction**: the re-pin script below.
 - **exposure**: public.
-- **fix**: when `put` is about to rewrite a managed workflow, keep each `uses: <action>@<sha> #
-  <version>` line whose version is newer than `pins.sh`'s (compare the version comments with
-  `sort -V`), and say `kept newer pin: <action> <version>`. Check for `tests/level.test.sh`: when
-  a managed workflow carries a newer checkout pin than `pins.sh`, then `level.sh` keeps it and
-  prints `kept newer pin`. It fails today.
+- **fix**: before rewriting a managed workflow, keep each `uses: <action>@<sha> # <version>` line
+  whose version is newer than `pins.sh`'s (compared by a pure-bash `version_newer` in `lib.sh`,
+  not `sort -V`, which BSD and busybox may lack), and print `kept newer pin: <action> <version>`.
+  Check for `tests/level.test.sh`: when a managed workflow carries a newer checkout pin than
+  `pins.sh`, then `level.sh` keeps it and prints `kept newer pin`. It fails today. (Corrected 2026-11-05 from feature 002's research, `specs/002-review-fixes/research.md` C1).
 
 ### F4.5 · Medium · P16 · Semgrep is version-pinned but not checksum-verified, and its rules are fetched at run time
 
@@ -247,10 +249,15 @@ Round 2: reviewed the fix commit (bound parameter, plus a test with a quote in t
 - **reproduction**: `level.sh full` in a throwaway repo, then read the Semgrep step of the written
   `security.yml`.
 - **exposure**: public.
-- **fix**: install Semgrep with its hash pinned next to its version in `pins.sh`
-  (`--require-hashes`), and run rule files kept in the extension instead of `--config p/…`
-  registry rulesets. Check for `tests/level.test.sh`: when `level.sh full` writes `security.yml`,
-  then its Semgrep step verifies a hash and has no `--config p/`. It fails today.
+- **fix**: run Semgrep in the full-level `security.yml` from `semgrep/semgrep@sha256:<digest>`,
+  with the digest next to its version in `pins.sh`, instead of `uvx --from semgrep==<version>`;
+  the README and `docs/security.md` say its rule sets come from the Semgrep registry at run time.
+  Rules are not vendored: the Semgrep Rules License forbids redistributing them. Check for
+  `tests/level.test.sh`, `tests/static.test.sh`: when `level.sh full` writes `security.yml`, then
+  its Semgrep job runs `semgrep/semgrep@sha256:<64 hex>` equal to `pins.sh`'s digest and nothing
+  installs Semgrep by version alone; and when the README CI row and `docs/security.md` are read,
+  then they say the rules come from the Semgrep registry. It fails today. (Corrected 2026-11-05
+  from feature 002's research, `specs/002-review-fixes/research.md` C1).
 
 ### F4.6 · Low · P27 · a release goes out on any version tag, with no audit or CI requirement
 

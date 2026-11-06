@@ -46,10 +46,13 @@ repositories with a local bare origin for the two `bin/setup.sh` runs. Those nee
   nothing.
 - **reproduction**: section C of the script below.
 - **exposure**: public.
-- **fix**: `ours` also requires the file to have no uncommitted changes (`git diff --quiet HEAD --
-  "$1"`), and a marked file that differs from what jit would generate is kept with `kept (edited):
-  <file>`, as `put` would say. Check for `tests/setup.test.sh`: when a managed workflow has an
-  uncommitted edit, then `remove.sh` keeps it and prints `kept (edited)`. It fails today.
+- **fix**: `put()` records the SHA-256 of every file it writes in `.specify/jit-files.sha256`;
+  `bin/remove.sh` deletes a marked file only when its hash matches that record, or, with no record
+  (a project set up before the fix), only when it is tracked and `git diff --quiet HEAD` says it
+  is unchanged; otherwise it prints `kept (edited): <file>`. Check for `tests/setup.test.sh`: when
+  a managed workflow (committed alone) has an uncommitted edit, then `remove.sh` keeps it and
+  prints `kept (edited)`. It fails today. (Corrected 2026-11-05 from feature 002's research,
+  `specs/002-review-fixes/research.md` C1).
 
 ### F5.3 · Medium · P19, P21 · a project set up before 1.4.0 keeps every generated file at its old version, including hooks that let a commit through
 
@@ -69,11 +72,12 @@ repositories with a local bare origin for the two `bin/setup.sh` runs. Those nee
   that running `init` once per project is how a project gets the new version.
 - **reproduction**: the upgrade script below.
 - **exposure**: public (it needs the project's own copy of the script to be missing).
-- **fix**: `put` also treats as jit's a file that is byte-identical to what any earlier release
-  wrote (a list of SHA-256s of past scaffold and generated files, kept in the extension), or prints
-  `kept (written by jit-speckit <version>, no marker): <file> — delete it to get the current one`.
-  Check for `tests/setup.test.sh`: when `.githooks/pre-commit` is v1.3.0's exact file, then
-  `setup.sh` replaces it (or names it in a `kept (written by jit-speckit` line). It fails today.
+- **fix**: `put` treats a file byte-identical to a hook an earlier release wrote (a list of
+  SHA-256s kept in the extension) as jit's, and names the others it recognizes: `kept (written by
+  jit-speckit <version>, no marker): <file> — delete it to get the current one`. Check for
+  `tests/level.test.sh`, with v1.3.0's hook as a committed fixture, since CI's checkout has no tags: when `.githooks/pre-commit` is v1.3.0's exact file, then `level.sh` replaces it and it
+  carries the marker. It fails today. (Corrected 2026-11-05 from feature 002's research,
+  `specs/002-review-fixes/research.md` C1).
 
 ### F5.4 · High · P21, P10 · an older plugin copy downgrades a newer project, without a word, and takes the review gate with it
 
@@ -126,9 +130,11 @@ repositories with a local bare origin for the two `bin/setup.sh` runs. Those nee
 - **reproduction**: `gh run list --workflow test.yml --limit 100 --json event,headSha,conclusion`,
   and `git log --oneline 4b1f26b..172f8c5`.
 - **exposure**: public.
-- **fix**: run the macOS job on pull requests that touch `extension/scripts/`, `bin/` or `hooks/`
-  (a `paths:` filter, or the job's `if:` checking the changed files), and on every tag. Check: a
-  `tests/static.test.sh` case that `test.yml`'s macOS job runs on `pull_request`. It fails today.
+- **fix**: move the `macos` job from `test.yml` into its own `.github/workflows/macos.yml`, run on
+  pull requests touching `extension/scripts/`, `bin/`, `hooks/` or `tests/` (a path filter is per
+  workflow) and on every tag. Check for `tests/static.test.sh`: when `macos.yml` is read, then it
+  runs on pull requests touching `extension/scripts/`, `bin/` or `hooks/`, and on every tag. It fails today. (Corrected 2026-11-05 from feature 002's research,
+  `specs/002-review-fixes/research.md` C1).
 
 ### Reproductions
 

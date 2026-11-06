@@ -151,11 +151,13 @@ Also checked, no finding:
   has Copilot code review. Either way the printed line is wrong, which is the finding.
 - **reproduction**: sandbox script below.
 - **exposure**: public.
-- **fix**: print the line only when the answer's `requested_reviewers` contains the Copilot
-  login, and otherwise say `copilot: not requested (GitHub did not add the reviewer)`, naming no cause.
-  Check for `tests/pr.test.sh`: when the fake `gh` answers the request with
-  `{"requested_reviewers":[]}`, then the output does not contain `code review requested`. It fails
-  today.
+- **fix**: print `copilot: code review requested` only when the answer's `requested_reviewers`
+  contains the Copilot login; otherwise `copilot: not requested (GitHub did not add the
+  reviewer)`, naming no cause. Check for `tests/pr.test.sh`: when the fake `gh` answers with no
+  reviewer listed, then the output does not contain `code review requested` (fails today); and
+  when it lists `Copilot`, then it does (a guard against a line that always says "not requested").
+  (Corrected 2026-11-05 from feature 002's research,
+  `specs/002-review-fixes/research.md` C1).
 
 ### F3.6 · Medium · P26 · the pre-PR scanners and `/security-review` are presented as built in, and only the prompt runs them
 
