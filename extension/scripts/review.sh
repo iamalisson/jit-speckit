@@ -45,14 +45,19 @@ case "$action" in
     [[ "$(sed -n 's/^assessment: //p' "$record")" == ready ]] \
       || die "the last review said 'changes needed'; fix the findings, then review again and record it"
     if [[ "$action" == check ]]; then echo "REVIEW=ready"; exit 0; fi
-    # What changed: its label line and paragraph, 3 lines at most (the Report's limit). It stops at a
-    # blank line, a heading, a list item or a findings/assessment/security label, so a finding that
-    # follows is never copied; anything before the label is skipped.
+    # What changed: its label line and paragraph, 3 lines at most (the Report's limit). Only prose is
+    # copied: a line must start with a letter or backtick, its first word must not end in ":" or ")",
+    # and it must not name a severity or a finding; the first other line ends the copy. The label is
+    # "What changed" followed by ":" or the line's end, so a finding that only starts with those words
+    # is skipped like anything else before the label.
     section="$(sed '1,/^$/d' "$record" | awk '
-      !on { l = tolower($0); if (l ~ /^[#*_ \t-]*what changed/) { on = 1; print; n = 1; sub(/.*what changed/, "", l); gsub(/[*_: \t]/, "", l); bare = (l == "") }; next }
+      function prose(s) { s = tolower(s); return s ~ /^[ \t]*[a-z`]/ && s !~ /^[ \t]*[^ \t]+[:)]/ &&
+        s !~ /(^|[^a-z])(findings?|high|medium|low|critical|severity|security|assessment|verdict)([^a-z]|$)/ }
+      !on { if (!match(tolower($0), /^[ \t]*([-*+][ \t]+)?(#+[ \t]+)?[*_]*what changed[*_]*[ \t]*(:|$)[*_ \t]*/)) next
+            rest = substr($0, RLENGTH + 1); bare = (rest == ""); if (!bare && !prose(rest)) exit
+            on = 1; print; n = 1; next }
       bare && n == 1 && /^[ \t]*$/ { next }
-      n >= 3 || /^[ \t]*$/ || /^[ \t]*([#>*+-]|[0-9]+\.)/ { exit }
-      tolower($0) ~ /^[ \t_]*(findings|high|medium|low|assessment|security|verdict)/ { exit }
+      n >= 3 || !prose($0) { exit }
       { print; n++ }')"
     [[ -z "$section" ]] || printf '%s\n\n' "$section"
     echo "Assessment: ready" ;;

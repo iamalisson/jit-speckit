@@ -48,6 +48,22 @@ check "when What changed runs past three lines, then report keeps the first thre
 printf 'FINDING-6 only, no What changed\n\nAssessment: ready\n' > "$TMP/report.md"
 "$r" record "$TMP/report.md" >/dev/null; out="$("$r" report 2>&1)" || true
 check "when the report has no What changed, then report prints only the Assessment line" '[[ "$out" == "Assessment: ready" ]]'
+# Only prose is copied: any other shape after the label, or on the label line, ends the copy.
+for shape in 'Finding: LEAK-1 in src/a.ts:3' '[High] LEAK-1 in src/a.ts:3' '1) High LEAK-1 in src/a.ts:3' \
+             'Critical: LEAK-1 in src/a.ts:3' 'H1 (High) LEAK-1 in src/a.ts:3'; do
+  printf 'What changed: Adds search.\n%s\n\nAssessment: ready\n' "$shape" > "$TMP/report.md"
+  "$r" record "$TMP/report.md" >/dev/null; out="$("$r" report 2>&1)" || true
+  check "when '${shape%% LEAK*}' follows What changed, then report stops before it" \
+    'grep -qx "What changed: Adds search." <<<"$out" && ! grep -q LEAK <<<"$out"'
+  printf 'What changed: %s\n\nAssessment: ready\n' "$shape" > "$TMP/report.md"
+  "$r" record "$TMP/report.md" >/dev/null; out="$("$r" report 2>&1)" || true
+  check "when '${shape%% LEAK*}' is right after the label, then report copies nothing of it" \
+    '[[ "$out" == "Assessment: ready" ]]'
+done
+printf 'what changed in src/a.ts:3 lets LEAK-2 through\n\nWhat changed: Adds search.\n\nAssessment: ready\n' > "$TMP/report.md"
+"$r" record "$TMP/report.md" >/dev/null; out="$("$r" report 2>&1)" || true
+check "when a finding line starts with 'what changed' before the real label, then report skips it" \
+  'grep -qx "What changed: Adds search." <<<"$out" && ! grep -q LEAK <<<"$out"'
 report "changes needed"; "$r" record "$TMP/report.md" >/dev/null
 check "when the review said changes needed, then report refuses as check does" 'fails_with "changes needed" "$r" report'
 report ready; "$r" record "$TMP/report.md" >/dev/null
