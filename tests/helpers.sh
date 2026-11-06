@@ -31,12 +31,24 @@ fake_gh() {
 #!/usr/bin/env bash
 echo "$*" >> "$GH_LOG"
 case "$1 $2" in
+  "api graphql") # next.sh's issue-state query: prints, as its --jq does, the asked numbers in $GH_CLOSED
+                 if [[ -n "${GH_FAIL_GRAPHQL:-}" ]]; then echo "gh: Could not resolve to an Issue with the number of $GH_FAIL_GRAPHQL." >&2; exit 1; fi
+                 for q in $(grep -oE 'issue\(number: *[0-9]+' <<<"$*" | grep -oE '[0-9]+$'); do
+                   if grep -qx "$q" "$GH_CLOSED" 2>/dev/null; then echo "$q"; fi
+                 done; exit 0 ;;
   "issue create") n=$(( $(cat "$GH_N" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$GH_N"
+                  # GH_FAIL_CREATE_ONCE: the first create reaches GitHub (listed by `issue list`
+                  # from then on) but fails on the client, as a dropped connection does.
+                  if [[ -n "${GH_FAIL_CREATE_ONCE:-}" && ! -f "$GH_N.failed" ]]; then
+                    touch "$GH_N.failed"; t=""; while (($#)); do if [[ "$1" == --title ]]; then t="$2"; fi; shift; done
+                    echo "$n $t" >> "$GH_CLOSED"; echo "Post https://api.github.com/graphql: unexpected EOF" >&2; exit 1
+                  fi
                   echo "https://github.com/acme/app/issues/$n" ;;
   "label create") exit 0 ;;
   "pr list") if [[ "$*" == *headRefName* ]]; then cat "$GH_OPEN" 2>/dev/null; elif [[ -f "$GH_PR" ]]; then cat "$GH_PR"; fi; exit 0 ;;
   "pr create") echo "https://github.com/acme/app/pull/99" | tee "$GH_PR" ;;
-  "issue list") cat "$GH_CLOSED" 2>/dev/null; exit 0 ;;
+  "issue list") if [[ -n "${GH_FAIL_ISSUE_LIST:-}" ]]; then echo "HTTP 502: Bad Gateway" >&2; exit 1; fi
+                cat "$GH_CLOSED" 2>/dev/null; exit 0 ;;
   "repo view") exit 1 ;;
   "issue edit"|"pr edit") if [[ -n "${GH_FAIL_EDIT:-}" ]]; then echo "GraphQL: Could not resolve to a ProjectV2" >&2; exit 1; fi ;;
   *) exit 0 ;;

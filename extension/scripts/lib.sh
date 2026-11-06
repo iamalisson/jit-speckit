@@ -95,15 +95,22 @@ protected_branches() {
 }
 is_protected() { [[ " $(protected_branches | tr '\n' ' ') " == *" $1 "* ]]; }
 
-feature_dir() {
-  local d="" f=.specify/feature.json num matches
-  # On a task branch (<prefix>/NNN-tNNN-...), the branch says which feature it belongs to. That
-  # wins, so a worktree never acts on whatever feature the main checkout moved on to.
+# branch_feature: on a task branch (<prefix>/NNN-tNNN-...), the specs/ folder of its feature when
+# exactly one matches; otherwise nothing.
+branch_feature() {
+  local num matches
   num="$(git branch --show-current 2>/dev/null | sed -nE "s#^[^/]+/($FEATURE_KEY_RE)-t[0-9]{3,}-.*#\\1#p")"
-  if [[ -n "$num" ]]; then
-    matches="$(find specs -mindepth 1 -maxdepth 1 -type d -name "$num-*" 2>/dev/null)"
-    if [[ -n "$matches" && "$(wc -l <<<"$matches")" -eq 1 ]]; then echo "$matches"; return; fi
-  fi
+  [[ -n "$num" ]] || return 0
+  matches="$(find specs -mindepth 1 -maxdepth 1 -type d -name "$num-*" 2>/dev/null)"
+  if [[ -n "$matches" && "$(wc -l <<<"$matches")" -eq 1 ]]; then echo "$matches"; fi
+}
+
+feature_dir() {
+  local d="" f=.specify/feature.json
+  # On a task branch, the branch says which feature it belongs to. That wins, so a worktree never
+  # acts on whatever feature the main checkout moved on to.
+  d="$(branch_feature)"
+  if [[ -n "$d" ]]; then echo "$d"; return; fi
   # A new worktree has no untracked files: fall back to the main worktree's active feature.
   [[ -f "$f" ]] || f="$(git rev-parse --git-common-dir)/../.specify/feature.json"
   d="$(sed -n 's/.*"feature_directory": *"\([^"]*\)".*/\1/p' "$f" 2>/dev/null)"

@@ -70,14 +70,21 @@ creates carries its number: issues `[001] T003: ...`, branches `feat/001-t003-..
 git-ignored): `/speckit-specify` sets it to the new feature, and `/jit-speckit:next 002` or
 `/speckit-implement 002 T001` set it explicitly. With no argument, `next` serves the active
 feature; when more than one feature has tasks to start, it lists them and asks. On a task branch
-the branch name decides, so a worktree never follows the main checkout.
+the branch name decides, for `next` too, so a worktree never follows the main checkout. A task is
+done when the issue number on its line is closed: `next` reads every task's issue by number in one
+query per feature, so a renamed issue still counts, and a number it cannot read stops it with
+GitHub's error. GitHub closes a PR's `Closes #N` issues only on a merge into the default branch;
+on standard and full, the managed `close-linked-issues.yml` closes them on a merge into `develop`
+or `staging`, and its job fails, naming `could not close: #N`, when one of them cannot be closed.
 
 A task whose line says `(depends on T003)` is **blocked** until T003's issue closes, so `next`
 never offers work whose prerequisite has not merged.
 
 A task is **claimed** the moment it starts: its branch is pushed to origin, empty. From then on
 `next` in every clone and worktree shows it as in progress and never picks it; the clone that
-started it sees it as `resume` and picks it first. Teammates need nothing but `/jit-speckit:init`
+started it sees it as `resume` and picks it first. When origin refuses that push (no network, no
+write access, a server hook), the task still starts and `branch.sh` warns `could not claim <branch>
+on origin: <git's error>`: other clones may start the same task until the branch is pushed. Teammates need nothing but `/jit-speckit:init`
 once in their clone: the shared state is `tasks.md` on the base branch, the issues, and the
 branches on origin.
 

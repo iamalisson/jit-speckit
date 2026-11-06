@@ -22,6 +22,9 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           BASE: ${{ github.event.pull_request.base.ref }}
         run: |
+          # Close every linked issue, then fail the job if any could not be closed.
+          failed=""
           for n in $(grep -oiE '(close[sd]?|fix(e[sd])?|resolve[sd]?) #[0-9]+' <<<"$BODY" | grep -oE '[0-9]+' | sort -u); do
-            gh issue close "$n" --repo "$REPO" --comment "Closed by #$PR (merged into $BASE)." || true
+            gh issue close "$n" --repo "$REPO" --comment "Closed by #$PR (merged into $BASE)." || failed+=" #$n"
           done
+          if [[ -n "$failed" ]]; then echo "could not close:$failed (see the errors above); close them by hand" >&2; exit 1; fi

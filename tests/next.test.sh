@@ -21,6 +21,12 @@ out="$("$n")"
 check "when issues are closed out of order, then the next task is the first still open" '[[ "$out" == *"DONE=2/3 IN_PROGRESS=0 NEXT=T002"* ]]'
 check "then each task shows its state" 'grep -q "^done T001 #1 First" <<<"$out" && grep -q "^open T002 #2 Second" <<<"$out"'
 
+# F1.2: the state comes from the issue numbers, so a renamed issue (one a title search misses) still counts.
+check "when a closed task issue is not found by a title search, then next shows it done and makes no --search call" \
+  ': > "$GH_LOG"; out="$("$n")"; grep -q "^done T001 #1" <<<"$out" && grep -q "^api graphql" "$GH_LOG" && ! grep -q -- --search "$GH_LOG"'
+check "when the issue-state query fails, then next stops with gh's error and names the tasks.md to fix" \
+  'GH_FAIL_GRAPHQL=999 fails_with "cannot read the state of feature 001'"'"'s task issues; fix or remove the issue number it names in specs/001-demo/tasks.md" "$n" && GH_FAIL_GRAPHQL=999 fails_with "number of 999" "$n"'
+
 closed 1; open_prs feat/001-t002-second-in-b
 out="$("$n")"
 check "when a task's branch has an open PR (another worktree), then it is in progress and the next open task is picked" \
@@ -67,6 +73,13 @@ sed -i.bak '/T005/d' specs/001-demo/tasks.md; rm -f specs/001-demo/tasks.md.bak;
 mkdir -p specs/002-reports; printf '%s\n' '- [ ] T001 Report in `r` — #30' > specs/002-reports/tasks.md
 check "when two features have tasks to start and none is named, then it lists them and asks" \
   'out="$("$n")"; grep -q "^feature 001-demo DONE=0/3" <<<"$out" && grep -q "^feature 002-reports DONE=0/1" <<<"$out" && [[ "$(tail -1 <<<"$out")" == "CHOOSE=001-demo 002-reports" ]]'
+# F1.9: on a task branch, the branch names the feature.
+git switch --quiet -c feat/001-t001-first-in-a
+check "when the current branch is a task branch of one feature and another feature has tasks to start, then next prints that feature's tasks and no CHOOSE=" \
+  'out="$("$n")"; grep -q "^resume T001 #1 First" <<<"$out" && grep -q "^open T003 #3 Third" <<<"$out" && ! grep -q CHOOSE <<<"$out"'
+check "then an explicit argument still wins over the branch" \
+  'out="$("$n" 002)"; grep -q "^open T001 #30 Report" <<<"$out" && ! grep -q "First" <<<"$out"'
+git switch --quiet main; git branch --quiet -D feat/001-t001-first-in-a
 check "when a feature is named, then it becomes the active one and its next task is picked" \
   'out="$("$n" 002)"; [[ "$out" == *"NEXT=T001"* ]] && grep -q "specs/002-reports" .specify/feature.json'
 check "when the name matches no single feature, then it refuses" 'fails_with "no single feature" "$n" 009'
@@ -78,6 +91,10 @@ rm -rf specs/002-reports; echo '{ "feature_directory": "specs/001-demo" }' > .sp
 printf '%s\n' '- [ ] T004 Fourth in `d`' >> specs/001-demo/tasks.md
 check "when a task has no issue, then it is listed as no-issue and not picked" \
   'out="$("$n")"; grep -q "^no-issue T004" <<<"$out" && [[ "$out" == *"NEXT="* && "$out" != *"NEXT=T004"* ]]'
+mkdir -p specs/003-bare; printf '%s\n' '- [ ] T001 Nothing linked yet in `n`' > specs/003-bare/tasks.md
+check "when no task of the feature has an issue, then no issue-state query is made" \
+  ': > "$GH_LOG"; "$n" 003 | grep -q "^no-issue T001" && ! grep -q "^api graphql" "$GH_LOG"'
+rm -rf specs/003-bare; echo '{ "feature_directory": "specs/001-demo" }' > .specify/feature.json
 
 mkdir -p "$TMP/mono/apps/web/.specify" && git -C "$TMP/mono" init --quiet
 check "when spec-kit lives in a subfolder of the repo, then scripts refuse instead of writing into the parent" \

@@ -17,6 +17,14 @@ check "then it prints the branch, issue, task and base" \
 check "when run again on the same branch, then it succeeds" '"$b" T001'
 check "then the new branch was pushed to origin at once (the claim)" 'git ls-remote --exit-code origin feat/001-t001-split-ci-credentials-into'
 
+# F1.1: an origin that refuses the claim push (a pre-receive hook), removed afterwards.
+git switch --quiet main
+printf '#!/bin/sh\necho "claims refused here" >&2\nexit 1\n' > "$TMP/origin.git/hooks/pre-receive"; chmod +x "$TMP/origin.git/hooks/pre-receive"
+check "when origin refuses the claim push, then branch.sh exits 0 and prints could not claim" \
+  'out="$("$b" T002 2>&1)"; grep -qx "jit: warning: could not claim feat/001-t002-sandbox-schedule on origin: .*claims refused here.*; other clones may start this task" <<<"$out"'
+rm "$TMP/origin.git/hooks/pre-receive"
+git switch --quiet main; git branch --quiet -D feat/001-t002-sandbox-schedule 2>/dev/null || true
+
 git switch --quiet main
 mkdir -p specs/002-reports; printf '%s\n' '- [ ] T001 Monthly report in `r.py` — #30' > specs/002-reports/tasks.md
 git add specs/002-reports; git commit --quiet -m "docs: 002"; git push --quiet origin main; git push --quiet origin main:develop

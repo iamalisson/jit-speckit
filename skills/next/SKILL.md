@@ -7,7 +7,10 @@ argument-hint: "[feature]"
 # Next task
 
 1. Run `bash .specify/extensions/jit/scripts/next.sh [feature]`, with the argument when the user
-   named a feature (`002` or `002-reports`); it becomes the active feature.
+   named a feature (`002` or `002-reports`); it becomes the active feature. With no argument on
+   a task branch, it serves that branch's feature.
+   - If it stops with `cannot read the state of feature …`, show gh's error above it (it names the
+     issue number) and stop: the task line links an issue that is missing or not an issue.
    - If `.specify/extensions/jit/` does not exist, tell the user to run `/jit-speckit:init`
      first, and stop.
    - If it prints `CHOOSE=...`, more than one feature has tasks to start: show the `feature` lines
