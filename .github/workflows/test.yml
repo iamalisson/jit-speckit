@@ -4,8 +4,6 @@ on:
   push:
     branches: [main]
   pull_request:
-  schedule:
-    - cron: "23 5 * * 1" # weekly: the macOS job below
   workflow_dispatch:
 
 permissions:
@@ -49,26 +47,6 @@ jobs:
         run: |
           bash --version | head -1
           git config --global --add safe.directory '*'
-          git config --global user.email ci@example.com
-          git config --global user.name ci
-          git config --global init.defaultBranch main
-          bash tests/run.sh
-
-  macos:
-    name: macOS (stock bash 3.2, BSD tools)
-    # Weekly and on demand: hosted macOS runners are often unavailable, and a job waiting for one
-    # should not block every push. bash 3.2 itself is covered on every push by the job above.
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Tests on /bin/bash 3.2 (Homebrew's newer bash kept off PATH)
-        env:
-          PATH: /usr/bin:/bin:/usr/sbin:/sbin
-        run: |
-          bash --version | head -1
           git config --global user.email ci@example.com
           git config --global user.name ci
           git config --global init.defaultBranch main

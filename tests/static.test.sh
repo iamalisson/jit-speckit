@@ -46,6 +46,18 @@ sed -i.bak "s/checkout@$new # v9.9.9/checkout@$old # v4.4.0/" "$copy/.github/wor
 check "when workflows disagree on an action, then sync-pins refuses and lists both" \
   'out="$("$copy/bin/sync-pins.sh" 2>&1)" && exit 1; grep -q "$old" <<<"$out" && grep -q "$new" <<<"$out"'
 
+# F5.6: the macOS job runs on PRs that touch the scripts and on every tag, in its own workflow
+# (path filters are per workflow). One condition per check: an && chain would hide which grep failed.
+mac=.github/workflows/macos.yml
+on_pr="$(awk '/^  pull_request:/ { p = 1; next } /^  [a-z_]+:/ { p = 0 } p' "$mac" 2>/dev/null || true)"
+on_push="$(awk '/^  push:/ { p = 1; next } /^  [a-z_]+:/ { p = 0 } p' "$mac" 2>/dev/null || true)"
+check "when macos.yml is read, then it runs on pull requests touching extension/scripts/" 'grep -qF -- "- \"extension/scripts/**\"" <<<"$on_pr"'
+check "then it runs on pull requests touching bin/" 'grep -qF -- "- \"bin/**\"" <<<"$on_pr"'
+check "then it runs on pull requests touching hooks/" 'grep -qF -- "- \"hooks/**\"" <<<"$on_pr"'
+check "then it runs on every tag" 'grep -qF "tags: [\"**\"]" <<<"$on_push"'
+check "then no if: in macos.yml names github.event_name (it would skip the PR and tag runs)" '[[ -f "$mac" ]] && ! grep -qE "^ *if:.*github\.event_name" "$mac"'
+check "then test.yml has no macOS job left" '! grep -qE "runs-on: *macos" .github/workflows/test.yml'
+
 # The spec-kit version jit-speckit is tested with is written in three places; they must agree.
 sk="$(sed -nE 's/^SPECKIT_VERSION="(v[0-9.]+)".*/\1/p' bin/setup.sh)"
 check "the spec-kit version in setup.sh ($sk) matches the init skill and the README badge" \

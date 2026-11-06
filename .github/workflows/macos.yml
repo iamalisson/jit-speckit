@@ -1,0 +1,38 @@
+name: macOS
+
+# Its own workflow because path filters are per workflow: on every PR that touches what runs on
+# macOS, on every tag (a release is tested on macOS), weekly, and on demand.
+on:
+  pull_request:
+    paths:
+      - "extension/scripts/**"
+      - "bin/**"
+      - "hooks/**"
+      - "tests/**"
+      - ".github/workflows/macos.yml"
+  push:
+    tags: ["**"]
+  schedule:
+    - cron: "23 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    name: macOS (stock bash 3.2, BSD tools)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Tests on /bin/bash 3.2 (Homebrew's newer bash kept off PATH)
+        env:
+          PATH: /usr/bin:/bin:/usr/sbin:/sbin
+        run: |
+          bash --version | head -1
+          git config --global user.email ci@example.com
+          git config --global user.name ci
+          git config --global init.defaultBranch main
+          bash tests/run.sh
