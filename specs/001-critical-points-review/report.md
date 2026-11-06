@@ -259,7 +259,6 @@ need nothing; the others carry a one-line note in their section that a later tas
 | why no Copilot review was requested: no Copilot code review on this account, or the wrong reviewer login (F3.5) | [3](report/3-review-gate.md) | GitHub's REST docs page on requesting a Copilot review, or `pr.sh`'s call on an account that has it |
 | a task PR from a fork cannot close its issue, because its token is read-only (F1.6) | [1](report/1-task-chain.md) | a task PR from a fork of the sandbox, merged into `develop` |
 | a lost answer from a real `gh issue create` duplicates the issue on rerun (F1.7) | [1](report/1-task-chain.md) | run against the fake `gh` only; cut the connection after the create on the sandbox |
-| an agent following `pr.md` copies a security finding into `## Review` (F4.3) | [4](report/4-ci-supply-chain.md) | by reading only; a task review that reports a High security finding, then `pr.md` step 5, and read the body |
 | the generated trivy job | [4](report/4-ci-supply-chain.md) | its checksum pin was checked; generate it in a repo with a Dockerfile and read the job |
 | DORA's 2025 model lists small batches among its capabilities (`docs/design.md`) | [7](report/7-core-model.md) | open the capabilities PDF on cloud.google.com |
 | `Closes #N` in task PRs reaches the default branch through merge or squash commit messages | [7](report/7-core-model.md) | on the sandbox, set both commit messages to the PR's description, merge a feature branch, see whether the task issues close |

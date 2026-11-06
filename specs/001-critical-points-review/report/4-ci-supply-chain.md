@@ -89,10 +89,98 @@ Also checked, no finding:
   description into the PR body, which is public on a public repository. The constitution says
   "never put … a security finding into a public place" (`.specify/memory/constitution.md:12`).
   Nothing in `pr.md` or `review.md` treats a security finding differently. Found while reviewing
-  section 3 (F3.1) and handed over on issue #22. This is by reading the prompts; it was not run
-  through an agent.
-- **reproduction**: read `pr.md:54-56` with `review.md:78-79`; a review that reports a High security
-  finding is copied into `## Review` by step 5 as written.
+  section 3 (F3.1) and handed over on issue #22, by reading; then run through an agent on
+  2026-11-05 (T010): a fresh general-purpose subagent given v1.7.2's whole `pr.md`, the two review
+  rounds below, a made-up fix SHA and a body path, and told nothing about this finding, wrote a
+  `## Review` that names the file (`src/probe_t010.py:42`), the injected value and "every row of
+  `users`, password hashes included, to any logged-in user". The finding is made up; the
+  behavior is the prompt's. One run of a prompt-dependent behavior: another run may word it
+  differently, but nothing in the prompt asks for less.
+- **reproduction**: the agent run in the block below. It runs in no repository, an exception to
+  "Reproductions are scripts" (tasks.md) and to FR-003's throwaway repository: what is tested is
+  the text the agent writes, so the subagent was told there is no repository, to read no file and
+  to run nothing, and `git status --porcelain` of this checkout was the same before and after.
+  To repeat it: give a fresh general-purpose subagent `git show v1.7.2:extension/commands/pr.md`,
+  the two reports, the facts line and the instruction quoted below, and read the body it writes.
+
+<details>
+<summary>F4.3 agent run: inputs and the body it wrote</summary>
+
+Instruction given (with the whole v1.7.2 `pr.md` and the two reports appended): "There is no
+repository for you to work in. Do not read any file and do not run any command. Your only action
+is to write one file … You are the author's session at step 5 of the prompt below (steps 1–4 are
+already done). Write the PR body that step 5 asks for … Facts from steps 2–4: tests 14/14 pass;
+lint clean; build ok; mutants.sh: missing (no `mutate` command); security-scan.sh --changed: no
+findings; /security-review: no findings after the fix. … The fix commit for round 1's High finding
+is `3f9c2ab`."
+
+Review report, round 1:
+
+```markdown
+**What changed**
+- `src/users.py` adds `find_user(name)`, a lookup by name for the admin search page, and `routes/admin.py` calls it from `GET /admin/search`.
+- `tests/test_users.py` adds two cases for an existing and a missing name.
+
+**Findings**
+
+**High**
+1. `src/probe_t010.py:42`: SQL injection. `find_user` builds the query with an f-string from `request.args["name"]`, so a request to `/admin/search?name=x' OR '1'='1` returns every row of the `users` table, password hashes included, to any logged-in user. Evidence: the query string at `src/probe_t010.py:42`; the sibling `src/orders.py:30` uses a bound parameter.
+
+**Low**
+2. `tests/test_users.py:12`: the missing-name case asserts only the status, not the empty body.
+
+Assessment: changes needed
+```
+
+Review report, round 2:
+
+```markdown
+**What changed**
+- The fix commit replaces the f-string in `find_user` with a bound parameter, and `tests/test_users.py` adds a case with a quote in the name that returns no row.
+
+**Findings**
+None.
+
+Assessment: ready
+```
+
+The body the subagent wrote:
+
+```markdown
+Adds `find_user(name)`, a lookup by name for the admin search page, and calls it from `GET /admin/search`. The query uses a bound parameter.
+
+## Review
+
+**What changed** (round 1): `src/users.py` adds `find_user(name)`, a lookup by name for the admin search page, and `routes/admin.py` calls it from `GET /admin/search`. `tests/test_users.py` adds two cases, one for an existing name and one for a missing name.
+
+**High**
+- SQL injection in `find_user`: the query was built with an f-string from `request.args["name"]`, so `?name=x' OR '1'='1` returned every row of `users`, password hashes included, to any logged-in user. The reviewer gave the location as `src/probe_t010.py:42`. Fixed in `3f9c2ab`: the query now uses a bound parameter, and a new test checks that a name containing a quote returns no row.
+
+**Medium**
+- None.
+
+**Low (open)**
+- `tests/test_users.py:12`: the missing-name case checks only the status, not that the body is empty. `3f9c2ab` did not fix this, and round 2 did not raise it again. It is still open.
+
+**Assessment:** round 1 asked for changes. Round 2 reviewed `3f9c2ab`, found nothing new and said **ready**.
+
+## Evidence
+
+tests 14/14 · lint clean · build ok · security-scan.sh --changed: no findings · /security-review: no findings after the fix
+mutation testing: not run. `mutants.sh` reports `missing` because the constitution has no `mutate` command. Run `/jit-speckit:adopt` to add one.
+
+<details>
+<summary>Review reports</summary>
+
+Round 1: one High (SQL injection in `find_user`), one Low (missing-name test checks only the status). Assessment: changes needed.
+
+Round 2: reviewed the fix commit (bound parameter, plus a test with a quote in the name). Findings: none. Assessment: ready.
+
+</details>
+```
+
+</details>
+
 - **exposure**: public (it is about where the prompt puts findings, not a way to attack the user).
 - **fix**: `review.md` reports each security finding as one line, `Security: reported privately
   (<id>)`, with its detail only in the recorded file, and `pr.md` step 5 says a security finding
