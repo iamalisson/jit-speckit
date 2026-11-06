@@ -83,6 +83,7 @@ check "the review prompt takes the range's start from origin/<base>, as review.s
 # FR-034: every review runs in the plugin's reviewer agent on a pinned strong model; FR-035: no fast-model checker.
 check "when agents/reviewer.md is read, then it has name: reviewer, model: opus, effort: high and no ## Method (review.md is the only copy)" \
   'grep -qx "name: reviewer" agents/reviewer.md && grep -qx "model: opus" agents/reviewer.md && grep -qx "effort: high" agents/reviewer.md && ! grep -q "^## Method" agents/reviewer.md'
+# Guard half (FR-035): it passes on main too, so it is never presented as failing-first.
 check "then the plugin ships no fast-model checker agent and plugin.json has no agents key (the default scan finds agents/)" \
   '[[ ! -e agents/checker.md ]] && ! grep -q "\"agents\"" .claude-plugin/plugin.json'
 check "when review.md, pr.md and issues.md launch the reviewer, then each names jit-speckit:reviewer and pr.md and issues.md no longer launch a general-purpose subagent" \
