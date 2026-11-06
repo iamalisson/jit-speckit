@@ -23,7 +23,7 @@ or a message (F1.4, F1.5, F2.2, F2.5, F3.2).
 | id | rank | promise | finding | proposed fix | section |
 |---|---|---|---|---|---|
 | F2.1 | High | P06, P07 | reported privately (GHSA-4mx7-h98x-x6hf) | in the advisory | [2](report/2-secrets-guard.md) |
-| F5.2 | High | P20 | `remove` deletes a managed file the user edited, uncommitted edits included | keep marked files with uncommitted or non-generated content | [5](report/5-levels-files.md) |
+| F5.2 | High | P20 | `remove` deletes a managed file the user edited, uncommitted edits included | keep marked files that changed since jit wrote them | [5](report/5-levels-files.md) |
 | F5.4 | High | P21, P10 | an older plugin copy downgrades a newer project without a word, and removes the review gate | `setup.sh` refuses to go below the project's version | [5](report/5-levels-files.md) |
 | F1.1 | Medium | P02, P04 | a refused claim push is silent, so the task is not claimed | warn when the claim push fails | [1](report/1-task-chain.md) |
 | F1.2 | Medium | P03, P04 | `next` finds closed issues by title search; a renamed closed issue counts as not done | look each task's issue up by number | [1](report/1-task-chain.md) |
@@ -45,7 +45,7 @@ or a message (F1.4, F1.5, F2.2, F2.5, F3.2).
 | F4.2 | Medium | P25 | the audit's private-advisory call is refused by GitHub (422) | send the full JSON body | [4](report/4-ci-supply-chain.md) |
 | F4.3 | Medium | P25 | the PR prompt copies a security finding from the review into the public PR body | security findings are one line in `review.md` and `pr.md` | [4](report/4-ci-supply-chain.md) |
 | F4.4 | Medium | P16, P28 | on lite there is no CI gate and no GitHub protection, while the docs call them the boundary | name the levels in the docs; offer free protections on every level | [4](report/4-ci-supply-chain.md) |
-| F4.5 | Medium | P16 | Semgrep is version-pinned but not checksum-verified, and its rules are fetched at run time, while the README says all pinned and checksum-verified | hash-pinned install, rules kept in the extension | [4](report/4-ci-supply-chain.md) |
+| F4.5 | Medium | P16 | Semgrep is version-pinned but not checksum-verified, and its rules are fetched at run time, while the README says all pinned and checksum-verified | image pinned by digest; docs say where the rules come from | [4](report/4-ci-supply-chain.md) |
 | F4.7 | Medium | P17 | a refresh with `init` puts a project's newer action pins back to older ones | `put` keeps newer pins | [4](report/4-ci-supply-chain.md) |
 | F5.3 | Medium | P19, P21 | a project set up before 1.4.0 keeps every generated file at its old version, hooks included | recognize past releases' files | [5](report/5-levels-files.md) |
 | F5.6 | Medium | P24 | v1.7.2 was never tested on macOS | run the macOS job on PRs that touch scripts, and on tags | [5](report/5-levels-files.md) |
@@ -74,13 +74,15 @@ or a message (F1.4, F1.5, F2.2, F2.5, F3.2).
 One entry per public High and Medium finding. Each check fails today and passes after the fix.
 F2.1's fix is in its private advisory.
 
-### Fix F5.2 · `remove.sh` keeps a marked file that has uncommitted edits or differs from what jit generates
+### Fix F5.2 · `remove.sh` keeps a marked file that has uncommitted edits or differs from what jit wrote
 
 - **promise**: P20, `remove` deletes only what still matches what jit wrote.
-- **change**: `ours` in `bin/remove.sh` also requires `git diff --quiet HEAD -- "$1"`, and a marked
-  file whose content differs from what jit would generate is kept with `kept (edited): <file>`.
-- **check** (`tests/setup.test.sh`): when a managed workflow has an uncommitted edit, then
-  `remove.sh` keeps it and prints `kept (edited)`.
+- **change**: `put()` records the SHA-256 of every file it writes in `.specify/jit-files.sha256`;
+  `bin/remove.sh` deletes a marked file only when its hash matches that record, or, with no
+  record (a project set up before the fix), only when it is tracked and `git diff --quiet HEAD`
+  says it is unchanged; otherwise it prints `kept (edited): <file>`.
+- **check** (`tests/setup.test.sh`): when a managed workflow (committed alone) has an uncommitted
+  edit, then `remove.sh` keeps it and prints `kept (edited)`.
 
 ### Fix F5.4 · `setup.sh` refuses to downgrade a project without `--downgrade`
 
@@ -113,8 +115,8 @@ F2.1's fix is in its private advisory.
 - **change**: replace `|| true` with `failed+=" #$n"` inside the loop and
   `[ -z "$failed" ] || { echo "could not close:$failed"; exit 1; }` after it.
 - **check** (`tests/static.test.sh`, the step run with a fake `gh` failing on 12): when the body
-  says "fixes #12" and "Closes #3", then `gh issue close 3` is still called and the step exits
-  non-zero.
+  says "fixes #12" and "Closes #3", then the step exits non-zero (fails today: exit 0), and
+  `gh issue close 3` is still called (a guard: true today too).
 
 ### Fix F1.7 · `issues.sh` reuses a task's issue that GitHub created but never confirmed
 
@@ -129,9 +131,11 @@ F2.1's fix is in its private advisory.
 
 - **promise**: P05, the spec folder and the spec PR are never lost.
 - **change**: drop `2>/dev/null || true` at `pr.sh:79`; on failure `die "could not check for an
-  open spec PR: <gh's error>"`.
+  open spec PR"` after gh's own error.
 - **check** (`tests/pr.test.sh`): when `gh pr list` fails while a spec PR is open with someone
-  else's commit, then `pr.sh spec` exits non-zero and origin's spec branch still has that commit.
+  else's commit, and the local clone has fetched origin after that commit, then `pr.sh spec`
+  exits non-zero and origin's spec branch still has that commit. Without the fetch,
+  `--force-with-lease` already refuses and the check proves nothing.
 
 ### Fix F1.9 · `next` on a task branch serves that branch's feature
 
@@ -157,10 +161,14 @@ F2.1's fix is in its private advisory.
 ### Fix F2.3 · `guard.sh` refuses abbreviated `--no-verify` and judges a commit by the branch switched to
 
 - **promise**: P08, the command guard within its documented scope.
-- **change**: refuse any unambiguous prefix of `--no-verify` for the subcommands that take it, and
-  judge commits after a `git switch|checkout <branch>` in the same chain by that branch.
-- **check** (`tests/guard.test.sh`): when the command is a commit with an abbreviated
-  `--no-verify`, or a switch to `main` followed by a commit in one chain, then `guard.sh` exits 2.
+- **change**: refuse any prefix of `--no-verify` (at least 3 characters) for `commit`, `push`,
+  `merge`, `rebase` and `am`, and `am -n` like `commit -n` (`cherry-pick` and `revert` take no `--no-verify` and keep their
+  exact-word check); and judge commits and `HEAD` pushes
+  after a `git switch|checkout <branch>` in the same chain against every branch the chain may
+  be on.
+- **check** (`tests/guard.test.sh`): when one of those subcommands uses an abbreviated
+  `--no-verify` (built at run time), or `am -n`, or a chain switches to `main` and then commits,
+  then `guard.sh` exits 2.
 
 ### Fix F3.1 · `pr.sh task` attaches the recorded review to the PR, and the docs say what the gate proves
 
@@ -196,8 +204,9 @@ F2.1's fix is in its private advisory.
 - **change**: print `copilot: code review requested` only when the answer's `requested_reviewers`
   contains the Copilot login; otherwise `copilot: not requested (GitHub did not add the reviewer)`,
   naming no cause.
-- **check** (`tests/pr.test.sh`): when the fake `gh` answers `{"requested_reviewers":[]}`, then the
-  output does not contain `code review requested`.
+- **check** (`tests/pr.test.sh`): when the fake `gh` answers with no reviewer listed, then the
+  output does not contain `code review requested` (fails today); and when it lists `Copilot`,
+  then it does (a guard against a line that always says "not requested").
 
 ### Fix F3.6 · `security-scan.sh --changed` records its result per diff, and `pr.sh task` requires it
 
@@ -245,9 +254,11 @@ F2.1's fix is in its private advisory.
 
 - **promise**: P25, security findings go to a private place.
 - **change**: in `skills/security/SKILL.md`, send JSON with `--input -`, with `severity` and a
-  `vulnerabilities` entry (ecosystem `other`), and look up existing advisories by summary first.
-- **check** (`tests/static.test.sh`): when the skill's advisory example is read, then it includes
-  `vulnerabilities` and `severity`.
+  `vulnerabilities` entry (ecosystem `other`), and look up existing advisories by summary first, so a retry makes no duplicate.
+- **check** (`tests/static.test.sh`): when the skill's advisory call is read, then the JSON after
+  `--input -` names `summary`, `description`, `severity`, `vulnerabilities` and `ecosystem`, and
+  a `--paginate` lookup comes before the `-X POST`. A file-wide grep for `vulnerabilities` and `severity` already passes
+  today, so the check reads the call only.
 
 ### Fix F4.3 · security findings are one line in the review report and in `## Review`
 
@@ -267,19 +278,24 @@ F2.1's fix is in its private advisory.
   for a public repository.
 - **check** (`tests/static.test.sh`): when the README's CI row is read, then it names its levels.
 
-### Fix F4.5 · Semgrep is hash-pinned and its rules come from the extension
+### Fix F4.5 · Semgrep runs from an image pinned by digest, and the docs say where its rules come from
 
 - **promise**: P16, every CI tool is pinned and checksum-verified.
-- **change**: install Semgrep with its hash pinned next to its version in `pins.sh`
-  (`--require-hashes`), and run rule files kept in the extension instead of `--config p/…`.
-- **check** (`tests/level.test.sh`): when `level.sh full` writes `security.yml`, then its Semgrep
-  step verifies a hash and has no `--config p/`.
+- **change**: run Semgrep in the full-level `security.yml` from `semgrep/semgrep@sha256:<digest>`,
+  with the digest next to its version in `pins.sh`, instead of `uvx --from semgrep==<version>`;
+  the README and `docs/security.md` say its rule sets come from the Semgrep registry at run
+  time. Rules are not vendored: the Semgrep Rules License forbids redistributing them.
+- **check** (`tests/level.test.sh`, `tests/static.test.sh`): when `level.sh full` writes
+  `security.yml`, then its Semgrep job runs `semgrep/semgrep@sha256:<64 hex>` equal to
+  `pins.sh`'s digest and nothing installs Semgrep by version alone; and when the README CI row
+  and `docs/security.md` are read, then they say the rules come from the Semgrep registry.
 
 ### Fix F4.7 · `put` keeps a managed workflow's newer action pins
 
 - **promise**: P17.
 - **change**: before rewriting a managed workflow, keep each `uses: <action>@<sha> # <version>`
-  line whose version is newer than `pins.sh`'s (`sort -V`), and print `kept newer pin: <action>
+  line whose version is newer than `pins.sh`'s (compared by a pure-bash `version_newer` in
+  `lib.sh`, not `sort -V`, which BSD and busybox may lack), and print `kept newer pin: <action>
   <version>`.
 - **check** (`tests/level.test.sh`): when a managed workflow carries a newer checkout pin than
   `pins.sh`, then `level.sh` keeps it and prints `kept newer pin`.
@@ -287,19 +303,25 @@ F2.1's fix is in its private advisory.
 ### Fix F5.3 · setup recognizes files earlier releases wrote without the marker
 
 - **promise**: P19, P21.
-- **change**: `put` treats a file byte-identical to one any earlier release wrote (a list of
-  SHA-256s kept in the extension) as jit's, or prints `kept (written by jit-speckit <version>, no
-  marker): <file> — delete it to get the current one`.
-- **check** (`tests/setup.test.sh`): when `.githooks/pre-commit` is v1.3.0's exact file, then
-  `setup.sh` replaces it, or names it in a `kept (written by jit-speckit` line.
+- **change**: `put` treats a file byte-identical to a hook an earlier release wrote (a list of
+  SHA-256s kept in the extension) as jit's, and names the others it recognizes: `kept (written by jit-speckit <versions>, no marker): <file> — delete it to get
+  the current one` (and `<versions> or older` for generated files).
+- **check** (`tests/level.test.sh`, with v1.3.0's hook as a committed fixture, since CI's checkout
+  has no tags): when `.githooks/pre-commit` is v1.3.0's exact file, then `level.sh` replaces it and it carries the marker; and when
+  `close-linked-issues.yml` is v1.3.1's exact file, then it is kept and
+  named in a `kept (written by jit-speckit 1.3.1` line (replacing it would
+  undo a take-over, since 1.4.0+'s copy without its marker has the same bytes).
 
 ### Fix F5.6 · the macOS job runs on PRs that touch scripts, and on tags
 
 - **promise**: P24, runs on macOS (BSD tools).
-- **change**: in `.github/workflows/test.yml`, run the `macos` job on pull requests touching
-  `extension/scripts/`, `bin/` or `hooks/`, and on every tag.
-- **check** (`tests/static.test.sh`): when `test.yml` is read, then the `macos` job runs on
-  `pull_request`.
+- **change**: move the `macos` job from `test.yml` into its own `.github/workflows/macos.yml`,
+  run on pull requests touching `extension/scripts/`, `bin/`, `hooks/` or `tests/` (a path
+  filter is per workflow) and on every tag.
+- **check** (`tests/static.test.sh`): when `macos.yml` is read, then it runs on pull requests
+  touching `extension/scripts/`, `bin/` or `hooks/`, and on every tag;
+  and `test.yml` has no `runs-on: macos` left.
+
 
 **Low findings** get no fix entry. Those marked "none (docs honest)" in the summary, like F1.3,
 need nothing; the others carry a one-line note in their section that a later task can pick up.

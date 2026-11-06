@@ -93,14 +93,14 @@ and the guard is "best effort", with "CI and branch protection" as the boundary.
   branch protection.
 - **exposure**: public. It is the operator's own agent, and the documented boundary is CI plus
   branch protection (FR-013).
-- **fix**: in `guard.sh`, refuse any long option that git would expand to `--no-verify`: a unique
-  prefix of it among that subcommand's options (git rejects the ambiguous shorter ones, so the
-  guard can refuse every prefix that is not ambiguous for `commit`, `push`, `merge`, `rebase` and
-  `am`, each checked against its own option list; `cherry-pick` and `revert` take no `--no-verify`). And when a word sequence in the chain is
-  `git switch|checkout <branch>`, judge later commits by that branch. Check for
-  `tests/guard.test.sh`: when the command is a commit with an abbreviated `--no-verify`, or a
-  switch to `main` followed by a commit in one chain, then `guard.sh` exits 2. It fails today
-  (exit 0).
+- **fix**: refuse any prefix of `--no-verify` (at least 3 characters) for `commit`, `push`,
+  `merge`, `rebase` and `am`, and `am -n` like `commit -n` (`cherry-pick` and `revert` take no `--no-verify` and keep their
+  exact-word check); and judge commits and `HEAD` pushes
+  after a `git switch|checkout <branch>` in the same chain against every branch the chain may be
+  on. Check for `tests/guard.test.sh`: when one of those subcommands uses an abbreviated
+  `--no-verify` (built at run time), or `am -n`, or a chain switches to `main` and then commits,
+  then `guard.sh` exits 2. It fails today. (Corrected 2026-11-05 from feature 002's research,
+  `specs/002-review-fixes/research.md` C1).
 
 ### F2.4 · Medium · P08 · the docs give Claude Code 2.1.275 as the plugin's minimum, but the guard fails closed only from 2.1.295
 
