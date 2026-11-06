@@ -29,7 +29,7 @@ no_verify() { ((${#1} >= 3)) && [[ "--no-verify" == "$1"* ]]; }
 # switched <switch|checkout args...>: add the branch they may move to. Restoring files
 # (`checkout [<tree-ish>] -- <paths>`) adds nothing; a word it cannot tell apart is added.
 switched() {
-  local w o found="" track=false
+  local w o found=""
   while (($#)); do
     w="$1"; shift
     o="${w%%=*}"
@@ -40,21 +40,20 @@ switched() {
         if ((${#o} >= 4)) && [[ "--create" == "$o"* || "--force-create" == "$o"* || "--orphan" == "$o"* ]]; then
           if [[ "$w" == *=* ]]; then w="${w#*=}"; else w="${1:-}"; fi; branches+=" $w "; return 0
         fi
-        # switch takes --t (no other --t option); checkout calls it ambiguous, so counting it is safe.
-        if ((${#o} >= 3)) && [[ "--track" == "$o"* ]]; then track=true
-        elif [[ "$w" == *=* ]]; then found+=" ${w#*=} "; fi ;;
+        [[ "$w" != *=* ]] || found+=" ${w#*=} " ;;
       -?*)
         # Short bundle: a new-branch letter takes the rest of the word, or the next word.
         if [[ "$w" == -*[bBcC]* ]]; then
           w="${w#*[bBcC]}"; [[ -n "$w" ]] || w="${1:-}"; branches+=" $w "; return 0
-        fi
-        [[ "$w" == -*t* ]] && track=true ;;
+        fi ;;
       -) found+=" $(git rev-parse --abbrev-ref "@{-1}" 2>/dev/null || echo -) " ;;
       *) found+=" $w " ;;
     esac
   done
-  # --track [refs/][remotes/]<remote>/<branch> creates the local <branch>, as git derives it.
-  if $track; then for w in $found; do w="${w#refs/}"; w="${w#remotes/}"; found+=" ${w#*/} "; done; fi
+  # A switch to [refs/][remotes/]<remote>/<branch> may land on the local <branch>: git creates it
+  # with --track, --no-track, or none when only the remote has it. Add that name whatever the flags,
+  # so no tracking form is missed; the cost is a refusal git would not need (detached checkouts).
+  for w in $found; do w="${w#refs/}"; w="${w#remotes/}"; [[ "$w" != */* ]] || found+=" ${w#*/} "; done
   branches+="$found"
 }
 
