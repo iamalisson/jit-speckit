@@ -53,7 +53,9 @@ if [[ "$(git branch --show-current)" != "$branch" ]]; then
   else
     git switch --quiet --no-track -c "$branch" "$from"
     # The claim: an empty branch on origin tells every other clone's `next` this task is taken.
-    if git push --quiet -u origin "$branch" 2>/dev/null; then echo "claim: $branch pushed to origin" >&2; fi
+    if err="$(git push --quiet -u origin "$branch" 2>&1)"; then echo "claim: $branch pushed to origin" >&2
+    else echo "jit: warning: could not claim $branch on origin: $(tr '\n' ' ' <<<"${err:-unknown error}" | sed 's/ *$//'); other clones may start this task" >&2
+    fi
   fi
 fi
 

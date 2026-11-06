@@ -15,7 +15,7 @@ user ran `/speckit-jit-review`): launch one general-purpose subagent whose promp
 file plus the facts below, and nothing else: no summary of what you built, no "I already checked
 X". Wait for its report, save it as it came to a file outside the repository (`mktemp`), and record it:
 `bash .specify/extensions/jit/scripts/review.sh record <file>` (`record --plan <file>` for a plan
-review). The record is tied to the exact diff (or `tasks.md`): `pr.sh` and `issues.sh` refuse to
+review, `record --delta <file>` for a fix round). The record is tied to the exact diff (or `tasks.md`): `pr.sh` and `issues.sh` refuse to
 open anything without a recorded review that said `ready` for the current state, at every level,
 so a commit after the review means another review. If you are that subagent: follow the method
 and return only the report.
@@ -25,15 +25,29 @@ Facts the author passes:
   `specs/NNN-*/`;
 - the task's line from `tasks.md` with its sub-bullets, or "plan review";
 - the path of the PR body draft, if there is one;
-- the project's test command (the constitution's **Commands** line or its jit block).
+- the project's test command (the constitution's **Commands** line or its jit block);
+- for a fix round (a **delta**): the `REVIEWED=<sha>` the last `record` printed and the path of
+  that round's report.
+
+**A delta** reads `git diff <sha>..HEAD` only: it checks that each previous finding is fixed and
+applies steps 2 to 6 to the fix commits alone. `record --delta` refuses it unless a full round was
+recorded on this branch, `<sha>` is still on the branch, something was committed since, and the fix
+changes at most 20 lines outside the previous findings' files (test files aside); otherwise run a
+new full review.
 
 ## Method
 
 1. **Read the rules first**, from the branch: `.specify/memory/constitution.md`, `AGENTS.md`,
    `CLAUDE.md`, `.github/copilot-instructions.md` where they exist, and the feature's `spec.md`,
    `plan.md` and the task's line (*Comes from*, *Impact*, *Completed when*).
-2. **Start from the diff, end in the repository.** `git diff <base>...HEAD`. For every changed
-   file, open what it calls and what calls it (search each symbol). For every new file of a kind
+2. **Map the risk, then start from the diff and end in the repository.** Run
+   `bash .specify/extensions/jit/scripts/review.sh risk` (for a delta, `review.sh risk <sha>`).
+   Every `RISK=` path is deep. Then rank the other hunks for what a path cannot show: data loss,
+   secrets, authorization, money, a migration, a branch or CI change, a deletion, a skipped gate,
+   a write to the user's files. Those are deep too. Deep means steps 2 to 7 in full. Everything
+   else is sampled (read the hunk and its callers once) or proven (an existing test fails if it
+   breaks: name it as `file:line`). Steps 4 and 5 still cover the whole diff.
+   `git diff <base>...HEAD`. For every changed file, open what it calls and what calls it (search each symbol). For every new file of a kind
    the repository already has (migration, workflow, endpoint, model, job, script), open the newest
    two siblings and list every guard they have: existence checks, idempotent writes, timeouts,
    authorization, refusal to run against production. A guard the siblings have and the new file
@@ -75,12 +89,31 @@ clearly pass about 400 lines with its tests: name the behaviors to split it by.
 
 Written for the author, who fixes it, and for the human who merges:
 - **What changed**: three lines at most, in your own words from the code, not from the PR body.
+- **Risk map**, before the findings, one line per path you went deep on or skipped as proven:
+  `- deep: <path> — <why risky>: <what you checked>`
+  `- proven: <path> by <test file>:<n> — <what it asserts>`
+  Write each line exactly as shown, from the start of the line, path first. Every `RISK=` path
+  needs one; `review.sh record` refuses the report otherwise, and accepts `- proven:` only when
+  `<test file>` is a test file at HEAD with a line `<n>`. Anything not listed was sampled. The PR
+  shows these paths, never the text after them.
 - **Findings**, ranked: **High** (wrong result, data loss, a broken upgrade on existing state,
   security), **Medium** (a guard the siblings have, a test that cannot fail, an unhandled
   real-path case, a failure path that is silent or untested), **Low** (worth a line, not a block). Each one: `file:line`, one concrete
   scenario of what goes wrong ("on a database built by `create_all` and stamped at the previous
   revision, `flask db upgrade` stops with 'already exists'"), and the evidence (the sibling's
   `file:line`, the command output). A finding you could not verify says so. No style, no naming,
-  no nits: they are what gets reviews ignored.
+  no nits: they are what gets reviews ignored. A **security** finding is listed last, and the PR
+  shows it as one line, `Security: reported privately (<id>)`: its detail goes to the author only,
+  never into a public PR.
+- Before the last line, each on its own line: `Reviewed: <from>..<head>`, the full shas you
+  reviewed (`git merge-base HEAD <base>` and `git rev-parse HEAD`; for a delta, `<sha>` and
+  `git rev-parse HEAD`), and `Model: <your model id>`. A delta report also has `Delta from: <sha>`. A plan report
+  has only `Model:`. `review.sh record` refuses a report without them, a range that is not the
+  branch's (or the delta's), and a commit made after the review started.
 - The last line, exactly: `Assessment: ready`, or `Assessment: changes needed` when there is any
   High or Medium. `review.sh record` reads that line; without it the report cannot be recorded.
+
+The PR never shows this report: its "Independent review" block holds only the recorded facts (a
+review of this diff, by patch id, the `Assessment:` line, the model and any warning about it, and
+the risk map's paths, round 1 and the fix round). The summary is the author's `## Review`, a
+security finding as one line.

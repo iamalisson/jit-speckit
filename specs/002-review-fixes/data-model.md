@@ -64,3 +64,17 @@ needing a full round.
 
 Plan records (`record --plan`, keyed by the plan state) carry the same `model:` and `warning:`
 header lines; `issues.sh` prints the warning, and `pr.sh spec` copies it into the spec PR body.
+
+The header, in order, ends at the first blank line; the report follows as it came, and no line
+of it is ever read as a header field:
+
+```
+state: <patch id of the whole branch diff, or the plan state>
+assessment: ready | changes needed
+head: <sha reviewed>                 (task records)
+round: full | delta                  (task records)
+model: <the report's Model: id>
+warning: <reason>; the review did not run on the configured model   (when one applies)
+map-full: - deep: <path>             (round 1's risk map, paths only; a delta carries it over)
+map-fix: - proven: <path>            (a delta's own risk map)
+```

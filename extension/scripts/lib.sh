@@ -52,6 +52,13 @@ cfg_set() {
 
 jit_level() { cfg level standard; }
 
+# review_model: the model family the independent review must run on (default opus). Any other
+# value dies, so the config can never lower the bar: callers read it with `|| exit 1`.
+review_model() {
+  local m; m="$(cfg review_model opus)"
+  case "$m" in sonnet|opus|fable) echo "$m" ;; *) die "review_model must be sonnet, opus or fable" ;; esac
+}
+
 # Paths that hold tests, across the stacks jit-speckit supports (Django's app/tests.py, SwiftPM's
 # Tests/, .NET's X.Tests/, Cypress). Case-sensitive: the PascalCase name is anchored on a lowercase
 # letter or digit before it, so Contests.java or Latests.cs stay source. Read it through test_path_re.
@@ -124,11 +131,14 @@ base_ref() {
   if git rev-parse --verify --quiet "origin/$b" >/dev/null; then echo "origin/$b"; else echo "$b"; fi
 }
 
+# diff_base: the commit where the branch left the base (HEAD itself when they share no history).
+diff_base() { git merge-base HEAD "$(base_ref)" 2>/dev/null || git rev-parse HEAD; }
+
 # diff_id: the patch id of the branch against the base (empty for an empty diff). Merging the base
 # in keeps it, any edit changes it. --verbatim keeps whitespace, so a re-indent (Python, YAML,
 # Makefiles) counts.
 diff_id() {
-  local from opt=--verbatim; from="$(git merge-base HEAD "$(base_ref)" 2>/dev/null || echo HEAD)"
+  local from opt=--verbatim; from="$(diff_base)"
   git patch-id --verbatim </dev/null >/dev/null 2>&1 || opt=--stable # git < 2.39: whitespace-only edits slip
   git diff "$from" HEAD | git patch-id "$opt" | cut -d' ' -f1
 }

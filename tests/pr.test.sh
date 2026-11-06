@@ -4,7 +4,14 @@
 source "$(dirname "$0")/helpers.sh"
 fake_gh
 p="$SCRIPTS/pr.sh"
-reviewed() { printf 'What changed: x\n\nAssessment: ready\n' > "$TMP/review.md"; "$SCRIPTS/review.sh" record "$TMP/review.md" >/dev/null; }
+# range: the Reviewed: and Model: lines every task report states.
+range() { printf 'Reviewed: %s..%s\nModel: claude-opus-4-7\n' "$(git merge-base HEAD origin/develop)" "$(git rev-parse HEAD)"; }
+# reviewed: a ready review of HEAD that deep-checks every path review.sh risk flags.
+reviewed() {
+  { printf 'What changed: x\n\n'; { "$SCRIPTS/review.sh" risk 2>/dev/null || true; } | sed -n 's/^RISK=[a-z]* /- deep: /p' | sort -u
+    echo; range; printf '\nAssessment: ready\n'; } > "$TMP/review.md"
+  "$SCRIPTS/review.sh" record "$TMP/review.md" >/dev/null
+}
 scanned() { no_scanners; PATH="$TMP/none" bash "$SCRIPTS/security-scan.sh" --changed >/dev/null; }
 
 new_repo standard
@@ -47,7 +54,7 @@ check "when the constitution's test command exits 0, then it opens the PR with n
   '[[ -f "$TMP/green.ran" && "$out" == *"PR=https://github.com/acme/app/pull/99" ]] && grep -q "^pr create" "$GH_LOG" && ! grep -q "^jit:" "$TMP/pr.err"'
 rm -f "$GH_PR"; : > "$GH_LOG" # the checks below are about the next run's PR alone
 # F3.1/F4.3: the recorded review reaches the body; its findings never do, wherever the report puts them.
-printf 'LEAK-1 before the marker\n\n- **What changed**: Adds LEAK-2 search.\n- **Findings**:\n  - High: LEAK-3 in src/a.ts:3\n\nSecurity: LEAK-4 token logged\n\nAssessment: ready\n' > "$TMP/review.md"
+printf 'LEAK-1 before the marker\n\n- **What changed**: Adds LEAK-2 search.\n- **Findings**:\n  - High: LEAK-3 in src/a.ts:3\n\nSecurity: LEAK-4 token logged\n\n%s\n\nAssessment: ready\n' "$(range)" > "$TMP/review.md"
 "$SCRIPTS/review.sh" record "$TMP/review.md" >/dev/null
 rm .specify/memory/constitution.md
 out="$("$p" task T001 "feat(search): add search" "$TMP/body.md" 2>"$TMP/pr.err")"
@@ -87,7 +94,10 @@ mkdir -p specs/002-new
 printf '%s\n' '- [ ] T001 Thing in `a` — #11' '- [ ] T002 Other in `b` — #12' > specs/002-new/tasks.md
 echo '{ "feature_directory": "specs/002-new" }' > .specify/feature.json
 set_cfg milestone v2; set_cfg project Board
+printf 'Plan read.\n\nModel: claude-haiku-4-5\n\nAssessment: ready\n' > "$TMP/plan.md"; "$SCRIPTS/review.sh" record --plan "$TMP/plan.md" >/dev/null 2>&1
 out="$("$p" spec)"
+check "when the plan review's record has a model warning, then the spec PR body carries it" \
+  'grep -qxF "**Plan review:** the review ran on claude-haiku-4-5; the review did not run on the configured model" "$GH_LOG"'
 check "when opening the spec PR, then the spec folder is committed on spec/<feature>" \
   '[[ "$(git branch --show-current)" == spec/002-new ]] && [[ -z "$(git status --porcelain specs)" ]] && git ls-remote --exit-code origin spec/002-new'
 check "then the spec PR lists the task issues" 'grep -q "#11 #12" "$GH_LOG"'
@@ -209,6 +219,30 @@ check "when Evidence says why the survivor changes nothing, then the PR opens" \
 rm .specify/memory/constitution.md; rm -f "$GH_PR"; : > "$GH_LOG"
 check "when there is no mutate command, then the body says mutation testing was not run" \
   '"$p" task T001 "feat(search): add search" "$TMP/body.md" | grep -q "^PR=" && grep -qxF "Mutation testing: not run (no mutate command in the constitution)" "$GH_LOG"'
+
+# ── FR-030–FR-033: the review block carries the record's facts: model, warning, both risk maps ──
+rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR"; : > "$GH_LOG"
+new_repo standard
+commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
+"$SCRIPTS/branch.sh" T001 >/dev/null
+mkdir -p db/migrations; echo 'DROP TABLE users;' > db/migrations/002_drop.sql; git add db; git commit --quiet -m "feat: drop"; h1="$(git rev-parse HEAD)"
+printf 'What changed: x\n\n- deep: db/migrations/002_drop.sql — PROSE-1 drops users: checked the backup\n\n%s\n\nAssessment: changes needed\n' "$(range)" > "$TMP/review.md"
+"$SCRIPTS/review.sh" record "$TMP/review.md" >/dev/null 2>&1 || true
+echo 'DROP TABLE orders;' >> db/migrations/002_drop.sql; git commit --quiet -am "fix: drop orders"
+printf 'What changed: y\n\n- deep: db/migrations/002_drop.sql — PROSE-2 second drop\n\nDelta from: %s\nReviewed: %s..%s\nModel: claude-opus-4-7\n\nAssessment: ready\n' "$h1" "$h1" "$(git rev-parse HEAD)" > "$TMP/review.md"
+CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 "$SCRIPTS/review.sh" record --delta "$TMP/review.md" >/dev/null 2>&1 || true
+scanned; "$p" task T001 "feat: drop" "$TMP/body.md" >/dev/null 2>&1 || true
+body="$(sed -n "/^pr create/,\$p" "$GH_LOG")"
+check "after a delta, then the PR body lists both labeled risk maps, as paths" \
+  'grep -A1 -xF "Risk map (round 1)" <<<"$body" | grep -qxF -- "- deep: db/migrations/002_drop.sql" && grep -A1 -xF "Risk map (fix round)" <<<"$body" | grep -qxF -- "- deep: db/migrations/002_drop.sql"'
+check "when the record was made with CLAUDE_CODE_SUBAGENT_MODEL_FORCE set, then the PR body has the model and the warning, though pr.sh ran without it" \
+  'grep -qxF "Model: claude-opus-4-7" <<<"$body" && grep -qxF "warning: CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set; the review did not run on the configured model" <<<"$body"'
+check "then no risk-map prose reaches the PR body" '[[ -n "$body" ]] && ! grep -q PROSE "$GH_LOG"'
+printf 'What changed: x\n\n- deep: db/migrations/002_drop.sql\n\n%s\n\nAssessment: ready\n' "$(range | sed 's/^Model: .*/Model: claude-sonnet-4-5/')" > "$TMP/review.md"
+"$SCRIPTS/review.sh" record "$TMP/review.md" >/dev/null 2>&1 || true; rm -f "$GH_PR"; : > "$GH_LOG"
+"$p" task T001 "feat: drop" "$TMP/body.md" >/dev/null 2>&1 || true
+check "when Model: is outside the configured family, then the warning reaches the PR body from the record" \
+  'grep -qxF "warning: the review ran on claude-sonnet-4-5, not opus; the review did not run on the configured model" "$GH_LOG"'
 
 # ── The spec folder survives a refused branch switch ──
 rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR"
