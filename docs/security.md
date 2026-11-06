@@ -64,7 +64,9 @@ adds parallel reviewers and adversarial verification.
    proves the fix. It is stored inside `.git`, so it is never committed or published.
 7. **Safe tracking:**
    - private repos get `security` issues with no exploit detail in the title;
-   - public repos get private security advisories, never public issues;
+   - public repos get private draft security advisories, never public issues; an advisory with
+     the same summary is reused, else one is sent with the summary, description, severity and
+     affected package GitHub requires;
    - a leaked secret is rotated first.
 
 ## Supply chain hygiene in generated files

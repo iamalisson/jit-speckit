@@ -76,6 +76,14 @@ check "the review prompt's Report section and pr.md step 5 say a security findin
   'sed -n "/^## Report/,\$p" extension/commands/review.md | grep -qF "Security: reported privately (<id>)" \
    && sed -n "/^5\. /,/^6\. /p" extension/commands/pr.md | grep -qF "Security: reported privately (<id>)"'
 
+# F4.2: the audit's advisory call sends the JSON body GitHub accepts, after looking for an existing one.
+adv="$(sed -n '/^- \*\*Public repository:\*\*/,/^- \*\*A real secret/p' skills/security/SKILL.md)"
+adv_body="$(sed -n '/--input -/,/^ *EOF$/p' <<<"$adv")"
+check "when the skill's advisory call is read, then the JSON after --input - names summary, description, severity, vulnerabilities and ecosystem" \
+  '[[ -n "$adv_body" ]]; for k in summary description severity vulnerabilities ecosystem; do grep -q "\"$k\"" <<<"$adv_body"; done'
+check "then a --paginate lookup of the advisories comes before the -X POST" \
+  'p="$(grep -n -- "--paginate" <<<"$adv" | head -1 | cut -d: -f1)"; x="$(grep -n -- "-X POST" <<<"$adv" | head -1 | cut -d: -f1)"; [[ -n "$p" && -n "$x" ]] && ((p < x))'
+
 # A link copied from the README into docs/ keeps its docs/ prefix and breaks; every relative link
 # in a markdown file must point at a file that exists next to it.
 broken=""

@@ -102,9 +102,24 @@ conditions; **low** = hardening.
   `security` and with no exploit details in the title. Each one is then fixed through the normal
   flow (`/speckit-implement` or a small task), always with its regression test.
 - **Public repository:** never open public issues for vulnerabilities. Offer a private draft
-  security advisory instead:
-  `gh api -X POST repos/{owner}/{repo}/security-advisories -f summary=... -f description=...`,
-  or keep the report local.
+  security advisory instead, or keep the report local. First look for one with the same summary:
+  ```bash
+  gh api --paginate "repos/{owner}/{repo}/security-advisories?per_page=100" \
+    --jq '.[] | select(.summary == "<summary>") | .html_url'
+  ```
+  If it prints a link, show that link and stop: the advisory already exists. Otherwise send the
+  JSON body GitHub accepts (`severity` is `critical`, `high`, `medium` or `low`; `ecosystem` is the
+  package's registry, such as `npm` or `pip`, or `other` when none fits):
+  ```bash
+  gh api -X POST "repos/{owner}/{repo}/security-advisories" --input - <<'EOF'
+  {
+    "summary": "<one line, no exploit detail>",
+    "description": "<what is affected, the impact and the fix>",
+    "severity": "high",
+    "vulnerabilities": [{ "package": { "ecosystem": "other", "name": "<package>" } }]
+  }
+  EOF
+  ```
 - **A real secret was found:** say first that it must be **rotated** now, because removing it
   from git does not un-leak it. Then help remove it from the code.
 - Offer to fix the lower-severity items as one hardening task.
