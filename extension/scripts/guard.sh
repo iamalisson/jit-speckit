@@ -29,23 +29,31 @@ no_verify() { ((${#1} >= 3)) && [[ "--no-verify" == "$1"* ]]; }
 # switched <switch|checkout args...>: add the branch they may move to. Restoring files
 # (`checkout [<tree-ish>] -- <paths>`) adds nothing; a word it cannot tell apart is added.
 switched() {
-  local w found=""
+  local w o found="" track=false
   while (($#)); do
     w="$1"; shift
+    o="${w%%=*}"
     case "$w" in
       --) return 0 ;;
-      --create=*|--force-create=*|--orphan=*) branches+=" ${w#*=} "; return 0 ;;
-      --create|--force-create|--orphan) branches+=" ${1:-} "; return 0 ;;
-      --*) ;;
+      --*)
+        # git takes a unique prefix of a long option, so --cr is --create.
+        if ((${#o} >= 4)) && [[ "--create" == "$o"* || "--force-create" == "$o"* || "--orphan" == "$o"* ]]; then
+          if [[ "$w" == *=* ]]; then w="${w#*=}"; else w="${1:-}"; fi; branches+=" $w "; return 0
+        fi
+        if ((${#o} >= 4)) && [[ "--track" == "$o"* ]]; then track=true
+        elif [[ "$w" == *=* ]]; then found+=" ${w#*=} "; fi ;;
       -?*)
         # Short bundle: a new-branch letter takes the rest of the word, or the next word.
         if [[ "$w" == -*[bBcC]* ]]; then
           w="${w#*[bBcC]}"; [[ -n "$w" ]] || w="${1:-}"; branches+=" $w "; return 0
-        fi ;;
+        fi
+        [[ "$w" == -*t* ]] && track=true ;;
       -) found+=" $(git rev-parse --abbrev-ref "@{-1}" 2>/dev/null || echo -) " ;;
       *) found+=" $w " ;;
     esac
   done
+  # --track <remote>/<branch> creates the local <branch>.
+  if $track; then for w in $found; do found+=" ${w#*/} "; done; fi
   branches+="$found"
 }
 

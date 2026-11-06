@@ -74,6 +74,14 @@ check "when a chain switches to main and then commits or pushes HEAD, then it is
   'blocked "git switch main && git commit -m x" && blocked "git checkout main && git push origin HEAD" && blocked "git switch --quiet main; git push" && blocked "git checkout -q develop && git commit -m x"'
 check "when a chain creates a branch named like a protected one, then a later commit is blocked" \
   'blocked "git switch -c main && git commit -m x" && blocked "git checkout -bmain && git commit -m x"'
+check "when a chain tracks a protected remote branch (--track or -t, alone or bundled), then a later commit is blocked" \
+  'blocked "git switch --track origin/develop && git commit -m x" && blocked "git checkout -t origin/develop && git commit -m x" && blocked "git checkout -qt origin/main && git commit -m x" && blocked "git switch --track=direct origin/develop && git commit -m x"'
+# The abbreviations are cut at run time too.
+cr="--create"; orph="--orphan"; fc="--force-create"
+check "when a chain creates a protected branch with an abbreviated long option, then a later commit is blocked" \
+  'blocked "git switch ${cr:0:4}=main && git commit -m x" && blocked "git switch ${cr:0:5} main && git commit -m x" && blocked "git checkout ${orph:0:6}=main && git commit -m x" && blocked "git switch ${fc:0:9}=main && git commit -m x"'
+check "when a chain creates or tracks a task branch with a long or abbreviated option, then the commit is allowed" \
+  '"$g" "git switch --create=feat/001-t002-other main && git commit -m x" && "$g" "git switch ${cr:0:4} feat/001-t002-other main && git commit -m x" && "$g" "git switch --track origin/feat/001-t001-thing && git commit -m x"'
 check "when a chain only restores files or creates a task branch from main, then the commit is allowed" \
   '"$g" "git checkout main -- README.md && git commit -m x" && "$g" "git checkout -- README.md && git commit -m x" && "$g" "git switch -c feat/001-t002-other main && git commit -m x" && "$g" "git checkout -b feat/001-t002-other main && git push -u origin HEAD"'
 
