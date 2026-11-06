@@ -14,8 +14,8 @@ privately. 36 findings: 3 High (one private), 24 Medium, 9 Low.
 How the ranks apply FR-009. High is a broken promise of the kinds it lists (a secret can leave, a
 protected branch can change, a user's file can be lost, a gate passes without what it claims), and
 Medium a promise kept that a user could be misled about. FR-009 has no tier for a broken promise
-without one of those harms: this report ranks those Medium (F1.1, F1.2, F1.6, F1.8, F3.3, F3.7,
-F4.2, F4.3). A `limit` whose docs mislead is Medium. A `limit` is Low when its docs describe it
+without one of those harms: this report ranks those Medium (F1.1, F1.2, F1.6, F1.8, F3.3, F4.2,
+F4.3). A `limit` whose docs or messages mislead is Medium. A `limit` is Low when its docs describe it
 (F1.3, F5.1, and F4.6 and F5.5, whose blocks say why), and also, departing from data-model's
 "always Low" only for honest docs, when the docs say nothing either way and the gap costs a retry
 or a message (F1.4, F1.5, F2.2, F2.5, F3.2).
@@ -209,7 +209,8 @@ F2.1's fix is in its private advisory.
 
 ### Fix F3.7 · the missing-review hint names the right record command
 
-- **promise**: P10, the review gate tells the user what to record.
+- **promise**: P10, the PR is refused without a recorded `ready` for the exact diff; its refusal
+  should say how to record one.
 - **change**: `review.sh:45` builds the hint with `$($plan && echo ' --plan')`.
 - **check** (`tests/review.test.sh`): when `review.sh check` runs on a task branch with no record,
   then its hint has no `--plan`.

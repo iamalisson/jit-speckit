@@ -9,7 +9,7 @@ tasks.md "Rules every task follows".
 
 | id | promise | verdict | evidence |
 |---|---|---|---|
-| P10 | Before every PR, at every level, a fresh agent reviews the whole repository; the PR is refused without a recorded `ready` for the exact diff | limit | the refusal holds: `pr.sh:68` → `review.sh check`, keyed to the patch id of the diff against the base (`review.sh:25-29`); `tests/pr.test.sh:21,45`. What it proves is narrower than the docs say: F3.1 |
+| P10 | Before every PR, at every level, a fresh agent reviews the whole repository; the PR is refused without a recorded `ready` for the exact diff | limit | the refusal holds: `pr.sh:68` → `review.sh check`, keyed to the patch id of the diff against the base (`review.sh:25-29`); `tests/pr.test.sh:21,45`. What it proves is narrower than the docs say: F3.1; and its refusal hint names the wrong command: F3.7 |
 | P11 | No issue is created without a recorded plan review of the current `tasks.md` | limit | `issues.sh:18` refuses without it (`tests/issues.test.sh:20,40`); the same narrowness as P10 (F3.1), and the record covers `plan.md` and `tasks.md` only: F3.2 |
 | P12 | Never opens a PR on red checks | broken | no script runs the checks before a PR; section B: `pr.sh` opens the PR while the project's check fails: F3.3 |
 | P13 | Tests are evidence: a PR that changes existing tests needs `## Test changes`; mutation testing runs on the change | limit | test changes: `pr.sh:57-66` with `TEST_PATH_RE` (`lib.sh:57`) and `--no-renames`; `tests/pr.test.sh:86-111`, but common test layouts are not recognized: F3.9. Mutation testing only runs when the prompt runs it, and `missing` exits 0: F3.4 |
@@ -189,13 +189,14 @@ Also checked, no finding:
 
 ### F3.7 · Medium · P10 · the hint for a missing task review tells the user to record a plan review
 
-- **verdict**: broken
+- **verdict**: limit (the docs mislead): the gate holds (P10), and its refusal message misleads
 - **evidence**: `review.sh:45` builds the hint with `${plan:+ --plan}`, but `plan` is the string
   `false` or `true`, never empty, so the hint always says `review.sh record --plan <report-file>`.
   Section D: on a task branch with no record, `… record its report: review.sh record --plan
   <report-file>`. Following it records a plan review, and the task gate still refuses, with the
   same hint: nothing in the refusal ever names the right command. Medium: the gate itself holds,
-  but its only guidance sends the user the wrong way every time.
+  but its message, the only guidance it gives, sends the user the wrong way every time (FR-009: "a
+  promise kept but a user could be misled about it").
 - **reproduction**: section D of the script below.
 - **exposure**: public.
 - **fix**: build the hint with `$($plan && echo ' --plan')`. Check for `tests/review.test.sh`: when
