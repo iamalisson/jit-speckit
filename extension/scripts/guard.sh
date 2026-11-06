@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Guard for git commands run by Claude Code (called by the plugin's PreToolUse hook).
 # Usage: guard.sh "<bash command>"   — exit 2 (with the reason on stderr) blocks the command.
-# Rules: no --no-verify (or commit -n), no hooks disabled with -c core.hooksPath or SKIP=, no
-#        `git add -A/--all/.`, no commit on a protected branch, no push to a protected branch.
+# Rules: no --no-verify or a prefix of it (or commit/am -n), no hooks disabled with -c
+#        core.hooksPath or SKIP=, no `git add -A/--all/.`, no commit on a protected branch, no push
+#        to a protected branch (counting every branch a switch/checkout earlier in the chain may
+#        have moved to).
 # Best effort: it catches the usual forms (chains, env/command/VAR= prefixes, sh -c '...', git
 # global options, bundled flags), not every possible shell trick. The real boundary is CI plus
 # branch protection. People are not affected; their git hooks still apply.
@@ -18,6 +20,34 @@ jit_cd_root
 
 block() { echo "jit-speckit guard: $1" >&2; exit 2; }
 current="$(git branch --show-current 2>/dev/null || true)"
+# Every branch the chain may be on: a switch/checkout earlier in it adds the branch it moves to.
+branches=" $current "
+
+# no_verify <word>: --no-verify or any prefix of it from 3 characters (git takes unique prefixes).
+no_verify() { ((${#1} >= 3)) && [[ "--no-verify" == "$1"* ]]; }
+
+# switched <switch|checkout args...>: add the branch they may move to. Restoring files
+# (`checkout [<tree-ish>] -- <paths>`) adds nothing; a word it cannot tell apart is added.
+switched() {
+  local w found=""
+  while (($#)); do
+    w="$1"; shift
+    case "$w" in
+      --) return 0 ;;
+      --create=*|--force-create=*|--orphan=*) branches+=" ${w#*=} "; return 0 ;;
+      --create|--force-create|--orphan) branches+=" ${1:-} "; return 0 ;;
+      --*) ;;
+      -?*)
+        # Short bundle: a new-branch letter takes the rest of the word, or the next word.
+        if [[ "$w" == -*[bBcC]* ]]; then
+          w="${w#*[bBcC]}"; [[ -n "$w" ]] || w="${1:-}"; branches+=" $w "; return 0
+        fi ;;
+      -) found+=" $(git rev-parse --abbrev-ref "@{-1}" 2>/dev/null || echo -) " ;;
+      *) found+=" $w " ;;
+    esac
+  done
+  branches+="$found"
+}
 
 # words "<text>": shell-like words, one per line. Quotes group and are removed; nothing is
 # expanded or run. Unquoted && || ; | & and newlines become a "|" word, separating commands. A #
@@ -85,9 +115,8 @@ check_git() {
     commit)
       while (($#)); do
         case "$1" in
-          --no-verify) block "--no-verify skips the secret checks; fix what the hook reports instead" ;;
           -m|-F|-C|-c|-t|--message|--file|--template|--reuse-message|--reedit-message|--author|--date|--fixup|--squash) shift ;;
-          --*) ;;
+          --*) if no_verify "$1"; then block "--no-verify skips the secret checks; fix what the hook reports instead"; fi ;;
           -*)
             # Bundled short options: letters up to the first one that takes a value. -nm "x" is
             # -n -m "x"; -mn is the message "n".
@@ -97,16 +126,28 @@ check_git() {
         esac
         shift
       done
-      if [[ -n "$current" ]] && is_protected "$current"; then
-        block "committing on '$current' is not allowed; start a task with /speckit-implement Tnnn (or /jit-speckit:next)"
-      fi ;;
+      for b in $branches; do
+        if is_protected "$b"; then
+          block "committing on '$b' is not allowed; start a task with /speckit-implement Tnnn (or /jit-speckit:next)"
+        fi
+      done ;;
+    switch|checkout) switched "$@" ;;
     config)
       local w2 reading=false
       for w2 in "$@"; do case "$w2" in --get|--get-all|--get-regexp|--list|-l|get) reading=true ;; esac; done
       for w2 in "$@"; do
         if hookspath "$w2" && ! $reading; then no_hooks; fi
       done ;;
-    merge|rebase|am|cherry-pick|revert)
+    merge|rebase|am)
+      for w in "$@"; do
+        if no_verify "$w"; then block "--no-verify skips the secret checks; fix what the hook reports instead"; fi
+        # am -n is --no-verify (merge/rebase -n is --no-stat). Bundles stop at a letter that takes a value.
+        if [[ "$sub" == am && "$w" == -[!-]* ]]; then
+          b="${w#-}"; b="${b%%[CpS]*}"
+          if [[ "$b" == *n* ]]; then block "am -n is --no-verify, which skips the secret checks"; fi
+        fi
+      done ;;
+    cherry-pick|revert)
       for w in "$@"; do
         [[ "$w" == --no-verify ]] && block "--no-verify skips the secret checks; fix what the hook reports instead"
       done ;;
@@ -118,16 +159,15 @@ check_git() {
       local targets="" remote_seen=false
       for w in "$@"; do
         case "$w" in
-          --no-verify) block "--no-verify skips the pre-push secret scan" ;;
           --all|--mirror) block "push --all/--mirror would push the protected branches too; push your branch by name" ;;
-          -*) ;;
+          -*) if no_verify "$w"; then block "--no-verify skips the pre-push secret scan"; fi ;;
           *) if ! $remote_seen && git remote get-url "$w" >/dev/null 2>&1; then remote_seen=true; continue; fi
              w="${w#+}"; w="${w##*:}"
-             [[ "$w" == HEAD || "$w" == @ ]] && w="$current"
+             [[ "$w" == HEAD || "$w" == @ ]] && w="$branches"
              targets+=" $w " ;;
         esac
       done
-      [[ -n "$targets" ]] || targets=" $current "
+      [[ -n "$targets" ]] || targets="$branches"
       for b in $(protected_branches); do
         if [[ "$targets" == *" $b "* || "$targets" == *" HEAD:$b "* || "$targets" == *" refs/heads/$b "* ]]; then
           block "pushing to '$b' is not allowed; it only changes through pull requests"

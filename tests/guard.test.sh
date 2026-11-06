@@ -60,6 +60,23 @@ long="git commit -m \"$(head -c 100000 /dev/zero | tr '\0' 'a')\""
 check "when a 100 KB command is checked under a UTF-8 locale, then it takes under 3 seconds (the hook allows 10)" \
   'start=$(date +%s); LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 "$g" "$long"; (( $(date +%s) - start < 3 ))'
 
+# F2.3: git accepts a unique prefix of a long option, so every cut of the option is refused. The
+# cuts are made here at run time; the file holds no list of them.
+nv="--no-verify"; takes="commit push merge rebase am"
+check "when commit, push, merge, rebase or am use an abbreviation of --no-verify (3 to 10 characters), then it is blocked" \
+  'for c in $takes; do for n in 3 4 5 6 7 8 9 10; do blocked "git $c ${nv:0:$n} x" || exit 1; done; done'
+check "when git am uses -n, alone or bundled, then it is blocked like commit -n" 'blocked "git am -n x.patch" && blocked "git am -3n x.patch"'
+check "when options only look like it (--verify, --no-edit, --no-ff, --no-stat, --no-tags, a message), then they are allowed" \
+  '"$g" "git commit --verify -m x" && "$g" "git merge --no-edit --no-ff main" && "$g" "git rebase --no-stat main" && "$g" "git push --no-tags origin feat/001-t001-thing" && "$g" "git commit -m \"${nv:0:6}\""'
+check "when git -h is asked, then exactly commit, push, merge, rebase and am take --no-verify (cherry-pick and revert do not)" \
+  'for c in $takes; do { git $c -h 2>&1 || true; } | grep -qF -- "$nv" || exit 1; done; for c in cherry-pick revert; do if { git $c -h 2>&1 || true; } | grep -qF -- "$nv"; then exit 1; fi; done'
+check "when a chain switches to main and then commits or pushes HEAD, then it is blocked" \
+  'blocked "git switch main && git commit -m x" && blocked "git checkout main && git push origin HEAD" && blocked "git switch --quiet main; git push" && blocked "git checkout -q develop && git commit -m x"'
+check "when a chain creates a branch named like a protected one, then a later commit is blocked" \
+  'blocked "git switch -c main && git commit -m x" && blocked "git checkout -bmain && git commit -m x"'
+check "when a chain only restores files or creates a task branch from main, then the commit is allowed" \
+  '"$g" "git checkout main -- README.md && git commit -m x" && "$g" "git checkout -- README.md && git commit -m x" && "$g" "git switch -c feat/001-t002-other main && git commit -m x" && "$g" "git checkout -b feat/001-t002-other main && git push -u origin HEAD"'
+
 git switch --quiet main
 check "when Claude commits on main, then it is blocked" 'blocked "git commit -m x"'
 check "when Claude pushes with no refspec while on main, then it is blocked" 'blocked "git push"'
