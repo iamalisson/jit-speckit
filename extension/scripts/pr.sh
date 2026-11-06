@@ -60,7 +60,8 @@ case "$mode" in
     # --no-renames: a test moved out of a test folder counts as deleted, not as a new file.
     ref="$(base_ref)"
     git rev-parse --verify --quiet "$ref" >/dev/null || die "base branch '$base' not found locally or on origin"
-    changed_tests="$(git diff --no-renames --diff-filter=MD --name-only "$ref...HEAD" | grep -E "$TEST_PATH_RE" || true)"
+    re="$(test_path_re)" || exit 1
+    changed_tests="$(git diff --no-renames --diff-filter=MD --name-only "$ref...HEAD" | grep -E "$re" || true)"
     if [[ -n "$changed_tests" ]] && ! grep -qE '^## Test changes' <<<"$body"; then
       die "existing tests were changed: $(tr '\n' ' ' <<<"$changed_tests")
 add a '## Test changes' section to the PR body saying why (spec changed, test was wrong). Never weaken a test to make it pass."

@@ -128,6 +128,32 @@ git push --quiet origin --delete "$(git branch --show-current)" 2>/dev/null || t
 echo 'assert 2 == 2' > tests/test_new.py; git add tests/test_new.py; git commit --quiet -m "test: add"; reviewed; scanned
 check "when only new tests are added, then no explanation is needed" '"$p" task T001 "feat(search): add search" "$TMP/plain.md" | grep -q "^PR="'
 
+# ── Common test layouts count as tests, and the constitution can add one ──
+layouts=$'app/tests.py\nTests/AppTests/AppTests.swift\nMyApp.Tests/FooTests.cs\ncypress/e2e/login.cy.ts\nsrc/Foo.Test.cs\nsrc/foo.spec.TS\ntests/test_a.py\nsrc/a.test.ts\n__tests__/a.js'
+sources=$'src/latest.ts\nlib/contest.py\nsrc/attest.go\npkg/protest.rb\nsrc/greatest.js\nsrc/Contests.java\nsrc/Latests.cs\nsrc/utils.py\napp/Manifest.swift\nsrc/LatestRelease.swift\nsrc/specification.py\ndocs/e2e.md\nlib/testing.go'
+check "the test-path pattern matches each of the 9 test layouts and none of the 13 source paths" \
+  'source "$SCRIPTS/lib.sh"; [[ "$(grep -E "$TEST_PATH_RE" <<<"$layouts")" == "$layouts" && -z "$(grep -E "$TEST_PATH_RE" <<<"$sources" || true)" ]]'
+rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR"
+new_repo standard
+mkdir -p app Tests/AppTests src checks
+echo 'assert 1 == 1' > app/tests.py; echo 'XCTAssertEqual(1, 1)' > Tests/AppTests/AppTests.swift; echo 'x' > src/latest.ts; echo 'check 1' > checks/price.sh
+commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
+"$SCRIPTS/branch.sh" T001 >/dev/null
+echo 'pass' > app/tests.py; echo '// nothing checked' > Tests/AppTests/AppTests.swift; git commit --quiet -am "feat: weaken"; reviewed; scanned
+check "when an existing app/tests.py or Tests/AppTests/AppTests.swift is edited and the body says nothing, then it refuses and names the file" \
+  'fails_with "app/tests.py" "$p" task T001 "feat(search): add search" "$TMP/plain.md" && fails_with "Tests/AppTests/AppTests.swift" "$p" task T001 "feat(search): add search" "$TMP/plain.md"'
+git reset --quiet --hard origin/develop
+echo 'y' > src/latest.ts; git commit --quiet -am "feat: latest"; reviewed; scanned
+check "when an existing src/latest.ts is edited, then it is not taken for a test and the PR opens" \
+  '"$p" task T001 "feat(search): add search" "$TMP/plain.md" | grep -q "^PR="'
+echo 'check 2' > checks/price.sh; git commit --quiet -am "feat: weaken a check"; reviewed; scanned; rm -f "$GH_PR"
+mkdir -p .specify/memory; printf '# Constitution\n\ntests: ^checks/\n' > .specify/memory/constitution.md
+check "when the constitution adds a tests: regex, then a file it matches counts as a test" \
+  'fails_with "existing tests were changed: checks/price.sh" "$p" task T001 "feat(search): add search" "$TMP/plain.md"'
+printf '# Constitution\n\ntests: ([\n' > .specify/memory/constitution.md
+check "when the constitution's tests: regex is invalid, then it refuses and names it" \
+  'fails_with "the constitution'"'"'s tests: regex is invalid: ([" "$p" task T001 "feat(search): add search" "$TMP/plain.md"'
+
 # ── Mutation testing ran on this diff, when the constitution has a mutate command ──
 rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR"
 new_repo standard

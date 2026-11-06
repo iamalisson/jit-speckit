@@ -52,9 +52,10 @@ cfg_set() {
 
 jit_level() { cfg level standard; }
 
-# Paths that hold tests, across the stacks jit-speckit supports.
-# shellcheck disable=SC2034  # used by pr.sh
-TEST_PATH_RE='(^|/)(tests?|__tests__|spec)/|[._-](test|spec)\.[a-z]+$|(^|/)test_[^/]*\.py$'
+# Paths that hold tests, across the stacks jit-speckit supports (Django's app/tests.py, SwiftPM's
+# Tests/, .NET's X.Tests/, Cypress). Case-sensitive: the PascalCase name is anchored on a lowercase
+# letter or digit before it, so Contests.java or Latests.cs stay source. Read it through test_path_re.
+TEST_PATH_RE='(^|/)([Tt]ests?|__tests__|spec|e2e|cypress)/|(^|/)[^/]*\.[Tt]ests?/|[._-]([Tt]est|[Ss]pec|cy)\.[a-zA-Z]+$|(^|/)tests?\.py$|(^|/)test_[^/]*\.py$|[a-z0-9]Tests?\.[a-z]+$'
 
 
 # The repository's default branch: origin/HEAD when set, otherwise whichever of main/master
@@ -147,6 +148,18 @@ constitution_cmd() {
   local c
   c="$(sed -nE "s/.*\*\*Commands\*\*.*$1 \`([^\`]+)\`.*/\1/p" .specify/memory/constitution.md 2>/dev/null | head -1)"
   if [[ -n "$c" && "$c" != \[* ]]; then echo "$c"; fi
+}
+
+# test_path_re: TEST_PATH_RE, plus the constitution's optional `tests: <regex>` line (grep -E) for
+# any other layout. Dies on an invalid one: callers read it in a plain assignment, `|| exit 1`.
+test_path_re() {
+  local extra rc=0
+  extra="$(sed -nE 's/^tests:[[:space:]]*//p' .specify/memory/constitution.md 2>/dev/null | head -1)"
+  extra="${extra%"${extra##*[![:space:]]}"}"
+  if [[ -z "$extra" ]]; then echo "$TEST_PATH_RE"; return; fi
+  grep -E -- "$extra" </dev/null >/dev/null 2>&1 || rc=$? # 2: the regex does not compile
+  ((rc != 2)) || die "the constitution's tests: regex is invalid: $extra"
+  echo "$TEST_PATH_RE|$extra"
 }
 
 # The task line for an ID, e.g. "- [ ] T003 [P] [US1] Do x in src/x.py — #12".

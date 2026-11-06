@@ -24,6 +24,12 @@ check "when nothing changed on the branch, then it is skipped" 'out="$("$m")" &&
 
 mkdir -p src tests; echo 'export const search = 1' > src/search.ts; echo 'test' > tests/search.test.ts
 git add src tests; git commit --quiet -m "feat: search"
+echo 'tests: ([' >> .specify/memory/constitution.md; echo 0 > "$TMP/mutate.rc"
+bad=0; out="$("$m" 2>&1)" || bad=$?
+check "when the constitution's tests: regex is invalid, then it refuses and records nothing (no skipped result)" \
+  '((bad != 0)) && grep -qxF "jit: the constitution'"'"'s tests: regex is invalid: ([" <<<"$out" && ! grep -q "^mutants" <<<"$out" \
+   && [[ ! -e "$(source "$SCRIPTS/lib.sh" && diff_record jit-mutants)" ]]'
+sed -i.bak '/^tests:/d' .specify/memory/constitution.md
 echo 0 > "$TMP/mutate.rc"
 check "when every mutant is caught, then it reports ok and the command saw the changed sources without the tests" \
   'out="$("$m")" && grep -q "^mutants ok" <<<"$out" && [[ "$(cat "$TMP/seen.files")" == "src/search.ts" ]] && grep -q "^+export const search" "$TMP/seen.diff"'
