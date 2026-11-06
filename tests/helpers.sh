@@ -40,6 +40,12 @@ case "$1 $2" in
                  for q in $(grep -oE 'issue\(number: *[0-9]+' <<<"$*" | grep -oE '[0-9]+$'); do
                    if grep -qx "$q" "$GH_CLOSED" 2>/dev/null; then echo "$q"; fi
                  done; exit 0 ;;
+  "api repos/"*) # check-tools.sh's latest-release lookup: prints, as its --jq does, the tag $GH_API
+                 # gives that repo (lines "<owner>/<repo> <tag>"); a repo it does not list fails.
+                 r="${2#repos/}"; r="${r%/releases/latest}"
+                 t="$(awk -v r="$r" '$1 == r { print $2 }' <<<"${GH_API:-}")"
+                 if [[ -z "$t" ]]; then echo "HTTP 404: Not Found (https://api.github.com/$2)" >&2; exit 1; fi
+                 echo "$t"; exit 0 ;;
   "issue create") n=$(( $(cat "$GH_N" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$GH_N"
                   # GH_FAIL_CREATE_ONCE: the first create reaches GitHub (listed by `issue list`
                   # from then on) but fails on the client, as a dropped connection does.

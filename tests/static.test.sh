@@ -24,6 +24,19 @@ while IFS= read -r line; do
 done < <(grep -E '^PIN_[A-Z_]+="' extension/scripts/pins.sh)
 check "then actions also in pins.sh use the same SHA everywhere${drift:+ — drift: $drift (fix: bin/sync-pins.sh)}" '[[ -z "$drift" ]]'
 
+# F4.1: Dependabot reads only this repo's workflows, so every PIN_* action is used by one of them,
+# exactly as pins.sh writes it (pins.yml's never-run actions job); the tool versions are checked weekly.
+unused=""
+while IFS= read -r line; do
+  ref="${line#*=\"}"; ref="${ref%\"*}"
+  grep -qrF -- "uses: $ref" .github/workflows || unused+="${line%%=*} "
+done < <(grep -E '^PIN_[A-Z_]+="' extension/scripts/pins.sh)
+check "when pins.sh has a PIN_* action, then some workflow in .github/workflows uses it as pins.sh writes it${unused:+ — unused: $unused}" '[[ -z "$unused" ]]'
+tools_job="$(awk '/^  tools:/ { p = 1; next } /^  [a-z_]+:/ { p = 0 } p' .github/workflows/pins.yml 2>/dev/null || true)"
+check "when pins.yml's tools job is read, then it runs bin/check-tools.sh with issues: write" \
+  'grep -q "bin/check-tools.sh" <<<"$tools_job" && grep -qE "^ +issues: write" <<<"$tools_job"'
+check "then pins.yml runs on a weekly schedule" 'grep -qE "^ +- cron: \"[0-9]+ [0-9]+ \* \* [0-6]\"" .github/workflows/pins.yml'
+
 if python3 -c "import yaml" 2>/dev/null; then
   check "every workflow is valid YAML" 'python3 -c "import sys, yaml; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" $workflows'
 else

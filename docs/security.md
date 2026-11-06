@@ -78,8 +78,12 @@ adds parallel reviewers and adversarial verification.
 - Downloaded scanner binaries are verified against their published SHA-256.
 - `actions/checkout` runs with `persist-credentials: false`.
 - Workflows default to `permissions: contents: read`.
-- Every pin lives in [`extension/scripts/pins.sh`](../extension/scripts/pins.sh), and Dependabot
-  proposes updates.
+- Every pin lives in [`extension/scripts/pins.sh`](../extension/scripts/pins.sh). Dependabot
+  proposes updates for every pinned action: jit-speckit's own
+  [`pins.yml`](../.github/workflows/pins.yml) uses each one in a job that never runs, and
+  `bin/sync-pins.sh` copies a bump back into `pins.sh`. Dependabot does not see the scanner
+  versions, so `pins.yml` checks them weekly against their latest releases (`bin/check-tools.sh`)
+  and opens one "Tool pins behind" issue when any is behind.
 
 ## Limits
 
