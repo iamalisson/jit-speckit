@@ -57,4 +57,17 @@ check "then a single-quoted milestone is read whole, without its quotes" 'grep -
 check "then the warning shows gh's own error, for each item that failed" \
   '[[ "$(grep -c "Could not resolve to a ProjectV2" <<<"$out")" == 3 ]] && grep -q "could not set add-project .Board." <<<"$out"'
 
+# F1.7: a create that reached GitHub but failed on the client leaves an open issue with the task's title.
+printf '%s\n' '- [ ] T007 Retry task in `r`' >> specs/001-demo/tasks.md; plan_reviewed
+GH_FAIL_CREATE_ONCE=1 "$i" >/dev/null 2>&1 || true
+lost="$(cat "$GH_N")"; creates="$(grep -c "^issue create" "$GH_LOG")"
+check "when the first gh issue create for a task reached GitHub but failed on the client, then a rerun makes no second create and writes the existing number back" \
+  'out="$("$i")"; [[ "$(grep -c "^issue create" "$GH_LOG")" == "$creates" ]] && grep -q "T007 Retry task in \`r\` — #$lost$" specs/001-demo/tasks.md && grep -qx "T007 → #$lost (existing)" <<<"$out"'
+check "then the lookup asks for open issues only (a closed one never matches), without --search or --label" \
+  'grep -q "^issue list --state open --limit 1000 --json number,title" "$GH_LOG" && ! grep "^issue list" "$GH_LOG" | grep -qE -- "--search|--label"'
+printf '%s\n' "$((lost + 50)) [001] T008: Regenerated task" > "$GH_CLOSED" # an old issue: same prefix, another summary
+printf '%s\n' '- [ ] T008 Brand new summary in `n`' >> specs/001-demo/tasks.md; plan_reviewed
+check "when an open issue has the same [NNN] Tnnn: prefix but another summary, then a new issue is created" \
+  'out="$("$i")"; [[ "$(grep -c "^issue create" "$GH_LOG")" == "$((creates + 1))" ]] && ! grep -q "#$((lost + 50))" specs/001-demo/tasks.md && grep -q "T008 Brand new summary in \`n\` — #[0-9]*$" specs/001-demo/tasks.md'
+
 exit "$FAIL"

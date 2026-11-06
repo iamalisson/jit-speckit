@@ -37,6 +37,12 @@ case "$1 $2" in
                    if grep -qx "$q" "$GH_CLOSED" 2>/dev/null; then echo "$q"; fi
                  done; exit 0 ;;
   "issue create") n=$(( $(cat "$GH_N" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$GH_N"
+                  # GH_FAIL_CREATE_ONCE: the first create reaches GitHub (listed by `issue list`
+                  # from then on) but fails on the client, as a dropped connection does.
+                  if [[ -n "${GH_FAIL_CREATE_ONCE:-}" && ! -f "$GH_N.failed" ]]; then
+                    touch "$GH_N.failed"; t=""; while (($#)); do if [[ "$1" == --title ]]; then t="$2"; fi; shift; done
+                    echo "$n $t" >> "$GH_CLOSED"; echo "Post https://api.github.com/graphql: unexpected EOF" >&2; exit 1
+                  fi
                   echo "https://github.com/acme/app/issues/$n" ;;
   "label create") exit 0 ;;
   "pr list") if [[ "$*" == *headRefName* ]]; then cat "$GH_OPEN" 2>/dev/null; elif [[ -f "$GH_PR" ]]; then cat "$GH_PR"; fi; exit 0 ;;
