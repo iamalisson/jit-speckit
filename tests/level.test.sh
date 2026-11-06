@@ -103,7 +103,9 @@ check "then every checkout says persist-credentials: false (the default keeps th
   'n=$(grep -c "actions/checkout@" .github/workflows/ci.yml); [[ $n -gt 0 && "$(grep -A2 "actions/checkout@" .github/workflows/ci.yml | grep -c "persist-credentials: false")" == "$n" ]]'
 rm .github/workflows/security.yml
 "$l" full >/dev/null
-check "when set to full, then semgrep with the OWASP rules is part of the security workflow" 'grep -q "semgrep==.*--config p/owasp-top-ten" .github/workflows/security.yml'
+check "when level.sh full writes security.yml, then Semgrep runs from semgrep/semgrep@sha256:<64 hex> equal to SEMGREP_DIGEST, with the default and OWASP rules" \
+  'd="$(sed -nE "s/^SEMGREP_DIGEST=\"([0-9a-f]{64})\".*/\1/p" "$SCRIPTS/pins.sh")"; [[ -n "$d" ]] && grep -qE "^ +image: semgrep/semgrep@sha256:$d( |$)" .github/workflows/security.yml && grep -q "semgrep scan --config p/default --config p/owasp-top-ten --error --metrics off" .github/workflows/security.yml'
+check "then nothing installs Semgrep by version alone" '! grep -qE "semgrep==|install .*semgrep|semgrep/semgrep:" .github/workflows/security.yml'
 
 rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"
 new_repo standard

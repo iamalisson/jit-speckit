@@ -29,12 +29,14 @@ access control leads OWASP, and missing authorization jumped to #4 in the CWE li
 | Every review Claude launches | plugin `PreToolUse` hook on the subagent tool (`hooks/guard-review.sh`) | refuses a launch of `jit-speckit:reviewer`, or of any agent whose prompt holds the reviewer line, without `model` set to `sonnet`, `opus` or `fable`, and in a fork of the author's session | only where the plugin is installed; `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` still forces one model (the record warns) |
 | Every push | git `pre-push` (`.githooks/`, or the repo's pre-commit framework or husky config) | re-scans every commit leaving the machine (catches `--no-verify` commits); base branches are PR-only (standard, full) | locally |
 | Before a PR opens | after `/speckit-implement` | the independent review (`/speckit-jit-review`: a fresh agent, the whole repository, claims re-run, one mutation), scanners on the changed files (`pr.sh` refuses the PR until `security-scan.sh --changed` ran on its exact diff; a missing scanner is reported, not refused), `/security-review` | — |
-| Every PR, push and week | `security.yml` CI | Gitleaks over the full history, OSV-Scanner on every lockfile, zizmor on workflows; Semgrep with the OWASP rules on full. Weekly, because new CVEs hit dependencies nobody touched. | **no**, with branch protection |
+| Every PR, push and week | `security.yml` CI | Gitleaks over the full history, OSV-Scanner on every lockfile, zizmor on workflows; Semgrep with the OWASP rules on full, run from its official image pinned by sha256 digest, its rule sets fetched from the Semgrep registry at run time (their license forbids shipping them; a local `security-scan.sh` fetches them too). Weekly, because new CVEs hit dependencies nobody touched. | **no**, with branch protection |
 | On demand, before releases | `/jit-speckit:security` | the full audit below | — |
-| On GitHub | offered by `/jit-speckit:init` | secret scanning with push protection; branch protection requiring CI | **no** |
+| On GitHub | offered by `/jit-speckit:init` | every level: rebase merges off (on lite, merge commits off too: squash only), and on a public repo secret scanning with push protection and private vulnerability reporting; standard and full: branch protection requiring CI | **no** |
 
 The local layers are fast feedback. **The CI gate plus branch protection is the boundary**: it
-cannot be skipped from a laptop.
+cannot be skipped from a laptop. On lite there is no CI gate: the hooks, the guard and the review
+before each PR are all that check the code, and nothing on GitHub re-checks a push. Move to
+standard (`/jit-speckit:level standard`) when that matters.
 
 ## The audit: `/jit-speckit:security`
 
@@ -65,7 +67,9 @@ adds parallel reviewers and adversarial verification.
    proves the fix. It is stored inside `.git`, so it is never committed or published.
 7. **Safe tracking:**
    - private repos get `security` issues with no exploit detail in the title;
-   - public repos get private security advisories, never public issues;
+   - public repos get private draft security advisories, never public issues; an advisory with
+     the same summary is reused, else one is sent with the summary, description, severity and
+     affected package GitHub requires;
    - a leaked secret is rotated first.
 
 ## Supply chain hygiene in generated files

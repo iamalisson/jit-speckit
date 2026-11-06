@@ -227,7 +227,8 @@ security_yaml() {
   cat <<EOF
 $MARKER
 # Security gate: runs on every pull request, on pushes to long-lived branches, and weekly
-# (new CVEs land in dependencies nobody touched). Tools are pinned and checksum-verified.
+# (new CVEs land in dependencies nobody touched). Tools are pinned and checksum-verified;
+# Semgrep's rule sets (full level) are fetched from the Semgrep registry at run time.
 name: Security
 
 on:
@@ -301,10 +302,12 @@ EOF
   code:
     name: Code (semgrep, OWASP rules)
     runs-on: ubuntu-latest
+    # The image is verified by its digest; the rule sets come from the Semgrep registry at run time.
+    container:
+      image: semgrep/semgrep@sha256:$SEMGREP_DIGEST # $SEMGREP_VERSION
     steps:
 $(checkout_step)
-      - uses: $PIN_SETUP_UV
-      - run: uvx --from semgrep==$SEMGREP_VERSION semgrep scan --config p/default --config p/owasp-top-ten --error --metrics off
+      - run: semgrep scan --config p/default --config p/owasp-top-ten --error --metrics off
 EOF
   fi
 }

@@ -16,7 +16,10 @@ Design decisions, each with its reason. The what is in the [README](../README.md
   ([working in small batches](https://dora.dev/capabilities/working-in-small-batches/)), and the
   2025 model lists it among the capabilities that make AI help instead of hurt.
 - **Failures localize.** A red CI, a security finding or a production bug points at one task.
-  One revert removes one task. In a one-PR feature, the revert takes everything.
+  One revert removes one task. In a one-PR feature, the revert takes everything. The promise rests
+  on one commit per task PR: `init` offers to turn rebase merges off on every level; lite merges by
+  squash only, and on standard and full task PRs are squashed by convention (merge commits stay for
+  the `develop` → `main` promotions, which a squash would split from `develop`).
 - **"Done" has an external definition.** The issue says which requirement produced the code and
   closes only when the PR merges. That is what makes `/jit-speckit:next` resumable after a month,
   and what the independent review checks the PR against.
