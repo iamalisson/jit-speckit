@@ -50,7 +50,9 @@ for t in bash cat sed grep; do ln -sf "$(command -v "$t")" "$TMP/nopy/$t"; done
 check "when python3 is not on PATH, then a reviewer launch on haiku is still blocked and one on opus allowed" \
   'rc=0; launch Agent jit-speckit:reviewer haiku "x" | PATH="$TMP/nopy" bash "$hook" 2>/dev/null || rc=$?; [[ $rc == 2 ]] && launch Agent jit-speckit:reviewer opus "x" | PATH="$TMP/nopy" bash "$hook"'
 
+# The bash 3.2 job has no python3: there, the entry from the Agent|Task matcher to its onFailure is read with sed.
 check "when hooks.json is read, then it runs guard-review.sh on the Agent and Task tools with onFailure block" \
-  'python3 -c "import json,sys; h=[e for e in json.load(open(sys.argv[1]))[\"hooks\"][\"PreToolUse\"] if \"guard-review.sh\" in e[\"hooks\"][0][\"command\"]]; m=h[0][\"matcher\"].split(\"|\"); sys.exit(0 if \"Agent\" in m and \"Task\" in m and h[0][\"hooks\"][0][\"onFailure\"]==\"block\" else 1)" "$ROOT/hooks/hooks.json"'
+  'if ! command -v python3 >/dev/null; then e="$(sed -n "/\"matcher\": *\"Agent|Task\"/,/\"onFailure\"/p" "$ROOT/hooks/hooks.json")"; [[ "$e" == *guard-review.sh* && "$e" == *"\"onFailure\": \"block\""* ]]; exit; fi
+  python3 -c "import json,sys; h=[e for e in json.load(open(sys.argv[1]))[\"hooks\"][\"PreToolUse\"] if \"guard-review.sh\" in e[\"hooks\"][0][\"command\"]]; m=h[0][\"matcher\"].split(\"|\"); sys.exit(0 if \"Agent\" in m and \"Task\" in m and h[0][\"hooks\"][0][\"onFailure\"]==\"block\" else 1)" "$ROOT/hooks/hooks.json"'
 
 exit "$FAIL"
