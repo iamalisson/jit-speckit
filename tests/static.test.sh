@@ -85,6 +85,12 @@ stale=""
 for f in extension/commands/*.md extension/scripts/*.sh; do
   d="${f#extension/}"; cmp -s "$f" ".specify/extensions/jit/$d" || stale+="$d "
 done
+# The skill .claude/skills links to is generated from each command: its body (after spec-kit's frontmatter) is the command's.
+body() { awk 'n >= 2 { print } /^---$/ { n++ }' "$1"; }
+for f in extension/commands/*.md; do
+  s=".specify-dev/agent-commands/claude/speckit-jit-$(basename "$f" .md)/SKILL.md"
+  [[ -f ".specify/extensions/jit/$s" && "$(body "$f")" == "$(body ".specify/extensions/jit/$s")" ]] || stale+="$s "
+done
 check "every extension command and script equals its .specify/extensions/jit copy${stale:+ — stale: $stale(fix: specify extension add --dev extension --force)}" '[[ -z "$stale" ]]'
 
 # A link copied from the README into docs/ keeps its docs/ prefix and breaks; every relative link
