@@ -22,6 +22,7 @@ argument-hint: "[feature]"
    - **resume** is a task whose branch you started in this clone; it is picked first.
    - **in-progress** tasks are being done elsewhere (a branch on origin, another worktree, an
      open PR) and are never picked; they finish when their PR merges.
+   - **parallel**: an open `[P]` task that can start now in its own worktree, beside NEXT.
    - If tasks have **no issue**, say so and suggest `/speckit-jit-issues`.
    - If `NEXT` is empty and `IN_PROGRESS` is not 0, nothing is left to start: list the open PRs
      to merge, and stop.
@@ -31,5 +32,14 @@ argument-hint: "[feature]"
      suggest `/jit-speckit:security` before the next release, and `/speckit-specify` for the
      next feature. Stop.
 3. Make sure the working tree is clean. If it isn't, stop and say so; never stash or discard.
-4. Run `/speckit-implement <NEXT>`. It switches to the task's branch, implements it, runs the
+4. If it printed `parallel` lines, those `[P]` tasks can start now beside NEXT. Ask once: "Also
+   start <ids> in their own worktrees?" On yes, run each line exactly as printed, one at a time,
+   never two at once: each makes a worktree beside the repository (`<repo>-<feature>-<task>`) and
+   claims its task on origin before the next one runs. If a line fails (a leftover folder, a
+   parent folder that is not writable, scripts not committed on the base branch), show its message
+   as is and skip that task. A refused claim (`jit: warning: could not claim …`) only warns: the
+   task started, but other clones may start it too; say so. Then list, per started task: open a
+   Claude Code session in the path after `--detach` and run `/speckit-implement <feature> <id>`
+   (install dependencies there first: a new worktree has no git-ignored files).
+5. Run `/speckit-implement <NEXT>`. It switches to the task's branch, implements it, runs the
    pre-PR checks and opens the PR.

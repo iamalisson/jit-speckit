@@ -6,7 +6,9 @@
 # this clone is yours to resume, and is picked first. A task whose line says "depends on T003" is
 # blocked until T003's issue is closed.
 # Prints a line per task ("done|resume|in-progress|blocked|open|no-issue Tnnn #N description"), then
-# DONE=x/y IN_PROGRESS=n NEXT=<Tnnn> (NEXT empty when nothing is left to start).
+# a "parallel <Tnnn> (<command>)" line for each other open task marked [P] right after its id (the
+# command makes its worktree beside the repo and claims the task), then DONE=x/y IN_PROGRESS=n
+# NEXT=<Tnnn> (NEXT empty when nothing is left to start).
 # With no argument on a task branch (<prefix>/NNN-tNNN-...), it serves that branch's feature.
 # Otherwise, with several features that have tasks to start, it prints one "feature <name>
 # DONE=x/y" line each and CHOOSE=<names>; run it again with the chosen one.
@@ -24,7 +26,7 @@ checked_out=" $(git worktree list --porcelain | sed -n 's#^branch refs/heads/##p
 remote_b=" $(git ls-remote --heads origin 2>/dev/null | sed 's#.*refs/heads/##' | tr '\n' ' ') "
 pr_heads=" $(gh pr list --state open --limit 500 --json headRefName --jq '.[].headRefName' 2>/dev/null | tr '\n' ' ') "
 
-# scan <feature dir> <print>: one line per task when print=true; sets DONE_N TOTAL BUSY NEXT_ID
+# scan <feature dir> <print>: one line per task when print=true; sets DONE_N TOTAL BUSY NEXT_ID PAR
 scan() {
   local fdir="$1" show="$2" num closed=" " nums q="" i out line id issue key state resume="" d dl di
   num="$(feature_key "$fdir")"
@@ -40,7 +42,7 @@ scan() {
       || die "cannot read the state of feature $num's task issues; fix or remove the issue number it names in $fdir/tasks.md"
     closed=" $(tr '\n' ' ' <<<"$out") "
   fi
-  NEXT_ID=""; DONE_N=0; TOTAL=0; BUSY=0
+  NEXT_ID=""; DONE_N=0; TOTAL=0; BUSY=0; PAR=""
   while IFS= read -r line; do
     id="$(sed -E 's/^- \[.\] (T[0-9]{3,}) .*/\1/' <<<"$line")"
     issue="$(task_issue "$line")"
@@ -60,6 +62,7 @@ scan() {
         if [[ -n "$di" && "$closed" != *" $di "* ]]; then state=blocked; fi
       done
       [[ "$state" != open ]] || NEXT_ID="${NEXT_ID:-$id}"
+      [[ "$state" != open || "$line" != "- ["?"] $id [P] "* ]] || PAR+=" $id"
     fi
     if $show; then echo "$state $id ${issue:+#$issue} $(task_summary "$line")"; fi
   done < <(grep -E '^- \[.\] T[0-9]{3,} ' "$fdir/tasks.md")
@@ -92,4 +95,11 @@ fi
 [[ -f "$fdir/tasks.md" ]] || die "$fdir/tasks.md not found; run /speckit-tasks first"
 
 scan "$fdir" true
+# Every other startable [P] task: one line that makes its worktree and claims it, run one at a time.
+num="$(feature_key "$fdir")"
+for id in $PAR; do
+  [[ "$id" != "$NEXT_ID" ]] || continue
+  wt="$(printf %q "$PWD-$num-$(tr '[:upper:]' '[:lower:]' <<<"$id")")"
+  echo "parallel $id (git worktree add --quiet --detach $wt origin/$(base_branch) && cd $wt && bash .specify/extensions/jit/scripts/branch.sh $num $id)"
+done
 echo "DONE=$DONE_N/$TOTAL IN_PROGRESS=$BUSY NEXT=$NEXT_ID"
