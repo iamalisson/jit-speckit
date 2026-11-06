@@ -40,7 +40,8 @@ switched() {
         if ((${#o} >= 4)) && [[ "--create" == "$o"* || "--force-create" == "$o"* || "--orphan" == "$o"* ]]; then
           if [[ "$w" == *=* ]]; then w="${w#*=}"; else w="${1:-}"; fi; branches+=" $w "; return 0
         fi
-        if ((${#o} >= 4)) && [[ "--track" == "$o"* ]]; then track=true
+        # switch takes --t (no other --t option); checkout calls it ambiguous, so counting it is safe.
+        if ((${#o} >= 3)) && [[ "--track" == "$o"* ]]; then track=true
         elif [[ "$w" == *=* ]]; then found+=" ${w#*=} "; fi ;;
       -?*)
         # Short bundle: a new-branch letter takes the rest of the word, or the next word.
@@ -52,8 +53,8 @@ switched() {
       *) found+=" $w " ;;
     esac
   done
-  # --track <remote>/<branch> creates the local <branch>.
-  if $track; then for w in $found; do found+=" ${w#*/} "; done; fi
+  # --track [refs/][remotes/]<remote>/<branch> creates the local <branch>, as git derives it.
+  if $track; then for w in $found; do w="${w#refs/}"; w="${w#remotes/}"; found+=" ${w#*/} "; done; fi
   branches+="$found"
 }
 
