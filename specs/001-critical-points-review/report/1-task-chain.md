@@ -167,9 +167,9 @@ Also checked, no finding:
   when `gh pr list` fails while a spec PR is open with a commit from someone else, then `pr.sh spec`
   exits non-zero and origin's spec branch still has that commit. It fails today.
 
-### F1.9 · Low · P04 · on a task branch, `next` with no argument asks which feature
+### F1.9 · Medium · P04 · on a task branch, `next` with no argument asks which feature, while the docs say the branch decides
 
-- **verdict**: limit
+- **verdict**: limit (the docs mislead)
 - **evidence**: `next.sh:62-77`: with no argument, more than one feature with tasks to start means
   `CHOOSE=…`, before the branch is looked at. Sandbox, on `feat/099-t001-add-docs-099-note` right
   after the claim, `next.sh | tail -3` printed `feature 001-tempconv-foundation DONE=1/3
@@ -177,8 +177,15 @@ Also checked, no finding:
   099-jit-review`. `docs/reference.md:66-68` says both "when more than one feature has tasks to
   start, it lists them and asks" and "On a task branch the branch name decides"; `next` follows the
   first even on a task branch. It fails safe: it asks, and `next 099` serves the branch's feature.
-- **note**: `next.sh` could start from `feature_dir` when the current branch is a task branch, or
-  the docs could say the branch decides only for the other scripts.
+  Ranked Medium because `docs/reference.md:67-68` states a behavior `next` does not have ("On a
+  task branch the branch name decides, so a worktree never follows the main checkout").
+- **reproduction**: the sandbox run above (`next.sh` on a task branch with two features to start).
+- **exposure**: public.
+- **fix**: with no argument, `next.sh` uses the current branch's feature when the branch is a task
+  branch (`feat/<num>-t<id>-…`), as the docs say, and asks only on any other branch. Check for
+  `tests/next.test.sh`: when the current branch is a task branch of one feature and another feature
+  also has tasks to start, then `next` with no argument prints that feature's tasks and no
+  `CHOOSE=`. It fails today.
 
 ### Reproductions
 

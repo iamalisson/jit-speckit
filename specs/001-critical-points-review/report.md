@@ -9,17 +9,16 @@ and collects what could not be checked.
 ## Summary
 
 Of 28 promises, 4 hold (P09, P18, P22, P23), 14 are `limit`, 8 are `broken` and 2 are reported
-privately. 36 findings: 3 High (one private), 22 Medium, 11 Low.
+privately. 36 findings: 3 High (one private), 24 Medium, 9 Low.
 
 How the ranks apply FR-009. High is a broken promise of the kinds it lists (a secret can leave, a
 protected branch can change, a user's file can be lost, a gate passes without what it claims), and
 Medium a promise kept that a user could be misled about. FR-009 has no tier for a broken promise
-without one of those harms: this report ranks those Medium (F1.1, F1.2, F1.6, F1.8, F3.3, F4.2,
-F4.3), and Low when the only effect is a wrong hint that the next refusal corrects (F3.7). A
-`limit` whose docs mislead is Medium. A `limit` is Low when its docs describe it (F1.3, F5.1, and
-F4.6 and F5.5, whose blocks say why), and also, departing from data-model's "always Low" only for
-honest docs, when the docs say nothing either way and the gap costs a retry or a message (F1.4,
-F1.5, F1.9, F2.2, F2.5, F3.2).
+without one of those harms: this report ranks those Medium (F1.1, F1.2, F1.6, F1.8, F3.3, F3.7,
+F4.2, F4.3). A `limit` whose docs mislead is Medium. A `limit` is Low when its docs describe it
+(F1.3, F5.1, and F4.6 and F5.5, whose blocks say why), and also, departing from data-model's
+"always Low" only for honest docs, when the docs say nothing either way and the gap costs a retry
+or a message (F1.4, F1.5, F2.2, F2.5, F3.2).
 
 | id | rank | promise | finding | proposed fix | section |
 |---|---|---|---|---|---|
@@ -31,6 +30,7 @@ F1.5, F1.9, F2.2, F2.5, F3.2).
 | F1.6 | Medium | P03, P04 | on standard and full a failed close in `close-linked-issues.yml` is silent | close every number, then fail the job | [1](report/1-task-chain.md) |
 | F1.7 | Medium | P01 | an issue created on GitHub whose answer never arrives is created again, while the docs say an interrupted run never makes duplicates | look for the task's title before creating | [1](report/1-task-chain.md) |
 | F1.8 | Medium | P05 | when `gh pr list` fails, `pr.sh spec` force-pushes over the open spec PR's branch | stop when the PR lookup fails | [1](report/1-task-chain.md) |
+| F1.9 | Medium | P04 | on a task branch, `next` with no argument asks which feature, while the docs say the branch decides | use the task branch's feature | [1](report/1-task-chain.md) |
 | F2.4 | Medium | P08 | the docs give Claude Code 2.1.275 as the plugin's minimum, but the guard fails closed only from 2.1.295 | say 2.1.295 wherever the minimum is given | [2](report/2-secrets-guard.md) |
 | F2.3 | Medium | P08 | two forms inside the guard's documented scope get through | refuse them in `guard.sh` | [2](report/2-secrets-guard.md) |
 | F3.1 | Medium | P10, P11 | the review gate proves a report exists, not that a fresh reader wrote it | attach the recorded report to the PR; say what the gate proves | [3](report/3-review-gate.md) |
@@ -38,6 +38,7 @@ F1.5, F1.9, F2.2, F2.5, F3.2).
 | F3.4 | Medium | P13 | mutation testing runs only if the prompt runs it | record the `mutants.sh` result; `pr.sh` requires it | [3](report/3-review-gate.md) |
 | F3.5 | Medium | P14 | "copilot: code review requested" is printed when no review was requested | print it only when the answer lists Copilot | [3](report/3-review-gate.md) |
 | F3.6 | Medium | P26 | pre-PR scanners and `/security-review` are presented as built in; only the prompt runs them | record the scan; `pr.sh` requires it | [3](report/3-review-gate.md) |
+| F3.7 | Medium | P10 | the hint for a missing task review tells the user to record a plan review, on every refusal | `$($plan && echo ' --plan')` | [3](report/3-review-gate.md) |
 | F3.8 | Medium | P15 | on full, the analysis requirement is met by running `analyzed.sh` alone | `analyzed.sh` takes the analysis report | [3](report/3-review-gate.md) |
 | F3.9 | Medium | P13 | common test layouts are not seen as tests, so weakening them needs no explanation | widen `TEST_PATH_RE`, let the constitution add one | [3](report/3-review-gate.md) |
 | F4.1 | Medium | P17 | Dependabot updates 2 of the 9 pinned actions and none of the 4 pinned tools | a dispatch-only workflow using every pin, a version check for tools | [4](report/4-ci-supply-chain.md) |
@@ -51,11 +52,9 @@ F1.5, F1.9, F2.2, F2.5, F3.2).
 | F1.3 | Low | P04 | `/speckit-implement Tnnn` starts a blocked or already-done task | none (docs honest) | [1](report/1-task-chain.md) |
 | F1.4 | Low | P02 | untracked files of another feature block a task from starting | name the paths in the message | [1](report/1-task-chain.md) |
 | F1.5 | Low | P04 | `next` exits with no message when origin or `gh pr list` cannot be reached | `die` with the reason | [1](report/1-task-chain.md) |
-| F1.9 | Low | P04 | on a task branch, `next` with no argument asks which feature | start from the branch's feature, or fix the doc | [1](report/1-task-chain.md) |
 | F2.2 | Low | P08 | the guard refuses valid commands | treat key reads as reads; follow `cd` and `switch` | [2](report/2-secrets-guard.md) |
 | F2.5 | Low | P06 | secret formats the docs never list are not caught | list the covered formats | [2](report/2-secrets-guard.md) |
 | F3.2 | Low | P11 | editing `spec.md`, `research.md` or `quickstart.md` after the plan review keeps it valid | hash the whole feature folder | [3](report/3-review-gate.md) |
-| F3.7 | Low | P10 | the hint for a missing task review tells the user to record a plan review | `$($plan && echo ' --plan')` | [3](report/3-review-gate.md) |
 | F4.6 | Low | P27 | a release goes out on any version tag, with no audit or CI requirement | require a passing Security run on the tag | [4](report/4-ci-supply-chain.md) |
 | F5.1 | Low | P19 | an edit inside a managed file is replaced by the next `level` or `init` | back up the old content and say where | [5](report/5-levels-files.md) |
 | F5.5 | Low | P21 | the README says `init` commits nothing; since 1.7.1 it offers to | fix the README sentence | [5](report/5-levels-files.md) |
@@ -134,6 +133,16 @@ F2.1's fix is in its private advisory.
 - **check** (`tests/pr.test.sh`): when `gh pr list` fails while a spec PR is open with someone
   else's commit, then `pr.sh spec` exits non-zero and origin's spec branch still has that commit.
 
+### Fix F1.9 · `next` on a task branch serves that branch's feature
+
+- **promise**: P04, `next` follows the branch it runs on, so a worktree never follows the main
+  checkout.
+- **change**: with no argument, `next.sh` uses the current branch's feature when the branch is a
+  task branch, and asks only on any other branch.
+- **check** (`tests/next.test.sh`): when the current branch is a task branch of one feature and
+  another feature also has tasks to start, then `next` with no argument prints that feature's
+  tasks and no `CHOOSE=`.
+
 ### Fix F2.4 · the docs give 2.1.295 as the plugin's minimum Claude Code version
 
 - **promise**: P08, the guard blocks a command when it fails, on every supported version.
@@ -197,6 +206,13 @@ F2.1's fix is in its private advisory.
   id>`, and `pr.sh task` refuses when there is none for this diff.
 - **check** (`tests/pr.test.sh`): when no scan was recorded for this diff, then `pr.sh task`
   refuses and names `security-scan.sh`.
+
+### Fix F3.7 · the missing-review hint names the right record command
+
+- **promise**: P10, the review gate tells the user what to record.
+- **change**: `review.sh:45` builds the hint with `$($plan && echo ' --plan')`.
+- **check** (`tests/review.test.sh`): when `review.sh check` runs on a task branch with no record,
+  then its hint has no `--plan`.
 
 ### Fix F3.8 · `analyzed.sh` takes the analysis report and refuses without one
 

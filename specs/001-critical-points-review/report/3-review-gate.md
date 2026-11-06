@@ -103,8 +103,9 @@ Also checked, no finding:
   project's check exiting 1, `pr.sh task` prints `PR=…`. CI runs afterwards, on the open PR.
   Ranked Medium, not High: no gate in jit claims to run the checks (`pr.md` asks, and section 3's
   table says "nothing" refuses), so no gate passes without what it claims; and opening a PR changes
-  no branch. On standard and full, CI on the PR plus branch protection keep red code from merging;
-  on lite nothing does, which is F4.4's gap, and the merge is still the user's own click.
+  no branch. On standard and full, CI runs on the PR, and red code cannot merge when the user
+  accepted `init`'s branch-protection offer (`skills/init/SKILL.md` step 4); on lite nothing stops
+  it, which is F4.4's gap, and the merge is still the user's own click.
 - **reproduction**: section B of the script below.
 - **exposure**: public.
 - **fix**: `pr.sh task` runs the constitution's `test` command (`constitution_cmd test`, already
@@ -186,16 +187,20 @@ Also checked, no finding:
   `tests/pr.test.sh`: when no scan was recorded for this diff, then `pr.sh task` refuses and names
   `security-scan.sh`. It fails today.
 
-### F3.7 · Low · P10 · the hint for a missing task review tells the user to record a plan review
+### F3.7 · Medium · P10 · the hint for a missing task review tells the user to record a plan review
 
 - **verdict**: broken
 - **evidence**: `review.sh:45` builds the hint with `${plan:+ --plan}`, but `plan` is the string
   `false` or `true`, never empty, so the hint always says `review.sh record --plan <report-file>`.
   Section D: on a task branch with no record, `… record its report: review.sh record --plan
-  <report-file>`. Following it records a plan review, and the task gate still refuses.
+  <report-file>`. Following it records a plan review, and the task gate still refuses, with the
+  same hint: nothing in the refusal ever names the right command. Medium: the gate itself holds,
+  but its only guidance sends the user the wrong way every time.
 - **reproduction**: section D of the script below.
 - **exposure**: public.
-- **note**: `$($plan && echo ' --plan')`.
+- **fix**: build the hint with `$($plan && echo ' --plan')`. Check for `tests/review.test.sh`: when
+  `review.sh check` runs on a task branch with no record, then its hint has no `--plan`. It fails
+  today.
 
 ### F3.8 · Medium · P15 · on full, the analysis requirement is met by running `analyzed.sh` alone
 
