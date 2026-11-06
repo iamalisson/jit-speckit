@@ -111,7 +111,8 @@ and the guard is "best effort", with "CI and branch protection" as the boundary.
   only versions the docs give are lower: the constitution's "Stack" says "the plugin needs Claude
   Code 2.1.275 or newer" (`.specify/memory/constitution.md:19`), and `README.md:44` says of the
   one-line install command "Needs Claude Code 2.1.275 or newer; on older versions use two
-  prompts". So a user on 2.1.275 to 2.1.294 is told they are supported, while there the guard
+  prompts", which also tells users below 2.1.275 how to install. So every user below 2.1.295 is
+  told they are supported, while there the guard
   fails open on a timeout or crash, a case `docs/security.md:28`'s "best effort: an unusual shell
   trick can get past it" does not describe. Ranked Medium on that documented mismatch (FR-009: "a
   promise kept but a user could be misled about it"), not on a run: the fail-open behavior itself
@@ -122,9 +123,12 @@ and the guard is "best effort", with "CI and branch protection" as the boundary.
 - **exposure**: public (it is about which version the docs promise, not a way past the guard).
 - **fix**: say 2.1.295 wherever the plugin's minimum is given: the constitution's "Stack",
   `README.md` next to the install line, and `docs/security.md`'s guard row ("fails closed on a
-  timeout or crash from Claude Code 2.1.295"). Check for `tests/static.test.sh`: when
-  `hooks/hooks.json` uses `onFailure`, then every "Claude Code <version> or newer" in `README.md`
-  and the constitution is 2.1.295 or newer. It fails today (2.1.275).
+  timeout or crash from Claude Code 2.1.295"); and re-scope the README's "on older versions use
+  two prompts" fallback to versions at or above 2.1.295 (or drop it), since the one-line command's
+  own minimum is not the plugin's. Check for `tests/static.test.sh`: when `hooks/hooks.json` uses
+  `onFailure`, then every "Claude Code <version> or newer" in `README.md` and the constitution is
+  2.1.295 or newer, and the README offers no install path for versions below it. It fails today
+  (2.1.275, and the fallback for older versions).
 
 ### F2.5 · Low · P06 · secret formats the docs never list are not caught
 

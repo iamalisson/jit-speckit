@@ -119,9 +119,12 @@ F2.1's fix is in its private advisory.
 
 - **promise**: P08, the guard blocks a command when it fails, on every supported version.
 - **change**: the constitution's "Stack", `README.md` next to the install line, and
-  `docs/security.md`'s guard row say Claude Code 2.1.295 or newer, the version `onFailure` needs.
+  `docs/security.md`'s guard row say Claude Code 2.1.295 or newer, the version `onFailure` needs;
+  the README's "on older versions use two prompts" fallback covers only versions at or above it
+  (or goes).
 - **check** (`tests/static.test.sh`): when `hooks/hooks.json` uses `onFailure`, then every
-  "Claude Code <version> or newer" in `README.md` and the constitution is 2.1.295 or newer.
+  "Claude Code <version> or newer" in `README.md` and the constitution is 2.1.295 or newer, and
+  the README offers no install path for versions below it.
 
 ### Fix F2.3 · `guard.sh` refuses abbreviated `--no-verify` and judges a commit by the branch switched to
 
