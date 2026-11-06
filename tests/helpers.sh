@@ -47,7 +47,8 @@ case "$1 $2" in
   "label create") exit 0 ;;
   "pr list") if [[ "$*" == *headRefName* ]]; then cat "$GH_OPEN" 2>/dev/null; elif [[ -f "$GH_PR" ]]; then cat "$GH_PR"; fi; exit 0 ;;
   "pr create") echo "https://github.com/acme/app/pull/99" | tee "$GH_PR" ;;
-  "issue list") cat "$GH_CLOSED" 2>/dev/null; exit 0 ;;
+  "issue list") if [[ -n "${GH_FAIL_ISSUE_LIST:-}" ]]; then echo "HTTP 502: Bad Gateway" >&2; exit 1; fi
+                cat "$GH_CLOSED" 2>/dev/null; exit 0 ;;
   "repo view") exit 1 ;;
   "issue edit"|"pr edit") if [[ -n "${GH_FAIL_EDIT:-}" ]]; then echo "GraphQL: Could not resolve to a ProjectV2" >&2; exit 1; fi ;;
   *) exit 0 ;;
