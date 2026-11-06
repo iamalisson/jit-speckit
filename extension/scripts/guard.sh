@@ -26,7 +26,7 @@ branches=" $current "
 # no_verify <word>: --no-verify or any prefix of it from 3 characters (git takes unique prefixes).
 no_verify() { ((${#1} >= 3)) && [[ "--no-verify" == "$1"* ]]; }
 
-checkout args...>: add the branch they may move to.|checkout args...>: add the branch they may move to. Restoring files
+# switched <switch|checkout> <args...>: add the branch they may move to. Restoring files
 # (`checkout [<tree-ish>] -- <paths>`) adds nothing; a word it cannot tell apart is added.
 switched() {
   local cmd="$1" w o found=""; shift
