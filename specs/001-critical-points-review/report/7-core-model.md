@@ -16,7 +16,7 @@ promises, and a verdict. The sources were opened on 2026-11-05.
   CI run and one merge (section 6, per-level table). Measured on T001–T005: 5.8 to 24.2 minutes of
   review per task, and 5 merges into `main` for 5 tasks. On standard and full each task PR lands on
   `develop` on its own; on lite, each one lands on `main`, the only long-lived branch lite has
-  (`README.md:120`).
+  (`README.md:122`).
 - **Sources cited** (`docs/design.md:8-17`):
   - SmartBear, "Best practices for peer code review": **partly**. The page says "developers should
     review no more than 200 to 400 lines of code (LOC) at a time" and "beyond 400 LOC, the ability to

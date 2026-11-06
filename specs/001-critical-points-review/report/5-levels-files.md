@@ -118,8 +118,8 @@ repositories with a local bare origin for the two `bin/setup.sh` runs. Those nee
   push to `main` tests macOS. `gh run list --workflow test.yml --limit 100` on 2026-11-05 has no
   `schedule` run at all, and two `workflow_dispatch` runs, the latest on `4b1f26b`. (The repository's
   first commit is from 2026-11-04 and the cron runs on Mondays, `test.yml:7-8`, so it has simply
-  not fired yet; the gap is that PRs never run the job.) `4b1f26b` comes before v1.3.0
-  (`git tag --contains 4b1f26b` starts at `v1.3.0`), and it is 17 commits and `27 files changed, 750 insertions(+), 75 deletions(-)` (in `extension/scripts`,
+  not fired yet; the gap is that PRs never run the job.) `4b1f26b` is the v1.3.0 commit
+  (`git rev-list -n1 v1.3.0`), and it is 17 commits and `27 files changed, 750 insertions(+), 75 deletions(-)` (in `extension/scripts`,
   `bin`, `hooks`, `tests`) before v1.7.2. Every PR does run a bash 3.2 + busybox job on Linux
   (`test.yml:37-56`), which covers the shell but not BSD `sed`, `find` or `stat`. The README
   promises Linux and macOS (the badge, and the constitution's "Stack").

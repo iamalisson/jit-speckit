@@ -25,8 +25,10 @@ Also checked, no finding:
   `jit: warning: could not set …` with `gh`'s own error (`tests/issues.test.sh:57`), so a user can
   tell it never worked (FR-006).
 - The 500-item limit on `gh pr list` (`next.sh:24`): a task beyond it is still seen as in progress
-  through its branch on origin (`next.sh:23,43`), which every started task has (the claim), so only
-  a task whose claim push failed (F1.1) and whose PR is past the 500 newest open ones is missed.
+  through its branch on origin (`next.sh:23,43`, `git ls-remote --heads origin`, no limit). Every
+  task with an open PR has that branch, because `pr.sh:70` pushes it before `open_pr` at `:71`,
+  so the limit never hides a task with an open PR. A failed claim matters only before a PR exists,
+  which is F1.1.
 - The `"$num in:title"` search (`next.sh:31`) matching other features' issues does no harm: a task
   is done only when its own issue number is in the result (`next.sh:39`), and numbers are unique.
 
@@ -125,9 +127,9 @@ Also checked, no finding:
   "fixes #12" and "Closes #3", then `gh issue close 3` is still called and the step exits non-zero.
   It fails today (exit 0).
 
-### F1.7 · Low · P01 · an issue created on GitHub whose answer never arrives is created again
+### F1.7 · Medium · P01 · an issue created on GitHub whose answer never arrives is created again
 
-- **verdict**: limit
+- **verdict**: limit (the docs mislead)
 - **evidence**: `issues.sh:52-56` writes `— #N` only after `gh issue create` returns a URL. If the
   request reaches GitHub but the client fails (a timeout, Ctrl-C), `set -e` ends the run before the
   write-back, and the next run creates the task's issue again; nothing looks for an existing
@@ -135,8 +137,16 @@ Also checked, no finding:
   prints `T003 → #2`, and the log has 2 `issue create` calls for T003. Not run against real GitHub.
   `issues.sh:54` ("so an interrupted run never creates duplicates") and `extension/commands/issues.md:8-9`
   ("running it again only creates issues for tasks that don't have one yet") hold for every
-  interruption except this window.
-- **note**: before creating, `gh issue list --search "[NNN] Tnnn: in:title"` and reuse a match.
+  interruption except this window, and neither says the window exists: both promise the opposite,
+  as P01 does. Ranked Medium for that (FR-009: "a promise kept but a user could be misled about
+  it").
+- **reproduction**: section G of the script below.
+- **exposure**: public.
+- **fix**: before `gh issue create`, look for an issue (any state) titled `[NNN] Tnnn:` and, when
+  there is one, write its number back instead of creating another. Check for
+  `tests/issues.test.sh`: when the first `gh issue create` for a task reached GitHub but failed on
+  the client, then a rerun makes no second `issue create` for that task and writes the existing
+  number back. It fails today (2 calls).
 
 ### F1.8 · Medium · P05 · when `gh pr list` fails, `pr.sh spec` force-pushes over the open spec PR's branch
 
@@ -157,9 +167,9 @@ Also checked, no finding:
   when `gh pr list` fails while a spec PR is open with a commit from someone else, then `pr.sh spec`
   exits non-zero and origin's spec branch still has that commit. It fails today.
 
-### F1.9 · Low · P04 · on a task branch, `next` with no argument asks which feature
+### F1.9 · Medium · P04 · on a task branch, `next` with no argument asks which feature, while the docs say the branch decides
 
-- **verdict**: limit
+- **verdict**: limit (the docs mislead)
 - **evidence**: `next.sh:62-77`: with no argument, more than one feature with tasks to start means
   `CHOOSE=…`, before the branch is looked at. Sandbox, on `feat/099-t001-add-docs-099-note` right
   after the claim, `next.sh | tail -3` printed `feature 001-tempconv-foundation DONE=1/3
@@ -167,8 +177,15 @@ Also checked, no finding:
   099-jit-review`. `docs/reference.md:66-68` says both "when more than one feature has tasks to
   start, it lists them and asks" and "On a task branch the branch name decides"; `next` follows the
   first even on a task branch. It fails safe: it asks, and `next 099` serves the branch's feature.
-- **note**: `next.sh` could start from `feature_dir` when the current branch is a task branch, or
-  the docs could say the branch decides only for the other scripts.
+  Ranked Medium because `docs/reference.md:67-68` states a behavior `next` does not have ("On a
+  task branch the branch name decides, so a worktree never follows the main checkout").
+- **reproduction**: the sandbox run above (`next.sh` on a task branch with two features to start).
+- **exposure**: public.
+- **fix**: with no argument, `next.sh` uses the current branch's feature when the branch is a task
+  branch (`feat/<num>-t<id>-…`), as the docs say, and asks only on any other branch. Check for
+  `tests/next.test.sh`: when the current branch is a task branch of one feature and another feature
+  also has tasks to start, then `next` with no argument prints that feature's tasks and no
+  `CHOOSE=`. It fails today.
 
 ### Reproductions
 
