@@ -47,7 +47,8 @@ case "$1 $2" in
                   fi
                   echo "https://github.com/acme/app/issues/$n" ;;
   "label create") exit 0 ;;
-  "pr list") if [[ "$*" == *headRefName* ]]; then cat "$GH_OPEN" 2>/dev/null; elif [[ -f "$GH_PR" ]]; then cat "$GH_PR"; fi; exit 0 ;;
+  "pr list") if [[ -n "${GH_FAIL_PR_LIST:-}" ]]; then echo "HTTP 502: Bad Gateway" >&2; exit 1; fi
+             if [[ "$*" == *headRefName* ]]; then cat "$GH_OPEN" 2>/dev/null; elif [[ -f "$GH_PR" ]]; then cat "$GH_PR"; fi; exit 0 ;;
   "pr create") echo "https://github.com/acme/app/pull/99" | tee "$GH_PR" ;;
   "issue list") if [[ -n "${GH_FAIL_ISSUE_LIST:-}" ]]; then echo "HTTP 502: Bad Gateway" >&2; exit 1; fi
                 cat "$GH_CLOSED" 2>/dev/null; exit 0 ;;

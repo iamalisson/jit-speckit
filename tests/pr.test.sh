@@ -112,6 +112,17 @@ check "when a later spec PR follows a squash-merged one, then it starts fresh fr
 check "then the new spec PR carries only what changed: the converge task" \
   '[[ "$(git diff --name-only origin/develop..HEAD)" == specs/002-new/tasks.md ]] && git diff origin/develop..HEAD | grep -q "^+- \[ \] T003 Added by converge"'
 
+# F1.8: the spec PR is open and a teammate pushed to its branch; origin was fetched after that, so
+# only the lookup (not --force-with-lease) can stop the fresh start from overwriting their commit.
+git -C "$TMP" clone --quiet "$TMP/origin.git" mate 2>/dev/null
+(cd "$TMP/mate" && git config user.email m@m && git config user.name m && git switch --quiet spec/002-new \
+  && echo "teammate note" >> specs/002-new/tasks.md && git commit --quiet -am "docs: teammate" && git push --quiet origin spec/002-new)
+mate="$(git -C "$TMP/mate" rev-parse HEAD)"; git fetch --quiet origin
+out="$(GH_FAIL_PR_LIST=1 "$p" spec 2>&1)" && spec_rc=0 || spec_rc=$?
+check "when gh pr list fails while the spec PR is open with a teammate's commit, then pr.sh spec exits non-zero after gh's error" \
+  '((spec_rc != 0)) && grep -q "HTTP 502" <<<"$out" && grep -qxF "jit: could not check for an open spec PR" <<<"$out"'
+check "then origin's spec branch still has the teammate's commit" '[[ "$(git ls-remote origin refs/heads/spec/002-new | cut -f1)" == "$mate" ]]'
+
 # ── Changing existing tests needs a reason ──
 rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR"
 new_repo standard

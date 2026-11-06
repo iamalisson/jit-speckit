@@ -105,8 +105,10 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
     branch="spec/$feature"
     # An open spec PR is updated in place. Otherwise (first time, or a later run such as after
     # /speckit-converge, when the old spec PR may have been squash-merged) the branch starts
-    # fresh from the base, so the new PR shows only what changed.
-    open="$(gh pr list --head "$branch" --state open --json url --jq '.[0].url // empty' 2>/dev/null || true)"
+    # fresh from the base, so the new PR shows only what changed. A failed lookup stops here: taken
+    # for "none open", the fresh start would overwrite the open PR's branch, teammates' commits too.
+    open="$(gh pr list --head "$branch" --state open --json url --jq '.[0].url // empty')" \
+      || die "could not check for an open spec PR"
     fresh=false
     if [[ "$(git branch --show-current)" != "$branch" || -z "$open" ]]; then
       ref="$(base_ref)"
