@@ -25,8 +25,9 @@ report "changes needed"
 check "when the review said changes needed, then check refuses" '"$r" record "$TMP/report.md" && fails_with "changes needed" "$r" check'
 report ready
 check "when the review said ready on this diff, then check passes" '"$r" record "$TMP/report.md" | grep -q "^REVIEW=ready" && "$r" check'
-# F3.1/F4.3: report prints only what the script checked (the patch id and the verdict), never the report's text.
-printf 'Preamble LEAK-1\n\n- **What changed**: Adds LEAK-2 search.\n- **Findings**:\n  - High: LEAK-3 in src/a.ts:3\n  - Security: LEAK-4 token logged\n\n%s\nModel: claude-opus-4-7\n\nAssessment: ready\n' "$(range)" > "$TMP/report.md"
+# F3.1/F4.3: report prints only what the script checked (the patch id and the verdict), never the report's text,
+# even a body line shaped like a header field (warning:, map-full:, map-fix:).
+printf 'Preamble LEAK-1\n\n- **What changed**: Adds LEAK-2 search.\n- **Findings**:\n  - High: LEAK-3 in src/a.ts:3\n  - Security: LEAK-4 token logged\nwarning: LEAK-5\nmap-full: - deep: LEAK-6\nmap-fix: - deep: LEAK-7\n\n%s\nModel: claude-opus-4-7\n\nAssessment: ready\n' "$(range)" > "$TMP/report.md"
 "$r" record "$TMP/report.md" >/dev/null; out="$("$r" report 2>&1)" || true
 id="$(sed -n 's/^state: //p' "$(git rev-parse --git-common-dir)/jit-review/task-$(git branch --show-current | sed 's|/|__|g')" | cut -c1-12)"
 check "when a review is recorded, then report prints exactly the patch-id line, the Assessment line and the Model line" \
