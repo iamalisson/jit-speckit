@@ -26,15 +26,16 @@ branches=" $current "
 # no_verify <word>: --no-verify or any prefix of it from 3 characters (git takes unique prefixes).
 no_verify() { ((${#1} >= 3)) && [[ "--no-verify" == "$1"* ]]; }
 
-# switched <switch|checkout args...>: add the branch they may move to. Restoring files
+checkout args...>: add the branch they may move to.|checkout args...>: add the branch they may move to. Restoring files
 # (`checkout [<tree-ish>] -- <paths>`) adds nothing; a word it cannot tell apart is added.
 switched() {
-  local w o found=""
+  local cmd="$1" w o found=""; shift
   while (($#)); do
     w="$1"; shift
     o="${w%%=*}"
     case "$w" in
-      --) return 0 ;;
+      # checkout -- <paths> restores files; for switch, -- only ends the options and the branch follows.
+      --) [[ "$cmd" == switch ]] || return 0; [[ -z "${1:-}" ]] || found+=" $1 "; break ;;
       --*)
         # git takes a unique prefix of a long option, so --cr is --create.
         if ((${#o} >= 4)) && [[ "--create" == "$o"* || "--force-create" == "$o"* || "--orphan" == "$o"* ]]; then
@@ -139,7 +140,7 @@ check_git() {
           block "committing on '$b' is not allowed; start a task with /speckit-implement Tnnn (or /jit-speckit:next)"
         fi
       done ;;
-    switch|checkout) switched "$@" ;;
+    switch|checkout) switched "$sub" "$@" ;;
     config)
       local w2 reading=false
       for w2 in "$@"; do case "$w2" in --get|--get-all|--get-regexp|--list|-l|get) reading=true ;; esac; done

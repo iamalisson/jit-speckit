@@ -86,6 +86,10 @@ check "when git switch tracks with the shortest unique prefix of --track (3 char
 nt="--no-track"
 check "when a chain switches to a protected branch's remote ref without tracking, then a later commit is blocked" \
   'blocked "git switch $nt origin/develop && git commit -m x" && blocked "git checkout ${nt:0:6} origin/main && git commit -m x" && blocked "git switch origin/develop && git commit -m x"'
+# For switch, "--" ends the options and the branch still follows; built at run time.
+dd="--"
+check "when a chain switches to a protected branch after the end-of-options marker, then a later commit is blocked" \
+  'blocked "git switch $dd develop && git commit -m x" && blocked "git switch -q $dd main && git commit -m x" && "$g" "git checkout $dd main && git commit -m x"'
 # The abbreviations are cut at run time too.
 cr="--create"; orph="--orphan"; fc="--force-create"
 check "when a chain creates a protected branch with an abbreviated long option, then a later commit is blocked" \
