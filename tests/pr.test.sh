@@ -38,6 +38,14 @@ check "when the constitution's test command exits 1, then it refuses, prints its
    && grep -qx "red line 30" <<<"$out" && grep -qx "red line 11" <<<"$out" && ! grep -qx "red line 10" <<<"$out" \
    && [[ "$(git ls-remote origin "refs/heads/$(git branch --show-current)")" == "$claim" ]] && ! grep -q "^pr create" "$GH_LOG" \
    && grep -qx "red line 1" "$(git rev-parse --git-common-dir)/jit-test/feat__001-t001-add-search.log"'
+check "when a scan was recorded for this diff, then the scan check lets the PR through" \
+  '! grep -q "no security-scan.sh --changed result" <<<"$out" && grep -qx "red line 30" <<<"$out"'
+printf '#!/usr/bin/env bash\ntouch "%s/green.ran"\n' "$TMP" > "$TMP/green.sh"
+printf '**Commands**: build `[BUILD_COMMAND]` · test `bash %s` · lint `[LINT_COMMAND]` · mutate `[MUTATE_COMMAND]`\n' "$TMP/green.sh" > .specify/memory/constitution.md
+out="$("$p" task T001 "feat(search): add search" "$TMP/body.md" 2>"$TMP/pr.err")" || true
+check "when the constitution's test command exits 0, then it opens the PR with no warning" \
+  '[[ -f "$TMP/green.ran" && "$out" == *"PR=https://github.com/acme/app/pull/99" ]] && grep -q "^pr create" "$GH_LOG" && ! grep -q "^jit:" "$TMP/pr.err"'
+rm -f "$GH_PR"; : > "$GH_LOG" # the checks below are about the next run's PR alone
 rm .specify/memory/constitution.md
 out="$("$p" task T001 "feat(search): add search" "$TMP/body.md" 2>"$TMP/pr.err")"
 check "when the constitution has no test command, then it says the tests were not run and opens the PR" \
