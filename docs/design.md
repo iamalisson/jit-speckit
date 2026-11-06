@@ -40,8 +40,10 @@ that gets only facts: the branch, the task line, the PR body, the test command. 
 diff, then reads the repository around it (callers, the newest siblings of every new file and
 their guards), re-runs every claim, breaks the code once to prove the tests can fail, and walks
 the path where state already exists. This is how GitHub's Copilot code review works, and it is
-why a second reader catches what the first cannot. When the account has Copilot, every PR asks
-for its review too: two independent readers, not one. The review is a gate, not a prompt: its
+why a second reader catches what the first cannot. Every PR asks for Copilot's review too: two
+independent readers, not one. `pr.sh` prints `copilot: code review requested` only when GitHub's
+answer lists Copilot as a reviewer, and `copilot: not requested` otherwise, since GitHub can accept
+the request and add no one. The review is a gate, not a prompt: its
 report is recorded against the exact diff (`review.sh`), and `pr.sh` refuses the PR without a
 recorded `ready` for that diff, at every level; the same holds for the plan review before issues.
 What the gate proves is that a fresh reader reviewed this exact diff and said `ready`: the PR body

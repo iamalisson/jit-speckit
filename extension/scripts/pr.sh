@@ -20,17 +20,17 @@ base="$(base_branch)"
 mode="${1:-}"
 
 open_pr() { # open_pr <title> <body>
-  local url
+  local url logins=""
   url="$(gh pr list --head "$(git branch --show-current)" --state open --json url --jq '.[0].url // empty' 2>/dev/null || true)"
   if [[ -z "$url" ]]; then
     url="$(gh pr create --base "$base" --head "$(git branch --show-current)" --title "$1" --body "$2")"
     add_meta pr "$url"
-    # A second independent reader when the account has GitHub Copilot code review. Without it the
-    # API refuses (422) and nothing is said: the review in the author's session already ran.
-    if [[ "$url" =~ /([^/]+/[^/]+)/pull/([0-9]+)$ ]] \
-      && gh api -X POST "repos/${BASH_REMATCH[1]}/pulls/${BASH_REMATCH[2]}/requested_reviewers" -f 'reviewers[]=copilot-pull-request-reviewer[bot]' >/dev/null 2>&1; then
-      echo "copilot: code review requested"
+    # A second independent reader when the account has GitHub Copilot code review. GitHub can
+    # accept the request and add no one, so the line says what its answer lists.
+    if [[ "$url" =~ /([^/]+/[^/]+)/pull/([0-9]+)$ ]]; then
+      logins="$(gh api -X POST "repos/${BASH_REMATCH[1]}/pulls/${BASH_REMATCH[2]}/requested_reviewers" -f 'reviewers[]=copilot-pull-request-reviewer[bot]' --jq '.requested_reviewers[].login' 2>/dev/null || true)"
     fi
+    if grep -qi copilot <<<"$logins"; then echo "copilot: code review requested"; else echo "copilot: not requested (GitHub did not add the reviewer)"; fi
   fi
   echo "PR=$url"
 }

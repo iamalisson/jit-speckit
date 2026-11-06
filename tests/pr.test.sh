@@ -61,12 +61,17 @@ check "when the work is committed, then it pushes and opens the PR into the base
   '[[ "$out" == *"PR=https://github.com/acme/app/pull/99" ]] && git ls-remote --exit-code origin "$(git branch --show-current)" && grep -q -- "--base develop" "$GH_LOG"'
 check "then the body links the issue with Closes #N" 'grep -q "Closes #5" "$GH_LOG"'
 check "then a Copilot code review is requested on the new PR" \
-  'grep -q "^api -X POST repos/acme/app/pulls/99/requested_reviewers -f reviewers\[\]=copilot-pull-request-reviewer\[bot\]$" "$GH_LOG"'
+  'grep -q "^api -X POST repos/acme/app/pulls/99/requested_reviewers -f reviewers\[\]=copilot-pull-request-reviewer\[bot\] --jq .requested_reviewers\[\]\.login$" "$GH_LOG"'
+check "when GitHub answers with no reviewer, then the output says copilot: not requested, not code review requested" \
+  'grep -qxF "copilot: not requested (GitHub did not add the reviewer)" <<<"$out" && ! grep -q "code review requested" <<<"$out"'
 check "then the user is assigned and no milestone or project is guessed" \
   'grep -q -- "^pr edit https://github.com/acme/app/pull/99 --add-assignee @me" "$GH_LOG" && ! grep -qE -- "--milestone|--add-project" "$GH_LOG"'
 
 out="$("$p" task T001 "feat(search): add search" "$TMP/body.md")"
 check "when the PR already exists, then it is reused, not duplicated" '[[ "$(grep -c "^pr create" "$GH_LOG")" == 1 ]]'
+rm -f "$GH_PR"; out="$(GH_REVIEWERS=Copilot "$p" task T001 "feat(search): add search" "$TMP/body.md")"
+check "when GitHub lists Copilot among the requested reviewers, then the output says copilot: code review requested" \
+  'grep -qxF "copilot: code review requested" <<<"$out" && ! grep -q "not requested" <<<"$out"'
 
 sed -i.bak 's/^level: .*/level: full/' .specify/extensions/jit/jit-config.yml
 rm -f "$GH_PR"; printf 'No evidence here.\n' > "$TMP/thin.md"

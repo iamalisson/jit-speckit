@@ -78,6 +78,7 @@ description: "Review, commit, push and open the task's pull request"
    - attribution lines only if the project's settings ask for them (see step 3).
 6. Run `bash .specify/extensions/jit/scripts/pr.sh task <TASK_ID> "<commit title>" <body-file>`.
    It pushes (the pre-push hook re-checks every commit for secrets), adds `Closes #<ISSUE>` and
-   prints `PR=<url>`, and asks GitHub Copilot code review for a second independent read when the
-   account has it. The `Security` and `CI` workflows then run on the PR; they are the gate.
+   prints `PR=<url>`, and asks GitHub Copilot code review for a second independent read: it prints
+   `copilot: code review requested` only when GitHub lists Copilot as a reviewer, and
+   `copilot: not requested (GitHub did not add the reviewer)` otherwise. The `Security` and `CI` workflows then run on the PR; they are the gate.
 7. End with the PR URL.
