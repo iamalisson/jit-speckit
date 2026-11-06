@@ -80,6 +80,25 @@ check "the review prompt's Report section and pr.md step 5 say a security findin
 check "the review prompt takes the range's start from origin/<base>, as review.sh record does" \
   'grep -qF "git merge-base HEAD origin/<base>" extension/commands/review.md && ! grep -qF "git merge-base HEAD <base>" extension/commands/review.md'
 
+# FR-034: every review runs in the plugin's reviewer agent on a pinned strong model; FR-035: no fast-model checker.
+check "when agents/reviewer.md is read, then it has name: reviewer, model: opus, effort: high and no ## Method (review.md is the only copy)" \
+  'grep -qx "name: reviewer" agents/reviewer.md && grep -qx "model: opus" agents/reviewer.md && grep -qx "effort: high" agents/reviewer.md && ! grep -q "^## Method" agents/reviewer.md'
+# Guard half (FR-035): it passes on main too, so it is never presented as failing-first.
+check "then the plugin ships no fast-model checker agent and plugin.json has no agents key (the default scan finds agents/)" \
+  '[[ ! -e agents/checker.md ]] && ! grep -q "\"agents\"" .claude-plugin/plugin.json'
+check "when review.md, pr.md and issues.md launch the reviewer, then each names jit-speckit:reviewer and pr.md and issues.md no longer launch a general-purpose subagent" \
+  'grep -qF "jit-speckit:reviewer" extension/commands/review.md && grep -qF "jit-speckit:reviewer" extension/commands/pr.md && grep -qF "jit-speckit:reviewer" extension/commands/issues.md \
+   && ! tr "\n" " " < extension/commands/pr.md | grep -qE "general-purpose +subagent" && ! tr "\n" " " < extension/commands/issues.md | grep -qE "general-purpose +subagent"'
+check "when review.md sets the reviewer model, then it names review_model:, the refusal line, never haiku, the general-purpose fallback and the sentinel line" \
+  'f=extension/commands/review.md; grep -qF "review_model:" $f && grep -qF "jit: review_model must be sonnet, opus or fable" $f && grep -qF "Never run the review on \`haiku\`" $f \
+   && grep -qF "general-purpose" $f && grep -qF "jit-speckit review: independent reviewer" $f'
+check "when docs/reference.md is read, then the Configuration table has a review_model row, and it says CLAUDE_CODE_SUBAGENT_MODEL_FORCE overrides it and the hook exists only where the plugin is installed" \
+  'grep -q "^| \`review_model\` |" docs/reference.md && grep -qF "CLAUDE_CODE_SUBAGENT_MODEL_FORCE" docs/reference.md && grep -qi "only where the plugin is installed" docs/reference.md'
+# The section is read into a variable: a pipe into grep -q can fail under pipefail (SIGPIPE on sed).
+sec_readme="$(sed -n "/^## Security, built in/,/^## Levels/p" README.md)"
+check "when the README's Security, built in table is read, then it names the reviewer's model" \
+  '[[ "$sec_readme" == *"jit-speckit:reviewer"* && "$sec_readme" == *Opus* ]]'
+
 # The installed copies (specify extension add --dev extension --force) are what this repo runs: they match the source.
 stale=""
 for f in extension/commands/*.md extension/scripts/*.sh; do
