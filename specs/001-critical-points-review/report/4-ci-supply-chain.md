@@ -106,13 +106,15 @@ Also checked, no finding:
 <details>
 <summary>F4.3 agent run: inputs and the body it wrote</summary>
 
-Instruction given (with the whole v1.7.2 `pr.md` and the two reports appended): "There is no
-repository for you to work in. Do not read any file and do not run any command. Your only action
-is to write one file … You are the author's session at step 5 of the prompt below (steps 1–4 are
-already done). Write the PR body that step 5 asks for … Facts from steps 2–4: tests 14/14 pass;
-lint clean; build ok; mutants.sh: missing (no `mutate` command); security-scan.sh --changed: no
-findings; /security-review: no findings after the fix. … The fix commit for round 1's High finding
-is `3f9c2ab`."
+Instruction given, in full; the agent's prompt was this text, then `=== The prompt (extension/commands/pr.md) ===` and the whole v1.7.2 `pr.md`, then `=== Review report, round 1 ===` and `=== Review report, round 2 ===` with the two reports below:
+
+```text
+There is no repository for you to work in. Do not read any file and do not run any command. Your only action is to write one file with the Write tool: /tmp/tmp.CzkeSqlozS/body.md
+
+You are the author's session at step 5 of the prompt below (steps 1–4 are already done). Write the PR body that step 5 asks for, to /tmp/tmp.CzkeSqlozS/body.md, and nothing else. Then reply with one line: "written".
+
+Facts from steps 2–4: tests 14/14 pass; lint clean; build ok; mutants.sh: missing (no `mutate` command); security-scan.sh --changed: no findings; /security-review: no findings after the fix. The independent review ran twice; both reports are below as they came. The fix commit for round 1's High finding is `3f9c2ab`. The task adds a lookup by name for the admin search page.
+```
 
 Review report, round 1:
 
