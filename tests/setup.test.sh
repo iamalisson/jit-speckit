@@ -3,7 +3,20 @@
 # End-to-end setup against the real spec-kit CLI. Skipped when `specify` is not installed.
 # shellcheck source=helpers.sh
 source "$(dirname "$0")/helpers.sh"
-if ! command -v specify >/dev/null; then echo "skip - specify CLI not installed"; exit 0; fi
+
+# The downgrade refusal comes before spec-kit is called, so a stub `specify` runs it on every CI job.
+mkdir -p "$TMP/stub" "$TMP/newer/.specify/extensions/jit"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP/stub/specify"; chmod +x "$TMP/stub/specify"
+git init --quiet "$TMP/newer"
+printf 'extension:\n  id: jit\n  version: "99.0.0"\nrequires:\n  speckit_version: ">=1.2.0"\n' > "$TMP/newer/.specify/extensions/jit/extension.yml"
+plugin_v="$(sed -nE 's/^  version: "([^"]*)".*/\1/p' "$ROOT/extension/extension.yml")"
+check "when the project's extension.yml is at a newer version than the plugin, then setup.sh refuses and says /reload-plugins" \
+  'PATH="$TMP/stub:$PATH" fails_with "this plugin copy is $plugin_v, the project is at 99.0.0; run /reload-plugins (or setup.sh --downgrade)" "$ROOT/bin/setup.sh" "$TMP/newer"'
+check "when run with --downgrade, then it is not refused for the version" \
+  'out="$(PATH="$TMP/stub:$PATH" "$ROOT/bin/setup.sh" "$TMP/newer" --downgrade 2>&1 || true)"; ! grep -qF "this plugin copy is" <<<"$out" && ! grep -q "unknown option" <<<"$out"'
+check "then the usage line names --downgrade" 'fails_with "--downgrade" "$ROOT/bin/setup.sh" --help'
+
+if ! command -v specify >/dev/null; then echo "skip - the rest needs the specify CLI (not installed)"; exit "$FAIL"; fi
 fake_gh
 
 # A PATH without the Claude Code CLI, as on a CI runner, even on a machine that has it.
@@ -40,6 +53,11 @@ check "then develop exists on origin and CI was scaffolded" 'git ls-remote --exi
 
 setup .
 check "when run again without a level, then it keeps the current level" 'grep -qx "level: standard" .specify/extensions/jit/jit-config.yml'
+
+ext=.specify/extensions/jit/extension.yml
+check "when the project is at a newer version, then setup.sh --downgrade sets it up at the plugin's version" \
+  '[[ ! -L "$ext" && "$(cd "$(dirname "$ext")" && pwd -P)" != "$ROOT"* ]] && sed "s/^  version: .*/  version: \"99.0.0\"/" "$ext" > "$TMP/ext.yml" && cp "$TMP/ext.yml" "$ext" &&
+   fails_with "/reload-plugins" "$ROOT/bin/setup.sh" . && "$ROOT/bin/setup.sh" . --downgrade >/dev/null 2>&1 && grep -qxF "  version: \"$plugin_v\"" "$ext"'
 
 check "when --level has no value, then it fails with the usage line" 'fails_with "Usage:" "$ROOT/bin/setup.sh" . --level'
 check "when the level is unknown, then it fails and names it" 'fails_with "unknown level" "$ROOT/bin/setup.sh" . --level huge'

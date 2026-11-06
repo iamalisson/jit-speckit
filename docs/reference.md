@@ -19,6 +19,11 @@ review method, scaffold) under `.specify/`, and only `init` refreshes it. It kee
 level and touches nothing else. Skip it and the project keeps running the old version, whatever
 the plugin says.
 
+From 1.8.0 on, `init` refuses to take a project back to an older version (`this plugin copy is
+<plugin>, the project is at <project>; run /reload-plugins (or setup.sh --downgrade)`), for
+example from a session still running the old copy. An older copy's own `setup.sh` has no such
+check, so after an update run `/reload-plugins` first, then `init`.
+
 ## What `new` does
 
 `new` doesn't decide the critical things for you. It asks who the project is for, whether it
