@@ -62,13 +62,20 @@ echo '{ "feature_directory": "specs/001-demo" }' > .specify/feature.json
 sed -i.bak 's/^level: .*/level: full/' .specify/extensions/jit/jit-config.yml
 check "when the level is full and analysis did not run, then it refuses" \
   'fails_with "speckit-analyze" "$b" T001'
-"$SCRIPTS/analyzed.sh" >/dev/null
+check "when analyzed.sh is run with no report, then it refuses and branch.sh on full still refuses" \
+  'fails_with "usage: analyzed.sh <report-file>" "$SCRIPTS/analyzed.sh"; fails_with "speckit-analyze" "$b" T001'
+printf '%s\n' '# Notes' 'nothing analyzed here' > "$TMP/not-a-report.md"
+check "when analyzed.sh is given a file without the analysis headings, then it refuses and branch.sh on full still refuses" \
+  'fails_with "is not a /speckit-analyze report" "$SCRIPTS/analyzed.sh" "$TMP/not-a-report.md"; fails_with "speckit-analyze" "$b" T001'
+printf '%s\n' '## Specification Analysis Report' '' '**Coverage Summary Table:**' '' '| Requirement | Has Task |' > "$TMP/report.md"
+check "when analyzed.sh is given a real report, then it is accepted and kept next to the marker" \
+  '"$SCRIPTS/analyzed.sh" "$TMP/report.md" && cmp -s "$TMP/report.md" "$(git rev-parse --git-common-dir)/jit-analyzed/001-demo.report.md"'
 check "when the level is full and analysis ran on the current tasks, then it proceeds" '"$b" T001'
 git switch --quiet main
 printf '%s\n' '- [ ] T009 Added after the analysis in `z` — #90' >> specs/001-demo/tasks.md
 git commit --quiet --no-verify -am "tasks changed"; git push --quiet --no-verify origin main:develop
 check "when tasks.md changed after the analysis, then it refuses until analysis runs again" 'fails_with "speckit-analyze" "$b" T001'
-"$SCRIPTS/analyzed.sh" >/dev/null
+"$SCRIPTS/analyzed.sh" "$TMP/report.md" >/dev/null
 
 # Parallel work: a second worktree, as `claude --worktree` makes for a [P] task. It shares the
 # repo but has its own git dir, and none of the untracked files (feature.json is one of them).
