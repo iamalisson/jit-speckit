@@ -64,6 +64,9 @@ review_model() {
 # letter or digit before it, so Contests.java or Latests.cs stay source. Read it through test_path_re.
 TEST_PATH_RE='(^|/)([Tt]ests?|__tests__|spec|e2e|cypress)/|(^|/)[^/]*\.[Tt]ests?/|[._-]([Tt]est|[Ss]pec|cy)\.[a-zA-Z]+$|(^|/)tests?\.py$|(^|/)test_[^/]*\.py$|[a-z0-9]Tests?\.[a-z]+$'
 
+# The skip markers of an added line, matched case-folded: review.sh's gate check and pr.sh's "new
+# tests need no explanation" rule. No `|| true` or `exit` here: new tests use both.
+TEST_SKIP_RE='\.only\(|\.skip\(|xfail|@disabled|@ignore|t\.skip\(|pytest\.mark\.skip'
 
 # The repository's default branch: origin/HEAD when set, otherwise whichever of main/master
 # really exists (origin/HEAD is often unset when the remote was added by hand).

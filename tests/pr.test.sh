@@ -169,6 +169,36 @@ git push --quiet origin --delete "$(git branch --show-current)" 2>/dev/null || t
 echo 'assert 2 == 2' > tests/test_new.py; git add tests/test_new.py; git commit --quiet -m "test: add"; reviewed; scanned
 check "when only new tests are added, then no explanation is needed" '"$p" task T001 "feat(search): add search" "$TMP/plain.md" | grep -q "^PR="'
 
+# ── FR-006: adding to an existing test file needs no explanation; a deletion, an edit or an added skip does ──
+rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR"
+new_repo standard
+mkdir -p tests; printf 'check one\nexit "$FAIL"\n' > tests/a.test.sh; printf 'it("a")\n' > tests/b.test.js
+printf 'one\n' > tests/xfail.test.sh; printf '\0\1' > tests/data.test.bin
+commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
+"$SCRIPTS/branch.sh" T001 >/dev/null
+fresh() { git push --quiet origin --delete "$(git branch --show-current)" 2>/dev/null || true; git reset --quiet --hard origin/develop; rm -f "$GH_PR"; }
+opens() { git commit --quiet -am "test: change"; reviewed; scanned; "$p" task T001 "test: change" "$TMP/plain.md" | grep -q "^PR="; }
+refused() { git commit --quiet -am "test: change"; fails_with "existing tests were changed: $1" "$p" task T001 "test: change" "$TMP/plain.md"; }
+printf 'check one\ncheck two\nexit "$FAIL"\n' > tests/a.test.sh
+check "when a test is added above a file's closing exit, then the PR opens with no Test changes section" opens; fresh
+printf 'check one\nrun x || true\ncat > stub <<EOF\nexit 0\nEOF\nexit "$FAIL"\n' > tests/a.test.sh
+check "when a new test holds || true and a heredoc stub with exit 0, then the PR opens with no Test changes section" opens; fresh
+echo two >> tests/xfail.test.sh
+check "when a line is added to a test whose path holds a skip word, then the path does not count as a skip" opens; fresh
+printf 'it("a")\nit.skip("b")\n' > tests/b.test.js
+check "when an added line skips a test, then it refuses and names the file" 'refused tests/b.test.js'; fresh
+printf 'it("a")\n@Disabled\n' > tests/b.test.js
+check "when an added skip is in another case (@Disabled), then it refuses too" 'refused tests/b.test.js'; fresh
+printf 'it("changed")\n' > tests/b.test.js
+check "when a line is edited, then it refuses" 'refused tests/b.test.js'; fresh
+git config color.ui always; printf 'it("a")\nit("b")\n' > tests/b.test.js; git commit --quiet -am "test: more"
+printf 'it("changed")\nit("b")\n' > tests/b.test.js
+check "when a line is edited under color.ui=always, then it refuses" 'refused tests/b.test.js'; git config --unset color.ui; fresh
+chmod +x tests/a.test.sh; echo x > other.txt; git add other.txt
+check "when only a test's mode changes, then it refuses" 'refused tests/a.test.sh'; fresh
+printf '\0\2' > tests/data.test.bin
+check "when a binary test changes, then it refuses" 'refused tests/data.test.bin'; fresh
+
 # ── Common test layouts count as tests, and the constitution can add one ──
 layouts=$'app/tests.py\nTests/AppTests/AppTests.swift\nMyApp.Tests/FooTests.cs\ncypress/e2e/login.cy.ts\nsrc/Foo.Test.cs\nsrc/foo.spec.TS\ntests/test_a.py\nsrc/a.test.ts\n__tests__/a.js'
 sources=$'src/latest.ts\nlib/contest.py\nsrc/attest.go\npkg/protest.rb\nsrc/greatest.js\nsrc/Contests.java\nsrc/Latests.cs\nsrc/utils.py\napp/Manifest.swift\nsrc/LatestRelease.swift\nsrc/specification.py\ndocs/e2e.md\nlib/testing.go'
@@ -216,6 +246,12 @@ check "when mutants.sh found survivors and Evidence does not mention them, then 
 printf 'Adds search.\n\n## Review\n\nready: no findings\n\n## Evidence\n\nOne survivor, in a log line: it changes nothing observable.\n' > "$TMP/survivor.md"
 check "when Evidence says why the survivor changes nothing, then the PR opens" \
   '"$p" task T001 "feat(search): add search" "$TMP/survivor.md" | grep -q "^PR="'
+{ cat "$TMP/survivor.md"; seq 1 20000; } > "$TMP/long.md"; rm -f "$GH_PR"
+check "when Evidence explains the survivor and runs on past the pipe buffer, then the PR opens" \
+  '"$p" task T001 "feat(search): add search" "$TMP/long.md" | grep -q "^PR="'
+mutate no-such-mutator; "$SCRIPTS/mutants.sh" >/dev/null; rm -f "$GH_PR"
+check "when the mutate command could not run, then it refuses naming it, whatever Evidence says of survivors" \
+  'fails_with "the mutate command could not run (no-such-mutator)" "$p" task T001 "feat(search): add search" "$TMP/survivor.md"'
 rm .specify/memory/constitution.md; rm -f "$GH_PR"; : > "$GH_LOG"
 check "when there is no mutate command, then the body says mutation testing was not run" \
   '"$p" task T001 "feat(search): add search" "$TMP/body.md" | grep -q "^PR=" && grep -qxF "Mutation testing: not run (no mutate command in the constitution)" "$GH_LOG"'

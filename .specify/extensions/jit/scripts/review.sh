@@ -53,7 +53,7 @@ commit() { git rev-parse --verify --quiet "$1^{commit}" 2>/dev/null || true; }
 # risk <from>: one "RISK=<category> <path>" line per risky path of <from>..HEAD, by fixed rules on
 # the paths and the added lines; only paths and categories are printed, never a line's content.
 risk() {
-  { jit_diff --name-status "$1" HEAD | awk '{ print "S\t" $0 }'; jit_diff -U0 "$1" HEAD; } | awk '
+  { jit_diff --name-status "$1" HEAD | awk '{ print "S\t" $0 }'; jit_diff -U0 "$1" HEAD; } | SKIP="$TEST_SKIP_RE" awk '
     function flag(c, p) { print "RISK=" c " " p }
     /^S\t/ {
       split($0, f, "\t"); p = f[3]; l = tolower(p)
@@ -72,7 +72,7 @@ risk() {
     hunk && /^\+/ {
       l = tolower(substr($0, 2))
       if (l ~ /rm -r|rmtree|unlink\(|drop (table|column|database)|truncate |delete from|os\.remove|fs\.rm/) flag("delete", path)
-      if (l ~ /--no-verify|continue-on-error: *true|\|\| *true|\.only\(|\.skip\(|xfail|@disabled|@ignore|t\.skip\(|pytest\.mark\.skip/) flag("gate", path)
+      if (l ~ /--no-verify|continue-on-error: *true|\|\| *true/ || l ~ ENVIRON["SKIP"]) flag("gate", path)
     }
   ' | sort -u | grep . || echo RISK=none
 }

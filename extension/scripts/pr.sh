@@ -57,14 +57,21 @@ case "$mode" in
     fi
     grep -qE '^## Review' <<<"$body" \
       || die "the PR body needs a '## Review' section: the independent review's findings and what was done about them (/speckit-jit-review)"
-    # A test that changes to fit the code proves nothing: editing, renaming or deleting an
-    # existing test needs a reason a reviewer can check. New tests need none.
+    # A test that changes to fit the code proves nothing: editing, renaming, skipping or deleting
+    # an existing test needs a reason a reviewer can check. Lines only added need none; position
+    # cannot decide, as a new test usually lands above a file's closing line.
     # --no-renames: a test moved out of a test folder counts as deleted, not as a new file.
     ref="$(base_ref)"
     git rev-parse --verify --quiet "$ref" >/dev/null || die "base branch '$base' not found locally or on origin"
     diff_id >/dev/null # no merge base: "$ref...HEAD" below would read as no changed tests
     re="$(test_path_re)" || exit 1
-    changed_tests="$(git diff --no-renames --diff-filter=MD --name-only "$ref...HEAD" | grep -E "$re" || true)"
+    changed_tests=""
+    while IFS=$'\t' read -r added deleted f; do
+      grep -qE -- "$re" <<<"$f" || continue
+      new="$(jit_diff -U0 "$ref...HEAD" -- "$f" | sed -n '/^@@/,$p' | grep '^+' || true)"
+      # A binary file shows "-" and a mode-only change adds nothing: neither is lines only added.
+      if ! [[ "$added" =~ ^[1-9] && "$deleted" == 0 ]] || grep -qiE -- "$TEST_SKIP_RE" <<<"$new"; then changed_tests+="$f"$'\n'; fi
+    done < <(jit_numstat --diff-filter=MD "$ref...HEAD")
     if [[ -n "$changed_tests" ]] && ! grep -qE '^## Test changes' <<<"$body"; then
       die "existing tests were changed: $(tr '\n' ' ' <<<"$changed_tests")
 add a '## Test changes' section to the PR body saying why (spec changed, test was wrong). Never weaken a test to make it pass."
@@ -77,7 +84,10 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
     if [[ -n "$(constitution_cmd mutate)" ]]; then
       mutants="$(diff_record jit-mutants)"
       [[ -f "$mutants" ]] || die "no mutants.sh result for this diff; run bash .specify/extensions/jit/scripts/mutants.sh after the last commit"
-      if grep -q '^mutants survivors' "$mutants" && ! sed -n '/^## Evidence/,/^## /p' <<<"$body" | grep -qi surviv; then
+      grep -q '^mutants unavailable' "$mutants" \
+        && die "the mutate command could not run ($(constitution_cmd mutate)); install it or fix it in the constitution, then run mutants.sh again"
+      evidence="$(sed -n '/^## Evidence/,/^## /p' <<<"$body")"
+      if grep -q '^mutants survivors' "$mutants" && ! grep -qi surviv <<<"$evidence"; then
         die "mutants.sh found surviving mutants; say in '## Evidence' why each changes nothing, or add the test that kills it"
       fi
     else

@@ -5,7 +5,9 @@
 # when a mutant survives, and it gets two variables to scope itself to the change:
 #   JIT_DIFF_FILE      a unified diff of this branch against the base (cargo mutants --in-diff)
 #   JIT_CHANGED_FILES  the changed source files, space-separated, tests excluded (stryker --mutate)
-# Prints one line: "mutants ok|survivors|missing|skipped <detail>", then REPORT_DIR=<dir>.
+# Prints one line: "mutants ok|survivors|unavailable|missing|skipped <detail>", then REPORT_DIR=<dir>.
+# unavailable: the command exited 126 or 127, so it never ran. A wrapper (uv run) exits otherwise,
+# so a tool missing behind one stays survivors.
 # Output goes to .git/jit-mutants/<timestamp>/ so it is never committed; the result line is also
 # this diff's record (.git/jit-mutants/<diff id>), which pr.sh task requires.
 set -uo pipefail
@@ -29,7 +31,9 @@ changed="$(git diff --name-only --diff-filter=ACMR "$from" HEAD | grep -vE "$re"
 changed="${changed% }"
 [[ -n "$changed" ]] || finish skipped "no changed source files"
 
-if JIT_DIFF_FILE="$dir/changes.diff" JIT_CHANGED_FILES="$changed" bash -c "$cmd" > "$dir/mutants.log" 2>&1; then
-  finish ok "every mutant in the changed lines was caught ($cmd)"
-fi
+rc=0; JIT_DIFF_FILE="$dir/changes.diff" JIT_CHANGED_FILES="$changed" bash -c "$cmd" > "$dir/mutants.log" 2>&1 || rc=$?
+case "$rc" in
+  0) finish ok "every mutant in the changed lines was caught ($cmd)" ;;
+  126|127) finish unavailable "the command could not run ($cmd); see $dir/mutants.log" ;;
+esac
 finish survivors "a mutant survived: a behavior no test checks; see $dir/mutants.log"

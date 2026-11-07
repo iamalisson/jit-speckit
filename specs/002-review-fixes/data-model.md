@@ -21,7 +21,7 @@ the patch id of `git diff <merge-base with the base> HEAD` (`diff_id()` in `lib.
 | Kind | Written by | Content | Read by |
 |---|---|---|---|
 | `jit-review` | `review.sh record` (today) | state, assessment, blank line, report | `review.sh check`, `review.sh report` (new) |
-| `jit-mutants` | `mutants.sh` (new) | its result line: `mutants <ok\|survivors\|missing\|skipped> <detail>` | `pr.sh task`, only when a mutate command is set |
+| `jit-mutants` | `mutants.sh` (new) | its result line: `mutants <ok\|survivors\|unavailable\|missing\|skipped> <detail>` | `pr.sh task`, only when a mutate command is set |
 | `jit-security` | `security-scan.sh --changed` (new) | its summary lines, one per scanner | `pr.sh task`, always |
 
 Transitions: any commit changes the diff id, so every record goes stale at once and the next PR

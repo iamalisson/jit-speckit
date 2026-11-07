@@ -52,7 +52,10 @@ description: "Review, commit, push and open the task's pull request"
      this branch's changes). `ok` goes in *Evidence*. `survivors` means a behavior no test checks:
      for each surviving mutant in the changed lines, add the test that kills it (then commit and
      run it again), or write one line in *Evidence* naming the survivor and why it changes nothing
-     observable (log or help text). `missing` means the constitution has no `mutate` command: say
+     observable (log or help text). `unavailable` means the command exited 126 or 127 and never
+     ran: install it or fix it in the constitution, then run it again; `pr.sh` refuses it. A wrapper
+     such as `uv run` exits otherwise, so a tool missing behind one shows as `survivors`: read the
+     log. `missing` means the constitution has no `mutate` command: say
      so in *Evidence* and suggest `/jit-speckit:adopt`. With a `mutate` command, the script in
      step 6 refuses a PR without a `mutants.sh` result for this diff, and refuses `survivors` when
      *Evidence* says nothing about them; without one, it adds "Mutation testing: not run" to the

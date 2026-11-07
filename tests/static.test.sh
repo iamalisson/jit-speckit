@@ -146,6 +146,12 @@ sec_readme="$(sed -n "/^## Security, built in/,/^## Levels/p" README.md)"
 check "when the README's Security, built in table is read, then it names the reviewer's model" \
   '[[ "$sec_readme" == *"jit-speckit:reviewer"* && "$sec_readme" == *Opus* ]]'
 
+# FR-006: mutmut's own exit code says nothing of survivors, so adopt names one that does.
+check "when skills/adopt is read, then it names the mutmut command that exits non-zero on a survivor" \
+  'grep -qF "mutmut run && ! mutmut results | grep -q survived" skills/adopt/SKILL.md'
+check "when docs/reference.md is read, then adding tests to an existing file needs no explanation, a deletion, an edit or an added skip does" \
+  'grep -qF "adding tests to an existing file needs no explanation; a deletion, an edit or an added skip does" docs/reference.md'
+
 # The installed copies (specify extension add --dev extension --force) are what this repo runs: they match the source.
 stale=""
 for f in extension/commands/*.md extension/scripts/*.sh; do
