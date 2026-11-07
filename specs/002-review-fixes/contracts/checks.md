@@ -40,3 +40,34 @@ failing-first evidence. Corrections to 001's entries are in [research.md](../res
 | FR-025 | release | `tests/static.test.sh` (new check) | when one of the three version files differs, then the check fails | all three at `1.8.0` |
 
 `tests/check-tools.test.sh` is new, one file per script as the constitution asks.
+
+## T021: the rules that decide a review or a refusal (FR-022, FR-030, FR-032)
+
+Each rule has one mutant, made in a throwaway copy of the tree (the script line changed as
+named), and the named file was seen failing on it; the copy was then discarded. No mutant survived.
+`review.sh` here means `extension/scripts/review.sh`, and so on.
+
+| Rule pinned | File | Mutant | Result |
+|---|---|---|---|
+| a delta may change exactly 20 lines outside the findings | `tests/review.test.sh` | `((n <= DELTA_LINES))` became `<` | killed |
+| a binary file outside the findings counts as more than 20 | `tests/review.test.sh` | the binary's `DELTA_LINES + 1` became `0` | killed |
+| two verdict lines: the last decides | `tests/review.test.sh` | `tail -1` became `head -1` on the verdict | killed |
+| a verdict with prose after it is no verdict | `tests/review.test.sh` | the `\.?$` end of the verdict pattern removed | killed |
+| two `Model:` lines: the last is stored | `tests/review.test.sh` | `tail -1` became `head -1` in `field` | killed |
+| `- proven: … by <file>:0` is refused | `tests/review.test.sh` | `>= 1` became `>= 0` | killed |
+| risk: a deleted path | `tests/review.test.sh` | the `D` status line removed | killed |
+| risk: a deleting line (`rm -rf`) | `tests/review.test.sh` | `rm -r` no longer matched | killed |
+| risk: migration, ci, auth, secrets, money, gate (one mutant each) | `tests/review.test.sh` | that category's `flag(...)` line removed | 6 killed |
+| `pr.sh` refuses with no recorded review and opens nothing | `tests/pr.test.sh` | `review=` set to empty | killed |
+| `pr.sh` refuses on `changes needed` | `tests/pr.test.sh` | `review.sh` `check`'s assessment test became `true` | killed |
+| `pr.sh` refuses a review of an older diff | `tests/pr.test.sh` | `review.sh` `check`'s state test became `true` | killed |
+| the push sends `HEAD` | `tests/pr.test.sh` | the push sends `HEAD~1` | killed (by the new origin-versus-`HEAD` check alone) |
+| the `## Review` refusal | `tests/pr.test.sh` | the heading test became `true` | killed |
+| `base branch '…' not found` | `tests/pr.test.sh` | the `die` became `true` | killed |
+| the invalid `tests:` regex | `tests/pr.test.sh` | the `die` in `test_path_re` became `true` | killed |
+| `fake_gh`'s `pr list` honors `--head` | `tests/pr.test.sh` | the `--head` branch of the fake disabled | killed (by the new check alone) |
+| each secret pattern (13) through staged and range | `tests/secrets.test.sh` | that `add "…"` line removed (one mutant per pattern) | 13 killed |
+
+Survivors: none. The review-gate checks run on a scan recorded for their diff, so only the gate
+under test can refuse, and each asserts that `^pr create` is absent from `$GH_LOG` and that
+origin's branch is still the empty claim.

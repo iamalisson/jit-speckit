@@ -247,6 +247,60 @@ git checkout --quiet --detach
 check "when HEAD is detached, then review.sh risk still prints the risk map" '"$r" risk | grep -qx "RISK=gate tests/a.test.js"'
 git switch --quiet -
 
+# ── FR-022: the rules that decide a review, one case each, on a branch of their own ──
+rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"
+new_repo standard
+commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
+"$SCRIPTS/branch.sh" T001 >/dev/null
+mkdir -p src tests; echo 'export const search = 1' > search.ts; echo 'export const login = 1' > src/login.ts
+printf 'assert 1\nassert 2\nassert 3\n' > tests/p.test.sh
+git add search.ts src tests; git commit --quiet -m "feat: search"
+# rr <line...>: a full-round report for HEAD (its range, then the given lines: Model:, findings, verdicts).
+rr() { { echo 'What changed: x'; echo; printf 'Reviewed: %s..%s\n' "$(git merge-base HEAD origin/develop)" "$(git rev-parse HEAD)"; printf '%s\n' "$@"; } > "$TMP/report.md"; }
+login='- deep: src/login.ts'; sonnet='Model: claude-sonnet-4-7'
+verdict_of() { local out; out="$("$r" record "$TMP/report.md")"; sed -n 's/^REVIEW=//p' <<<"$out"; }
+stored_model() { sed -n 's/^model: //p' "$(rec)" | head -1; }
+rr "$login" "$sonnet" 'Assessment: ready' 'Assessment: changes needed'
+check "when a report has two verdict lines, ready then changes needed, then the last one decides" '[[ "$(verdict_of)" == "changes needed" ]]'
+rr "$login" "$sonnet" 'Assessment: changes needed' 'Assessment: ready'
+check "when a report has two verdict lines, changes needed then ready, then the last one decides" '[[ "$(verdict_of)" == ready ]]'
+rr "$login" "$sonnet" 'Assessment: ready to merge'
+check "when the verdict line carries prose after it (ready to merge), then record refuses" 'fails_with "exactly" "$r" record "$TMP/report.md"'
+rr "$login" "$sonnet" 'I would say the Assessment: ready'
+check "when the verdict is only inside a sentence, then record refuses" 'fails_with "exactly" "$r" record "$TMP/report.md"'
+rr "$login" 'Model: claude-haiku-4-5' 'Model: claude-opus-4-8' 'Assessment: ready'
+check "when a report has two Model: lines, haiku then opus, then the last one is stored" '"$r" record "$TMP/report.md" >/dev/null 2>&1 && [[ "$(stored_model)" == claude-opus-4-8 ]]'
+rr "$login" 'Model: claude-opus-4-8' 'Model: claude-haiku-4-5' 'Assessment: ready'
+check "when a report has two Model: lines, opus then haiku, then the last one is stored" '"$r" record "$TMP/report.md" >/dev/null 2>&1 && [[ "$(stored_model)" == claude-haiku-4-5 ]]'
+rr "$login" "$sonnet" "- proven: src/login.ts by tests/p.test.sh:0" 'Assessment: ready'
+check "when a '- proven:' line names line 0 of an existing test file, then record refuses (lines start at 1)" \
+  'fails_with "src/login.ts is not proven by tests/p.test.sh:0 (not a test file, or no such line)" "$r" record "$TMP/report.md"'
+rr "$login" "$sonnet" "- proven: src/login.ts by tests/p.test.sh:1" 'Assessment: ready'
+check "when it names line 1 of the same file, then record accepts it" '[[ "$(verdict_of)" == ready ]]'
+
+# A fix round may change 20 lines outside the findings' files, and a binary file counts as more.
+rr "$login" "$sonnet" 'Findings:' '- High: search.ts:1 the search is wrong' 'Assessment: changes needed'
+"$r" record "$TMP/report.md" >/dev/null; h1="$(git rev-parse HEAD)"
+seq 1 20 | sed 's/^/export const o/; s/$/ = 1/' > other.ts; git add other.ts; git commit --quiet -m "fix: other"
+drep ready "$h1"
+check "when the fix adds exactly 20 lines to a file outside the findings, then the delta is recorded" \
+  'out="$("$r" record --delta "$TMP/report.md")"; [[ "$out" == "$(printf "REVIEWED=%s\nREVIEW=ready" "$(git rev-parse HEAD)")" ]]'
+h2="$(git rev-parse HEAD)"; printf '\0\1' > bin.dat; git add bin.dat; git commit --quiet -m "fix: binary"
+drep ready "$h2"
+check "when the fix adds a binary file outside the findings, then it counts as 21 lines and record --delta refuses" \
+  'fails_with "the delta changes 21 lines outside the previous findings (limit 20): run a new full review" "$r" record --delta "$TMP/report.md"'
+
+# One path per risk category, each in its own commit: risk prints exactly that category and path.
+echo old > old.txt; git add old.txt; git commit --quiet -m "chore: old"
+rows=('delete|old.txt|__rm__' 'delete|clean.sh|rm -rf build' 'migration|db/migrate/001_add.rb|x' 'ci|.github/workflows/ci.yml|x'
+  'auth|src/signup-login.ts|x' 'secrets|config/secret.txt|x' 'money|src/billing.ts|x' 'gate|run.sh|make x || true')
+for row in "${rows[@]}"; do
+  IFS="|" read -r cat_ path_ txt_ <<<"$row"
+  if [[ "$txt_" == __rm__ ]]; then git rm --quiet "$path_"; else mkdir -p "$(dirname "$path_")"; printf '%s\n' "$txt_" > "$path_"; git add -- "$path_"; fi
+  git commit --quiet -m "chore: $cat_"
+  check "when the diff has only $path_ ($cat_), then risk prints exactly RISK=$cat_ $path_" '[[ "$("$r" risk HEAD~1)" == "RISK=$cat_ $path_" ]]'
+done
+
 # ── FR-006: no merge base is a refusal, an empty diff is not ──
 rm -rf "$TMP/origin.git" "$TMP/repo" "$TMP/shallow"; cd "$TMP"
 new_repo standard
