@@ -19,12 +19,12 @@ check "when a test file loses its last line, then run.sh fails and names it" 'fa
 
 # The real spec-kit job cannot skip setup.test.sh's second half.
 check "when the Linux job runs the tests, then it sets REQUIRE_SPECIFY" \
-  'sed -n "/^  linux:/,/^  bash32:/p" .github/workflows/test.yml | grep -q "REQUIRE_SPECIFY: \"1\""'
+  'grep -q "REQUIRE_SPECIFY: \"1\"" <<<"$(sed -n "/^  linux:/,/^  bash32:/p" .github/workflows/test.yml)"'
 no_scanners; rm -f "$TMP/none/specify"
 check "when REQUIRE_SPECIFY is set and specify is missing, then setup.test.sh fails" \
   'PATH="$TMP/none" REQUIRE_SPECIFY=1 fails_with "REQUIRE_SPECIFY" bash tests/setup.test.sh'
 check "when it is not set, then setup.test.sh skips the rest and says so" \
-  'PATH="$TMP/none" bash tests/setup.test.sh | grep -q "^skip - the rest needs the specify CLI"'
+  'PATH="$TMP/none" REQUIRE_SPECIFY= bash tests/setup.test.sh | grep -q "^skip - the rest needs the specify CLI"'
 
 # The Bash guard stays registered. The bash 3.2 job has no python3: there, the entry is read with sed.
 check "when hooks.json is read, then it runs guard-git.sh on the Bash tool with onFailure block" \
@@ -157,7 +157,7 @@ check "then the constitution template and adopt say to keep the placeholder when
   'grep -q "keep its \[PLACEHOLDER\]" preset/templates/constitution-template.md && grep -q "leave its placeholder" skills/adopt/SKILL.md'
 
 check "when init's summary is read, then it repeats a warning that a kept workflow never runs on task PRs, and the reference names it" \
-  'sed -n "/^7\. Summarize/,/^8\. /p" skills/init/SKILL.md | grep -qF "never runs on a task PR" && grep -qF "never runs on a task PR" docs/reference.md'
+  'grep -qF "never runs on a task PR" <<<"$(sed -n "/^7\. Summarize/,/^8\. /p" skills/init/SKILL.md)" && grep -qF "never runs on a task PR" docs/reference.md'
 
 # The setup commit has to reach the base branch: task branches start there, and scripts read the level from the tree.
 init_commit="$(sed -n '/^8\. \*\*Offer to commit it/,$p' skills/init/SKILL.md)"
@@ -166,14 +166,14 @@ check "when init's step 8 is read, then the setup branch starts from origin/<bas
 check "when the level skill is read, then a level change goes to the base branch too" \
   'grep -qF "gh pr create --base <base branch>" skills/level/SKILL.md'
 check "when the docs are read, then the README Start and the reference Update say the setup goes to the base branch" \
-  'sed -n "/^## Start/,/^## The loop/p" README.md | grep -q "base branch" && sed -n "/^## Update/,/^## What/p" docs/reference.md | grep -q "base branch"'
+  'grep -q "base branch" <<<"$(sed -n "/^## Start/,/^## The loop/p" README.md)" && grep -q "base branch" <<<"$(sed -n "/^## Update/,/^## What/p" docs/reference.md)"'
 
 # A new project needs a GitHub repo before the foundation spec, and develop after its first push.
 new_jit="$(sed -n '/^7\. \*\*Set up jit-speckit/,$p' skills/new/SKILL.md)"
 check "when new's steps 7 and 8 are read, then it offers gh repo create before setup, and the next step is commit, push and level, before the spec" \
   'tr "\n" " " <<<"$new_jit" | grep -qE "gh repo create .*--source \. --remote origin.*bin/setup\.sh" && tr "\n" " " <<<"$new_jit" | grep -qE "commit the setup.*git push -u origin.*/jit-speckit:level <level>.*/speckit-specify"'
 check "when init's step 1 is read, then it checks for a GitHub repository and offers to create one" \
-  'sed -n "/^1\. \*\*Tools/,/^2\. /p" skills/init/SKILL.md | tr "\n" " " | grep -qE "gh repo view.*gh repo create .*--source \. --remote origin"'
+  'grep -qE "gh repo view.*gh repo create .*--source \. --remote origin" <<<"$(sed -n "/^1\. \*\*Tools/,/^2\. /p" skills/init/SKILL.md | tr "\n" " ")"'
 
 # review.sh record compares against the merge-base with origin's base (lib.sh base_ref): the prompt names the same one.
 check "the review prompt takes the range's start from origin/<base>, as review.sh record does" \
