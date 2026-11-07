@@ -189,6 +189,30 @@ for none in none None N/A -; do
     '! grep -qF -- "run: $none" $ci_yml && grep -q "run: make check" $ci_yml && (source "$SCRIPTS/lib.sh"; [[ -z "$(constitution_cmd mutate)" ]])'
 done
 
+# A kept workflow filtered to other branches never runs on a task PR.
+gate_repo() { # gate_repo <the workflow's on: block> [<level>]
+  rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"; new_repo lite; mkdir -p .github/workflows
+  printf 'name: Tests\non:\n%b\njobs:\n  t:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo branches\n' "$1" > .github/workflows/tests.yml
+  out="$("$l" "${2:-standard}" --no-branches)"
+}
+says_skipped='warning: .github/workflows/tests.yml never runs on a task PR into develop'
+gate_repo '  pull_request:\n    branches: [master]'
+check "when kept CI is filtered to master (inline list), then it names the workflow and the branch to add" \
+  'grep -qF "$says_skipped" <<<"$out" && grep -qF "add develop to its pull_request branches" <<<"$out" && [[ ! -f .github/workflows/ci.yml ]]'
+gate_repo "  push:\n    branches: [develop]\n  pull_request:\n    branches:\n      - main # release\n      - 'release/**'\n  schedule:\n    - cron: '1 1 * * 1'"
+check "when kept CI is filtered to main (block list, with a develop filter under push), then it says so too" \
+  'grep -qF "$says_skipped" <<<"$out"'
+gate_repo '  pull_request:\n    branches:\n    - main' full
+check "when the list sits at the key's own indent, at full, then it says so too" 'grep -qF "$says_skipped" <<<"$out"'
+gate_repo '  pull_request:\n    branches: [main, develop]'
+check "when the filter lists the base branch, then nothing is said" '! grep -q "^warning:" <<<"$out"'
+gate_repo "  pull_request:\n    branches: ['dev*']"
+check "when a glob in the filter matches the base branch, then nothing is said" '! grep -q "^warning:" <<<"$out"'
+gate_repo '  pull_request:\n  push:\n    branches: [main]'
+check "when pull_request has no filter, then a push filter does not count and nothing is said" '! grep -q "^warning:" <<<"$out"'
+gate_repo '  pull_request:\n    branches: [main]'; set_cfg base_branch main
+check "when base_branch names the branch in the filter, then nothing is said" 'out="$("$l" standard --no-branches)"; ! grep -q "^warning:" <<<"$out"'
+
 # ── Hooks in repos that already use the pre-commit framework or husky ──
 rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"
 new_repo lite

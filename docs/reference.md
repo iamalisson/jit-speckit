@@ -57,7 +57,8 @@ limits, a health check, tests at three levels). It follows three short files:
 Your stack (Rust, Node with npm/pnpm/yarn, Python with uv/pip, Go) is detected and shapes the CI
 and the constitution; the constitution's **Commands** line, once `/jit-speckit:adopt` fills it,
 is what the generated CI runs. A repo whose workflows already check pull requests gets no second
-CI. Your files are never overwritten: the ones jit-speckit generates carry a
+CI; one whose `pull_request` filter leaves out the base branch is named
+("never runs on a task PR"), so you can add that branch. Your files are never overwritten: the ones jit-speckit generates carry a
 `# jit-speckit: managed file` first line and are re-created on `/jit-speckit:level`; delete that
 line to make one yours. Repos that run hooks through the pre-commit framework or husky get jit's
 two checks added there.

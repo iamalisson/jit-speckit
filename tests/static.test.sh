@@ -156,6 +156,9 @@ check "when the security doc is read, then it says how to accept what each gate 
 check "then the constitution template and adopt say to keep the placeholder when there is no such step" \
   'grep -q "keep its \[PLACEHOLDER\]" preset/templates/constitution-template.md && grep -q "leave its placeholder" skills/adopt/SKILL.md'
 
+check "when init's summary is read, then it repeats a warning that a kept workflow never runs on task PRs, and the reference names it" \
+  'sed -n "/^7\. Summarize/,/^8\. /p" skills/init/SKILL.md | grep -qF "never runs on a task PR" && grep -qF "never runs on a task PR" docs/reference.md'
+
 # review.sh record compares against the merge-base with origin's base (lib.sh base_ref): the prompt names the same one.
 check "the review prompt takes the range's start from origin/<base>, as review.sh record does" \
   'grep -qF "git merge-base HEAD origin/<base>" extension/commands/review.md && ! grep -qF "git merge-base HEAD <base>" extension/commands/review.md'

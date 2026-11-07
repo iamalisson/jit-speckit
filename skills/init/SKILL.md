@@ -79,7 +79,8 @@ disable-model-invocation: true
    and protections enabled, and the next command. If the script said the git hooks are "not active in this clone
    yet", repeat the command it gave; if it said "add these lines to it", repeat those lines and
    where they go: without either, nothing checks commits locally. A machine-wide `core.hooksPath`
-   stays in charge: never replace it.
+   stays in charge: never replace it. If it said a workflow "never runs on a task PR", repeat that
+   line: until that branch is added, the project's own CI does not check task PRs.
 8. **Offer to commit it**, in one question: "Commit this on `chore/jit-speckit-<version>` and open
    the PR?" (the version is `version:` in `.specify/extensions/jit/extension.yml`). On yes: switch
    to that branch from the current one, stage **by name** only what the setup wrote (`.specify`,
