@@ -15,7 +15,9 @@ disable-model-invocation: true
 3. Bump the constitution's version line (MINOR going up a level, PATCH going down) and set
    *Last Amended* to today.
 4. Going **up** to standard or full: offer the branch protection from `/jit-speckit:init`
-   step 5.
+   step 5. Going up from lite, also offer merge commits back on, which the promotion PRs need:
+   `gh api -X PATCH repos/{owner}/{repo} -F allow_merge_commit=true`. Going **down** to lite, offer
+   squash-only: `gh api -X PATCH repos/{owner}/{repo} -F allow_merge_commit=false -F allow_squash_merge=true -f squash_merge_commit_title=PR_TITLE -f squash_merge_commit_message=PR_BODY`.
 5. Report what the script printed: the level change, branches created, files created and kept.
    Going down never deletes files; list the ones the user may want to delete by hand. Nothing is
    committed. Say that the change goes to the base branch of the new level

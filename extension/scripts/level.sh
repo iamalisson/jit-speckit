@@ -4,7 +4,8 @@
 #   - stores the level in .specify/extensions/jit/jit-config.yml
 #   - creates the level's long-lived branches (develop, staging) if missing (skip with --no-branches)
 #   - rewrites the jit block of .specify/memory/constitution.md (nothing outside it is touched)
-#   - adds the level's scaffold files that do not exist yet (existing files are never overwritten)
+#   - adds the level's scaffold files that do not exist yet, and re-creates those that still carry
+#     the managed-file marker (commit edits first, or delete the marker); other files are kept
 # Safe to re-run; going down a level never deletes files.
 set -euo pipefail
 # shellcheck source=lib.sh
@@ -131,6 +132,7 @@ put() { # put <dest> [generated] (content on stdin): write only if missing, ours
       cat >/dev/null
       if [[ -n "$old" ]]; then echo "kept (written by jit-speckit ${old% *}, no marker): $1 — delete it to get the current one"
       elif [[ -n "${2:-}" && -n "$old_hook" ]]; then echo "kept (written by jit-speckit $old_hook or older, no marker): $1 — delete it to get the current one"
+      elif [[ "$1" == .github/workflows/security.yml ]]; then echo "kept (no marker): $1 — delete it to get the current one"
       else echo "kept:    $1"; fi
       return
     fi

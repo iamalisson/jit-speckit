@@ -89,7 +89,7 @@ wrong task, or overwrite a teammate's spec commit, and nobody notices.
 
 **Independent Test**: In a throwaway project with the fake `gh`: refuse the claim push, rename a
 closed task issue, fail one close in the linked-issues workflow, fail the open-PR lookup during a
-spec PR, and answer the Copilot request with no reviewer. Each is reported, and `next` shows the
+spec PR. Each is reported, and `next` shows the
 renamed issue's task as done.
 
 **Acceptance Scenarios**:
@@ -102,8 +102,7 @@ renamed issue's task as done.
    **Then** it still closes the others and the job fails (F1.6).
 4. **Given** the open-spec-PR lookup fails, **When** the spec PR is pushed, **Then** it stops and
    the teammate's commit on the spec branch is untouched (F1.8).
-5. **Given** GitHub answers the Copilot request with no reviewer added, **When** the PR opens,
-   **Then** the output does not say a review was requested (F3.5).
+5. Removed: `pr.sh` no longer requests a Copilot review, so it prints no Copilot line (F3.5).
 6. **Given** an issue GitHub created for a task whose answer never reached the client, **When** the
    issue step runs again, **Then** it reuses that issue and creates no second one (F1.7).
 
@@ -251,7 +250,7 @@ change, the promise it restores, and its check, which fails on 1.7.2 and passes 
 - **FR-014**: The linked-issue close MUST close every number it can and then fail if one failed
   (F1.6, P03, P04).
 - **FR-015**: The spec PR MUST stop when it cannot ask whether a spec PR is open (F1.8, P05).
-- **FR-016**: The Copilot line MUST reflect GitHub's answer (F3.5, P14).
+- **FR-016**: Removed: `pr.sh` requests no Copilot review and prints no Copilot line (F3.5, P14).
 - **FR-026**: A rerun of the issue step MUST reuse a task's issue that GitHub created but never
   confirmed, instead of creating a second one (F1.7, P01).
 - **FR-028**: On a task branch, `next` with no argument MUST serve that branch's feature, as the

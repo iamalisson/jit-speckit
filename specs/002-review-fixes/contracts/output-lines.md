@@ -61,12 +61,11 @@ non-zero); warnings go to stderr with exit 0; results go to stdout.
 | `review.sh record` | `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is set, `Model:` is not sonnet, opus or fable, or not the configured family | `jit: warning: <reason>; the review did not run on the configured model`, `<reason>` one of `CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set`, `the review ran on <id>`, `the review ran on <id>, not <review_model>`, `<id>` being `unknown` when `Model:` is not shaped like a model id or names none of claude, sonnet, opus, fable and haiku; one line only, the first reason that applies in that order (stderr, and stored as `warning:` in the record; `pr.sh` prints it from there) |
 | `next.sh` | other startable `[P]` tasks | `parallel <Tnnn> (<worktree and branch.sh command>)`, before the `DONE=` line |
 | `pr.sh task` | an open PR's body was replaced | `PR body replaced from <file>; edits made on GitHub are gone` |
-| `pr.sh` | Copilot listed in GitHub's answer | `copilot: code review requested` |
-| `pr.sh` | anything else | `copilot: not requested (GitHub did not add the reviewer)` |
 | `issues.sh` | a task's issue already exists | `<Tnnn> → #<n> (existing)` |
 | `issues.sh` | the plan review's record has a `warning:` | `jit: warning: <reason>; the review did not run on the configured model` (stderr, exit 0), before the issues are created |
 | `level.sh` `put()` | a managed workflow has a newer pin | `kept newer pin: <action> <version>` |
 | `level.sh` `put()` | an old release's file, `name` | `kept (written by jit-speckit <versions>, no marker): <file> — delete it to get the current one` |
+| `level.sh` `put()` | an unmarked `security.yml` | `kept (no marker): .github/workflows/security.yml — delete it to get the current one` |
 | `level.sh` `put()` | a generated file kept after an old hook matched | `kept (written by jit-speckit <versions> or older, no marker): <file> — delete it to get the current one` |
 | `bin/remove.sh` | a file changed since jit wrote it, marked or not, or with no record and jit's scaffold first line (not `.claude/settings.json` or a git hook, whose first line is generic) | `kept (edited): <file>` |
 | `bin/remove.sh` | a kept file holds the record in place (never with `--with-speckit`, which deletes it) | `kept: .specify/jit-files.sha256 (it names the files kept above)` |

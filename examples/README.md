@@ -28,8 +28,8 @@ issue gets it too.
 | `/jit-speckit:next` | `2/3 done`, then T003 → PR #26, `Closes #23` | review, merge |
 | `/jit-speckit:next` | `3/3 done`, and it suggests `/speckit-converge` | run it: it compares the merged code with the spec. Nothing left, so the feature is finished; `/jit-speckit:security` before you release |
 
-T003 is marked `[P]` (parallel), so you could run it at the same time as T002 in another session
-(`claude --worktree`, then `/speckit-implement T003`).
+T003 is marked `[P]` (parallel), so when it can start, `next` prints a `parallel` line for it beside
+T002 and offers to start it in its own worktree.
 
 The PR timeline on GitHub:
 

@@ -16,7 +16,8 @@ Inside a Claude Code session, the same line with a `!` in front runs it there. T
 `/reload-plugins`, or restart Claude Code. **In every project that already uses jit-speckit, run
 `/jit-speckit:init` once**: each project keeps its own copy of the extension (hooks, scripts,
 review method, scaffold) under `.specify/`, and only `init` refreshes it. It keeps the project's
-level and touches nothing else. Skip it and the project keeps running the old version, whatever
+level, and it re-creates every file that still has the `# jit-speckit: managed file` marker, so
+commit your edits to those first, or delete the marker to keep the file as it is. Skip it and the project keeps running the old version, whatever
 the plugin says. Its commit goes to the base branch (`develop` on standard and full, through the
 PR `init` offers), because that is where task branches start.
 
@@ -131,7 +132,7 @@ These are spec-kit hooks, so you never type them. If you skip one, run it yourse
 | `issue_labels` | `type:task` | comma-separated labels for task issues |
 | `milestone` | *(empty)* | milestone for task issues and PRs, by name; empty means none |
 | `project` | *(empty)* | GitHub project (title) to add task issues and PRs to; needs `gh auth refresh -s project` |
-| `review_model` | *(empty: `sonnet`)* | the model of the independent and plan reviews, run in the plugin's `jit-speckit:reviewer` agent: `sonnet`, `opus` or `fable`; never `haiku`, any other value is refused. It is passed on every launch, so on a cheap session the review costs more than the session. `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` overrides it (the record then warns). The plugin's hook that blocks a review launch on another model, or in a fork, exists only where the plugin is installed |
+| `review_model` | *(empty: `sonnet`)* | the model of the independent and plan reviews, run in the plugin's `jit-speckit:reviewer` agent: `sonnet`, `opus` or `fable`; never `haiku`, any other value is refused. It is passed on every launch, so on a cheap session the review costs more than the session. `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` overrides it (the record then warns). The plugin's hook that blocks a review launch on a model outside `sonnet`, `opus` and `fable`, or in a fork, exists only where the plugin is installed |
 
 ## AI attribution
 
