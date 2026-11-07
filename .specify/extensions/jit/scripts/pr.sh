@@ -62,6 +62,7 @@ case "$mode" in
     # --no-renames: a test moved out of a test folder counts as deleted, not as a new file.
     ref="$(base_ref)"
     git rev-parse --verify --quiet "$ref" >/dev/null || die "base branch '$base' not found locally or on origin"
+    diff_id >/dev/null # no merge base: "$ref...HEAD" below would read as no changed tests
     re="$(test_path_re)" || exit 1
     changed_tests="$(git diff --no-renames --diff-filter=MD --name-only "$ref...HEAD" | grep -E "$re" || true)"
     if [[ -n "$changed_tests" ]] && ! grep -qE '^## Test changes' <<<"$body"; then
@@ -83,7 +84,8 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
       body+=$'\n\n'"Mutation testing: not run (no mutate command in the constitution)"
     fi
     # And the scanners on the changed files: a missing scanner or a finding is for the body to say.
-    [[ -f "$(diff_record jit-security)" ]] \
+    scan="$(diff_record jit-security)"
+    [[ -f "$scan" ]] \
       || die "no security-scan.sh --changed result for this diff; run bash .specify/extensions/jit/scripts/security-scan.sh --changed after the last commit"
     # Never open a PR on red checks. One log per branch, so parallel worktrees never share one.
     test_cmd="$(constitution_cmd test)"

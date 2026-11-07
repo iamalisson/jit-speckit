@@ -38,4 +38,8 @@ check "when a mutant survives, then it reports survivors and where the log is" \
   'out="$("$m")" && grep -q "^mutants survivors" <<<"$out" && grep -q "mutants.log" <<<"$out"'
 check "then the report lives under .git, never in the tree" '[[ -z "$(git status --porcelain)" ]]'
 
+shallow_repo
+check "on a --depth 1 clone with no merge base, then it prints one refusal naming git fetch --unshallow and writes no record" \
+  'one_refusal "git fetch --unshallow" "$m" && [[ -z "$(find .git/jit-mutants -maxdepth 1 -type f 2>/dev/null)" ]]'
+
 exit "$FAIL"

@@ -228,4 +228,28 @@ git checkout --quiet --detach
 check "when HEAD is detached, then review.sh risk still prints the risk map" '"$r" risk | grep -qx "RISK=gate tests/a.test.js"'
 git switch --quiet -
 
+# ── FR-006: no merge base is a refusal, an empty diff is not ──
+rm -rf "$TMP/origin.git" "$TMP/repo" "$TMP/shallow"; cd "$TMP"
+new_repo standard
+git commit --quiet --allow-empty -m one; git commit --quiet --allow-empty -m two # so depth 3 leaves the clone shallow
+commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
+"$SCRIPTS/branch.sh" T001 >/dev/null
+echo a > a.txt; git add a.txt; git commit --quiet -m "feat: a"
+task_record() { echo ".git/jit-review/task-$(git branch --show-current | sed 's|/|__|g')"; }
+shallow_repo
+# The range the old fallback accepted: with no merge base, diff_base is HEAD.
+printf 'What changed: x\n\nReviewed: %s..%s\nModel: claude-opus-4-7\n\nAssessment: ready\n' "$(git rev-parse HEAD)" "$(git rev-parse HEAD)" > "$TMP/report.md"
+check "on a --depth 1 clone with no merge base, then record prints one refusal naming git fetch --unshallow and writes no record" \
+  'one_refusal "git fetch --unshallow" "$r" record "$TMP/report.md" && [[ ! -e "$(task_record)" ]]'
+check "then check prints one refusal naming git fetch --unshallow" 'one_refusal "git fetch --unshallow" "$r" check'
+cd "$TMP/repo"; git switch --quiet --orphan feat/001-t001-unrelated
+echo b > b.txt; git add b.txt; git commit --quiet -m "feat: unrelated"
+check "when a full clone's branch shares no history with the base, then check refuses without naming git fetch --unshallow" \
+  'one_refusal "no history" "$r" check && out="$("$r" check 2>&1 || true)" && [[ "$out" != *unshallow* ]]'
+git switch --quiet feat/001-t001-add-search
+git revert --no-edit HEAD >/dev/null
+shallow_repo 3
+check "on a shallow clone that has the merge base, then a commit and its revert are an empty diff, not a refusal" \
+  '[[ "$(git rev-parse --is-shallow-repository)" == true ]] && one_refusal "no independent review" "$r" check'
+
 exit "$FAIL"

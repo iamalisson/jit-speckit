@@ -244,6 +244,39 @@ printf 'What changed: x\n\n- deep: db/migrations/002_drop.sql\n\n%s\n\nAssessmen
 check "when Model: is outside the configured family, then the warning reaches the PR body from the record" \
   'grep -qxF "warning: the review ran on claude-sonnet-4-5, not opus; the review did not run on the configured model" "$GH_LOG"'
 
+# ── FR-009: the diff id ignores the user's git config ──
+rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR"
+new_repo standard
+seq 1 40 | sed '4s/.*//; 16s/.*//' > big.txt; echo one > a.conv; printf '*.conv diff=conv\n' > .gitattributes
+commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
+"$SCRIPTS/branch.sh" T001 >/dev/null
+sed -i.bak '5s/.*/five/; 15s/.*/fifteen/' big.txt; rm big.txt.bak; mkdir sub
+git update-index --add --cacheinfo "160000,$(git rev-parse HEAD),sub"; git add big.txt; git commit --quiet -m "feat: edit"
+printf '#!/usr/bin/env bash\necho same\n' > "$TMP/same.sh"; chmod +x "$TMP/same.sh"
+lib_id() { (source "$SCRIPTS/lib.sh"; diff_id); }
+# config_case <key> <value> <edit>: with the key set, the id is the one without it, and a commit
+# (whose change the key would hide) after a ready review makes pr.sh refuse.
+config_case() {
+  git config "$1" "$2"; reviewed
+  on="$(lib_id)"; git config --unset "$1"; off="$(lib_id)"; git config "$1" "$2"
+  eval "$3"; git commit --quiet -am "chore: $1"
+  check "with $1 set, then the diff id is the one without it, and a commit after a ready review makes pr.sh refuse" \
+    '[[ -n "$on" && "$on" == "$off" ]] && fails_with "changed since" "$p" task T001 "feat: edit" "$TMP/body.md"'
+  git config --unset "$1"
+}
+config_case color.ui always 'echo a >> big.txt'
+config_case diff.external "$TMP/same.sh" 'echo b >> big.txt'
+config_case diff.conv.textconv "$TMP/same.sh" 'echo two > a.conv'
+config_case diff.ignoreSubmodules all 'git update-index --cacheinfo "160000,$(git rev-parse HEAD~1),sub"'
+config_case diff.interHunkContext 20 'echo c >> big.txt'
+config_case diff.suppressBlankEmpty true 'echo d >> big.txt'
+
+# A shallow clone that lost the merge base stops at once: an empty id would pass for an empty diff.
+shallow_repo
+check "on a --depth 1 clone with no merge base, then pr.sh task prints one refusal naming git fetch --unshallow and opens nothing" \
+  ': > "$GH_LOG"; one_refusal "git fetch --unshallow" "$p" task T001 "feat: edit" "$TMP/body.md" && ! grep -q "^pr create" "$GH_LOG"'
+cd "$TMP"
+
 # ── The spec folder survives a refused branch switch ──
 rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR"
 new_repo standard
