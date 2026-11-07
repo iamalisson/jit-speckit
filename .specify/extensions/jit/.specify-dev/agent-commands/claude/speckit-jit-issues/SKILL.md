@@ -42,7 +42,7 @@ or one with another summary never matches.
    file and the feature folder, nothing of your own conclusions. Save its report to a file outside the repository (`mktemp`) and record it:
    `bash .specify/extensions/jit/scripts/review.sh record --plan <file>`. Fix what it finds in
    `tasks.md` and `plan.md` under the same rules as step 1, and run it again until it says
-   `ready` (at most three rounds). The issue bodies are the task lines, so they must be right
+   `ready`. The issue bodies are the task lines, so they must be right
    before any issue exists: `issues.sh` refuses to run without a recorded `ready` plan review for
    the current `tasks.md`.
 3. Then create the issues: run `bash .specify/extensions/jit/scripts/issues.sh` from the repository root.

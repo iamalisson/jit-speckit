@@ -122,4 +122,37 @@ pc=(env "PRE_COMMIT_TO_REF=$(git rev-parse HEAD)" "PRE_COMMIT_FROM_REF=$(git rev
 check "then a secret in the pushed commits is found through those variables too" \
   'fails_with "pc.rb:1: possible Stripe live key" "${pc[@]}" bash "$SCRIPTS/prepush.sh" </dev/null'
 
+# ── FR-022: one sample per pattern, through staged and through range ──
+# Every sample is assembled here from its prefix and a run of one letter, so this file holds none.
+rep() { printf '%*s' "$2" '' | tr ' ' "$1"; } # rep <char> <n>
+sample() { # sample <kind>: the added line for that kind of secret
+  case "$1" in
+    "AWS access key") echo "id = AKIA$(rep A 16)" ;;
+    "GitHub token") echo "t = gh$(rep p 1)_$(rep a 36)" ;;
+    "GitHub fine-grained token") echo "t = github_pat_$(rep a 60)" ;;
+    "GitLab token") echo "t = glpat-$(rep a 20)" ;;
+    "Slack token") echo "t = xoxb-$(rep a 10)" ;;
+    "Stripe live key") echo "t = sk_live_$(rep a 24)" ;;
+    "Google API key") echo "t = AIza$(rep a 35)" ;;
+    "Anthropic key") echo "t = sk-ant-$(rep a 20)" ;;
+    "OpenAI key") echo "t = sk-$(rep a 40)" ;;
+    "SendGrid key") echo "t = SG.$(rep a 22).$(rep a 43)" ;;
+    "private key") printf "%s%s\n" "-----BEGIN RSA " "PRIVATE KEY-----" ;;
+    "URL with a password") echo "u = mongodb+srv://app:$(rep a 8)@db/app" ;;
+    "hard-coded credential") echo "client_secret = \"$(rep a 12)\"" ;;
+  esac
+}
+kinds=("AWS access key" "GitHub token" "GitHub fine-grained token" "GitLab token" "Slack token" "Stripe live key" "Google API key"
+  "Anthropic key" "OpenAI key" "SendGrid key" "private key" "URL with a password" "hard-coded credential")
+mkdir -p "$TMP/pats" && cd "$TMP/pats" && git init --quiet -b feat/pats && git config user.email t@t && git config user.name t
+mkdir -p .specify/extensions/jit && ln -s "$SCRIPTS" .specify/extensions/jit/scripts
+echo ok > f.txt; git add f.txt; git commit --quiet --no-verify -m base
+for kind in "${kinds[@]}"; do
+  sample "$kind" > f.txt; git add f.txt
+  check "when a $kind is staged, then it is refused as that kind, by file and line" 'fails_with "f.txt:1: possible $kind" "$s" staged'
+  git commit --quiet --no-verify -m "add $kind"
+  check "when a commit with a $kind is pushed, then the range check refuses it as that kind" 'fails_with "f.txt:1: possible $kind" "$s" range HEAD~1 HEAD'
+  echo ok > f.txt; git commit --quiet --no-verify -am "clean"
+done
+
 exit "$FAIL"

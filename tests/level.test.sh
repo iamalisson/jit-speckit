@@ -47,6 +47,11 @@ check "then the Node CI uses the current LTS, not a hard-coded major" 'grep -q "
 check "when the project pins Node, then CI uses that file" \
   '(echo 26 > .node-version; rm .github/workflows/ci.yml; "$l" standard >/dev/null; grep -q "node-version-file: .node-version" .github/workflows/ci.yml; s=$?; rm .node-version; exit $s)'
 
+cp .github/workflows/security.yml "$TMP/sec.bak"; echo "name: my own security" > .github/workflows/security.yml
+out="$("$l" full --no-branches)"
+check "when security.yml has no marker, then it is kept and the output says how to get the current one" \
+  'grep -qxF "kept (no marker): .github/workflows/security.yml — delete it to get the current one" <<<"$out" && [[ "$(cat .github/workflows/security.yml)" == "name: my own security" ]]'
+"$l" standard --no-branches >/dev/null; cp "$TMP/sec.bak" .github/workflows/security.yml
 rm -f .github/workflows/security.yml .github/dependabot.yml
 mkdir -p services/api terraform/envs/prod
 printf 'FROM scratch\n' > Dockerfile; printf 'FROM scratch\n' > services/api/Dockerfile.prod

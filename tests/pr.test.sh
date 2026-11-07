@@ -346,6 +346,45 @@ check "when the analysis changed tasks.md after the plan review, then pr.sh spec
   'fails_with "changed since the last review" "$p" spec && ! grep -q "^pr create" "$GH_LOG" && [[ "$(git branch --show-current)" == main ]] && ! git ls-remote --exit-code origin spec/001-demo'
 git checkout --quiet -- specs/001-demo/tasks.md
 
+# ── FR-022: the review gate and the refusals, found by their messages, on a scan recorded for the diff ──
+rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR"; : > "$GH_LOG"
+new_repo standard
+commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
+"$SCRIPTS/branch.sh" T001 >/dev/null
+echo 'export const search = 1' > search.ts; git add search.ts; git commit --quiet -m "feat: search"
+scanned # the scan is there from the start, so only the check under test can refuse
+branch="$(git branch --show-current)"
+# unopened: nothing was pushed past the claim and no PR was created.
+unopened() { ! grep -q "^pr create" "$GH_LOG" && [[ "$(git ls-remote origin "refs/heads/$branch" | cut -f1)" == "$(git rev-parse origin/develop)" ]]; }
+check "when the body has no '## Review' section, then it refuses with that message and opens nothing" \
+  'fails_with "jit: the PR body needs a '"'"'## Review'"'"' section: the independent review'"'"'s findings and what was done about them" "$p" task T001 "feat: search" "$TMP/unreviewed.md" && unopened'
+set_cfg base_branch nosuch
+check "when the base branch is on neither the machine nor origin, then it refuses naming it and opens nothing" \
+  'fails_with "jit: base branch '"'"'nosuch'"'"' not found locally or on origin" "$p" task T001 "feat: search" "$TMP/body.md" && unopened'
+set_cfg base_branch auto
+mkdir -p .specify/memory; printf '# Constitution\n\ntests: ([\n' > .specify/memory/constitution.md
+check "when the constitution's tests: regex is invalid, then it refuses with the regex in the message and opens nothing" \
+  'fails_with "jit: the constitution'"'"'s tests: regex is invalid: ([" "$p" task T001 "feat: search" "$TMP/body.md" && unopened'
+rm .specify/memory/constitution.md
+check "when no review was recorded for the diff, then it refuses saying so and opens nothing" \
+  'fails_with "jit: no independent review recorded for this branch'"'"'s diff" "$p" task T001 "feat: search" "$TMP/body.md" && unopened'
+printf 'What changed: x\n\n%s\n\nAssessment: changes needed\n' "$(range)" > "$TMP/review.md"
+"$SCRIPTS/review.sh" record "$TMP/review.md" >/dev/null
+check "when the recorded review said changes needed, then it refuses saying so and opens nothing" \
+  'fails_with "jit: the last review said '"'"'changes needed'"'"'" "$p" task T001 "feat: search" "$TMP/body.md" && unopened'
+reviewed
+echo 'export const more = 2' >> search.ts; git commit --quiet -am "feat: more"; scanned
+check "when a commit follows a ready review (the scan is current), then it refuses with changed since and opens nothing" \
+  'fails_with "jit: this branch'"'"'s diff changed since the last review" "$p" task T001 "feat: search" "$TMP/body.md" && unopened'
+reviewed
+out="$("$p" task T001 "feat: search" "$TMP/body.md")"
+check "when the review is ready and current, then it pushes HEAD itself: origin's branch is the commit being reviewed" \
+  '[[ "$out" == *"PR=https://github.com/acme/app/pull/99" ]] && grep -q "^pr create" "$GH_LOG" && [[ "$(git ls-remote origin "refs/heads/$branch" | cut -f1)" == "$(git rev-parse HEAD)" ]]'
+
+# fake_gh: pr list --head <branch> answers only for the branch the PR was created for.
+check "when a PR was created for a branch, then pr list --head names it for that branch and prints nothing for another" \
+  '[[ "$(gh pr list --head "$branch" --state open --json url)" == https://github.com/acme/app/pull/99 && -z "$(gh pr list --head other --state open --json url)" ]]'
+
 # ── The spec folder survives a refused branch switch ──
 rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR"
 new_repo standard

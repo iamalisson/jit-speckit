@@ -63,8 +63,13 @@ case "$1 $2" in
                   echo "https://github.com/acme/app/issues/$n" ;;
   "label create") exit 0 ;;
   "pr list") if [[ -n "${GH_FAIL_PR_LIST:-}" ]]; then echo "HTTP 502: Bad Gateway" >&2; exit 1; fi
-             if [[ "$*" == *headRefName* ]]; then cat "$GH_OPEN" 2>/dev/null; elif [[ -f "$GH_PR" ]]; then cat "$GH_PR"; fi; exit 0 ;;
-  "pr create") echo "https://github.com/acme/app/pull/99" | tee "$GH_PR" ;;
+             # --head <branch>: only the PR created for that branch (its head is kept in $GH_PR.head)
+             h=""; a=("$@"); for ((i = 0; i < ${#a[@]}; i++)); do if [[ "${a[i]}" == --head ]]; then h="${a[i+1]:-}"; fi; done
+             if [[ "$*" == *headRefName* ]]; then cat "$GH_OPEN" 2>/dev/null
+             elif [[ -n "$h" ]]; then if [[ -f "$GH_PR" && "$(cat "$GH_PR.head" 2>/dev/null)" == "$h" ]]; then cat "$GH_PR"; fi
+             elif [[ -f "$GH_PR" ]]; then cat "$GH_PR"; fi; exit 0 ;;
+  "pr create") h=""; a=("$@"); for ((i = 0; i < ${#a[@]}; i++)); do if [[ "${a[i]}" == --head ]]; then h="${a[i+1]:-}"; fi; done
+               echo "$h" > "$GH_PR.head"; echo "https://github.com/acme/app/pull/99" | tee "$GH_PR" ;;
   "issue list") if [[ -n "${GH_FAIL_ISSUE_LIST:-}" ]]; then echo "HTTP 502: Bad Gateway" >&2; exit 1; fi
                 cat "$GH_CLOSED" 2>/dev/null; exit 0 ;;
   "repo view") exit 1 ;;
