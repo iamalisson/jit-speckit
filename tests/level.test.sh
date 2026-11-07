@@ -238,7 +238,7 @@ if python3 -c "import yaml" 2>/dev/null; then
 else
   echo "skip - pre-commit config YAML check (python3 with PyYAML not available here)"
 fi
-printf 'repos:\n-   repo: local\n    hooks:\n    -   id: jit-secrets\n        entry: bash .specify/extensions/jit/scripts/secrets.sh staged\n        language: system\n' > .pre-commit-config.yaml
+printf 'repos:\n-   repo: local\n    hooks:\n    -   id: jit-secrets\n        name: secrets\n        entry: bash .specify/extensions/jit/scripts/secrets.sh staged\n        language: system\n' > .pre-commit-config.yaml
 "$l" lite --no-branches >/dev/null
 check "when only the commit hook was added by hand (4-space style), then only the push hook is appended, in that style" \
   '[[ "$(grep -c "scripts/secrets.sh" .pre-commit-config.yaml)" == 1 ]] && grep -q "^    -   id: jit-prepush$" .pre-commit-config.yaml && grep -q "^        entry: bash .specify/extensions/jit/scripts/prepush.sh$" .pre-commit-config.yaml'
@@ -246,6 +246,42 @@ rm .pre-commit-config.yaml; mkdir -p .husky; echo "npm test" > .husky/pre-commit
 "$l" lite --no-branches >/dev/null
 check "when the repo uses husky, then the checks are appended to its hook files and the existing line is kept" \
   '[[ "$(head -1 .husky/pre-commit)" == "npm test" ]] && grep -q "secrets.sh staged" .husky/pre-commit && grep -qF "prepush.sh \"\$@\"" .husky/pre-push && [[ -z "$(git config core.hooksPath)" ]]'
+
+# A top-level key after repos: must stay after jit's item, or the file stops parsing.
+pc_valid() { # the repos list has the two jit hooks, and every key the file had is still at the top level
+  ! python3 -c "import yaml" 2>/dev/null || python3 -c "
+import yaml,sys
+d=yaml.safe_load(open('.pre-commit-config.yaml'))
+ids=[h['id'] for r in d['repos'] if r['repo']=='local' for h in r['hooks']]
+sys.exit(0 if ids==['jit-secrets','jit-prepush'] and set(d)>=set(sys.argv[1:]) else 1)" "$@"
+}
+before_key() { awk -v k="$1" '/repo: local$/ { r = NR } index($0, k) == 1 { c = NR } END { exit !(r && c && r < c) }' .pre-commit-config.yaml; }
+pc_repo() { rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"; new_repo lite; printf "$1" > .pre-commit-config.yaml; }
+pc_repo 'repos:\n  - repo: https://github.com/x/y\n    rev: v1\n    hooks:\n      - id: a\n\n# pre-commit.ci\nci:\n  autofix_prs: false\n'
+"$l" lite --no-branches >/dev/null
+check "when a top-level key follows repos:, then jit's item goes in the list, before that key and its comment" \
+  'before_key "ci:" && before_key "# pre-commit.ci" && pc_valid ci repos'
+pc_repo 'default_stages: [pre-commit]\nrepos:\n- repo: https://github.com/x/y\n  rev: v1\n  hooks:\n  - id: a\nexclude: ^vendor/\nfail_fast: true\n'
+"$l" lite --no-branches >/dev/null
+check "when the list items sit at column 0, then they stay in the list and jit's item joins them before the next key" \
+  'before_key "exclude:" && [[ "$(grep "^- repo:" .pre-commit-config.yaml | tail -1)" == "- repo: local" ]] && pc_valid default_stages exclude fail_fast repos'
+pc_repo 'repos:\n  - repo: https://github.com/x/y\n    rev: v1\n    hooks:\n      - id: a'
+"$l" lite --no-branches >/dev/null
+check "when the file has no newline at its end, then the last line stays whole" \
+  'grep -qx "      - id: a" .pre-commit-config.yaml && grep -q "^  - repo: local$" .pre-commit-config.yaml && pc_valid repos'
+pc_repo 'exclude: ^vendor/'
+"$l" lite --no-branches >/dev/null
+check "when the file has no repos: key, then it gains one holding jit's item" 'grep -qx "repos:" .pre-commit-config.yaml && pc_valid exclude repos'
+pc_repo 'repos:\n  - repo: https://github.com/x/y\n    rev: v1\n    hooks:\n      - id: a\n'; cp .pre-commit-config.yaml "$TMP/pc.orig"
+mkdir -p "$TMP/pc-bad"; printf '#!/bin/sh\nexit 1\n' > "$TMP/pc-bad/pre-commit"; chmod +x "$TMP/pc-bad/pre-commit"
+out="$(PATH="$TMP/pc-bad:$PATH" "$l" lite --no-branches)"
+check "when pre-commit refuses the result, then the file stays as it was and it gives the lines to add, not a success" \
+  'cmp -s "$TMP/pc.orig" .pre-commit-config.yaml && [[ ! -e .pre-commit-config.yaml.tmp ]] && grep -qF "add these lines to it" <<<"$out" && grep -qF "id: jit-secrets" <<<"$out" && ! grep -q "added to .pre-commit-config" <<<"$out"'
+pc_repo 'repos: []\n'; cp .pre-commit-config.yaml "$TMP/pc.orig"
+printf '#!/bin/sh\nexit 0\n' > "$TMP/pc-bad/pre-commit"
+out="$(PATH="$TMP/pc-bad:$PATH" "$l" lite --no-branches)"
+check "when the list is written inline, then the file stays as it was even with a pre-commit that would pass it" \
+  'cmp -s "$TMP/pc.orig" .pre-commit-config.yaml && grep -qF "add these lines to it" <<<"$out"'
 
 # ── What the hook lines say: the checks run, or they are not claimed to ──
 hook_repo() { rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"; new_repo lite; }

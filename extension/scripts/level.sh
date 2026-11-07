@@ -444,12 +444,28 @@ elif [[ -f "$pc_cfg" ]]; then
     # The same list indentation as the file's own items, so the appended item stays valid YAML.
     ind="$(sed -nE 's/^( *- +)repo:.*/\1/p' "$pc_cfg" | head -1)"; [[ -n "$ind" ]] || ind="-   "
     pad="$(printf '%*s' "${#ind}" '')"
-    grep -q '^repos:' "$pc_cfg" || echo "repos:" >> "$pc_cfg"
-    { echo "${ind}repo: local"; echo "${pad}hooks:"
+    item="$(echo "${ind}repo: local"; echo "${pad}hooks:"
       grep -q 'scripts/secrets.sh' "$pc_cfg" || pc_hook "$ind" jit-secrets "jit-speckit secrets (staged)" "bash .specify/extensions/jit/scripts/secrets.sh staged" pre-commit
       grep -q 'scripts/prepush.sh' "$pc_cfg" || pc_hook "$ind" jit-prepush "jit-speckit push check (secrets in every pushed commit, protected branches)" "bash .specify/extensions/jit/scripts/prepush.sh" pre-push
-    } >> "$pc_cfg"
-    echo "git hooks: added to $pc_cfg (pre-commit framework)"
+    )"
+    # After the list's last item, before any top-level key and the comments above it: at the end
+    # of the file, a key such as ci: would leave the item outside the list.
+    { cat "$pc_cfg"; grep -q '^repos:' "$pc_cfg" || printf '\nrepos:\n'; } | B="$item" awk '
+      repos && /^[^[:space:]#-]/ { print ENVIRON["B"]; repos = 0 }
+      repos && /^[[:space:]]*(#|$)/ { held = held $0 "\n"; next }
+      { printf "%s", held; held = ""; print }
+      /^repos:/ { repos = 1 }
+      END { if (repos) print ENVIRON["B"]; printf "%s", held }
+    ' > "$pc_cfg.tmp"
+    # A list written inline (repos: []) takes no item below it.
+    if grep -qE '^repos:[[:space:]]*[^[:space:]#]' "$pc_cfg" || { command -v pre-commit >/dev/null && ! pre-commit validate-config "$pc_cfg.tmp" >/dev/null 2>&1; }; then
+      rm -f "$pc_cfg.tmp"
+      echo "git hooks: $pc_cfg would not stay valid, so it was left as it is; add these lines to it:"
+      echo "$item"
+    else
+      mv "$pc_cfg.tmp" "$pc_cfg"
+      echo "git hooks: added to $pc_cfg (pre-commit framework)"
+    fi
   fi
   [[ -f "$(git rev-parse --git-path hooks)/pre-push" ]] \
     || echo "git hooks: not active in this clone yet; run: pre-commit install --hook-type pre-commit --hook-type pre-push"
