@@ -4,13 +4,13 @@
 # shellcheck shell=bash disable=SC2034  # read by level.sh
 
 PIN_CHECKOUT="actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1"
-PIN_SETUP_NODE="actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0"
-PIN_PNPM="pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0"
+PIN_SETUP_NODE="actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0"
+PIN_PNPM="pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0"
 PIN_RUST_TOOLCHAIN="dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master"
 PIN_RUST_CACHE="Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3"
 PIN_SETUP_UV="astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3"
-PIN_SETUP_PYTHON="actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0"
-PIN_SETUP_GO="actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0"
+PIN_SETUP_PYTHON="actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0"
+PIN_SETUP_GO="actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0"
 PIN_ZIZMOR="zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1"
 
 GITLEAKS_VERSION="8.30.1"
