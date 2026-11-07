@@ -12,6 +12,10 @@ disable-model-invocation: true
      `uv tool install specify-cli --from git+https://github.com/github/spec-kit.git@v1.2.5`.
      If `uv` is missing too, point to https://docs.astral.sh/uv/ and stop.
    - If `gh auth status` fails, ask the user to run `! gh auth login` and stop.
+   - If `gh repo view` fails, there is no GitHub repository yet, and issues and PRs need one: ask
+     its name and visibility and offer `gh repo create <name> --private --source . --remote origin`
+     (`--public` for a public one; `git init -b main` first if there is no git repo). On no, go on
+     without steps 4 and 5, and say that `/speckit-tasks` stops at creating the issues until there is one.
 2. **Level.** Use the argument if it is `lite`, `standard` or `full`. If the project already has
    `.specify/extensions/jit/jit-config.yml`, this is an update: keep its `level:` and skip the
    question. Otherwise ask with these options, recommending one from what the repo shows:

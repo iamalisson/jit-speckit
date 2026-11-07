@@ -168,6 +168,13 @@ check "when the level skill is read, then a level change goes to the base branch
 check "when the docs are read, then the README Start and the reference Update say the setup goes to the base branch" \
   'sed -n "/^## Start/,/^## The loop/p" README.md | grep -q "base branch" && sed -n "/^## Update/,/^## What/p" docs/reference.md | grep -q "base branch"'
 
+# A new project needs a GitHub repo before the foundation spec, and develop after its first push.
+new_jit="$(sed -n '/^7\. \*\*Set up jit-speckit/,$p' skills/new/SKILL.md)"
+check "when new's steps 7 and 8 are read, then it offers gh repo create before setup, and the next step is commit, push and level, before the spec" \
+  'tr "\n" " " <<<"$new_jit" | grep -qE "gh repo create .*--source \. --remote origin.*bin/setup\.sh" && tr "\n" " " <<<"$new_jit" | grep -qE "commit the setup.*git push -u origin.*/jit-speckit:level <level>.*/speckit-specify"'
+check "when init's step 1 is read, then it checks for a GitHub repository and offers to create one" \
+  'sed -n "/^1\. \*\*Tools/,/^2\. /p" skills/init/SKILL.md | tr "\n" " " | grep -qE "gh repo view.*gh repo create .*--source \. --remote origin"'
+
 # review.sh record compares against the merge-base with origin's base (lib.sh base_ref): the prompt names the same one.
 check "the review prompt takes the range's start from origin/<base>, as review.sh record does" \
   'grep -qF "git merge-base HEAD origin/<base>" extension/commands/review.md && ! grep -qF "git merge-base HEAD <base>" extension/commands/review.md'
