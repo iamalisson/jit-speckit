@@ -181,6 +181,74 @@ rm .pre-commit-config.yaml; mkdir -p .husky; echo "npm test" > .husky/pre-commit
 check "when the repo uses husky, then the checks are appended to its hook files and the existing line is kept" \
   '[[ "$(head -1 .husky/pre-commit)" == "npm test" ]] && grep -q "secrets.sh staged" .husky/pre-commit && grep -qF "prepush.sh \"\$@\"" .husky/pre-push && [[ -z "$(git config core.hooksPath)" ]]'
 
+# ── What the hook lines say: the checks run, or they are not claimed to ──
+hook_repo() { rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"; new_repo lite; }
+tok="ghp_$(printf 'a%.0s' {1..36})" # built here, so this file holds no token
+add_lines="add these lines to it"
+
+hook_repo
+mkdir .githooks; printf '#!/bin/sh\n# run secrets.sh here one day\n' > .githooks/pre-commit
+git config core.hooksPath .githooks
+out="$("$l" lite --no-branches)"
+check "when an own .githooks/pre-commit does not call secrets.sh, then it prints the add-these-lines message and not enabled" \
+  'grep -q "(.githooks); $add_lines" <<<"$out" && ! grep -q "enabled" <<<"$out"'
+hook_repo
+mkdir .githooks; printf '#!/bin/sh\necho mine\n' > .githooks/pre-push
+out="$("$l" lite --no-branches)"
+check "when an own .githooks/pre-push does not call prepush.sh, on a first run too, then it prints the same message and not enabled" \
+  'grep -q "(.githooks); $add_lines" <<<"$out" && ! grep -q "enabled" <<<"$out"'
+
+hook_repo
+touch .git/hooks/pre-commit.sample
+out="$("$l" lite --no-branches)"
+check "when .git/hooks holds only samples, then .githooks is enabled and says so" \
+  '[[ "$(git config core.hooksPath)" == .githooks ]] && grep -q "^git hooks: enabled (.githooks" <<<"$out"'
+hook_repo
+printf '#!/bin/sh\necho mine\n' > .git/hooks/pre-commit; chmod +x .git/hooks/pre-commit
+out="$("$l" lite --no-branches)"
+check "when .git/hooks already has hooks, then core.hooksPath is not set and the message names .git/hooks, not enabled" \
+  '[[ -z "$(git config core.hooksPath)" ]] && grep -q "(.git/hooks); $add_lines" <<<"$out" && ! grep -q "enabled" <<<"$out"'
+printf '#!/bin/sh\nbash .specify/extensions/jit/scripts/secrets.sh staged\n' > .git/hooks/pre-commit
+printf '#!/bin/sh\nbash .specify/extensions/jit/scripts/prepush.sh "$@"\n' > .git/hooks/pre-push
+out="$("$l" lite --no-branches)"
+check "when a .git/hooks file calling the check is not executable, then it is not called enabled" \
+  'grep -q "(.git/hooks); $add_lines" <<<"$out" && ! grep -q "enabled" <<<"$out"'
+chmod +x .git/hooks/pre-push; out="$("$l" lite --no-branches)"
+check "when the lines were added there, then it says so instead of asking again" \
+  '[[ -z "$(git config core.hooksPath)" ]] && grep -q "^git hooks: enabled (.git/hooks" <<<"$out" && ! grep -q "$add_lines" <<<"$out"'
+
+hook_repo
+mkdir -p "$TMP/home" "$TMP/wide"
+printf '#!/bin/sh\ntouch "%s/wide-ran"\n' "$TMP" > "$TMP/wide/pre-commit"; chmod +x "$TMP/wide/pre-commit"
+git config --file "$TMP/home/.gitconfig" core.hooksPath "$TMP/wide"
+wide() { HOME="$TMP/home" XDG_CONFIG_HOME="$TMP/home" "$@"; }
+out="$(wide "$l" lite --no-branches)"
+check "when core.hooksPath is machine-wide, then it says so, not that it is the repo's own, and not enabled" \
+  'grep -q "machine-wide" <<<"$out" && grep -q "$add_lines" <<<"$out" && ! grep -q "this repo already has its own" <<<"$out" && ! grep -q "enabled" <<<"$out"'
+check "then no repo setting takes over and a real commit still runs the machine-wide hook" \
+  '[[ -z "$(git config --local --get core.hooksPath)" ]] && git add -A && wide git commit --quiet --allow-empty -m wide && [[ -f "$TMP/wide-ran" ]]'
+
+hook_repo
+mkdir .husky; printf 'true' > .husky/pre-commit
+out="$("$l" lite --no-branches)"
+check "when a husky file ends without a newline, then the check starts on its own line" \
+  '[[ "$(sed -n 1p .husky/pre-commit)" == true && "$(sed -n 2p .husky/pre-commit)" == "bash .specify/extensions/jit/scripts/secrets.sh staged" ]]'
+check "then both husky files are executable" '[[ -x .husky/pre-commit && -x .husky/pre-push ]]'
+check "when core.hooksPath does not reach .husky, then it prints not active in this clone yet and not enabled" \
+  'grep -q "not active in this clone yet" <<<"$out" && ! grep -q "enabled" <<<"$out"'
+git config core.hooksPath .husky/_
+check "when core.hooksPath names a .husky folder that does not exist, then it is not active either" \
+  '"$l" lite --no-branches | grep -q "not active in this clone yet"'
+git config --unset core.hooksPath
+check "when a machine-wide core.hooksPath is in charge, then husky is not active either" \
+  'wide "$l" lite --no-branches | grep -q "not active in this clone yet"'
+git config core.hooksPath .husky
+out="$("$l" lite --no-branches)"
+check "when core.hooksPath reaches .husky, then it says added, with no not-active line, and appends nothing twice" \
+  'grep -q "^git hooks: added to .husky" <<<"$out" && ! grep -q "not active" <<<"$out" && [[ "$(grep -c "secrets.sh" .husky/pre-commit)" == 1 ]]'
+printf 'const t = "%s";\n' "$tok" > app.js; git add app.js
+check "then a real commit through the active husky hook is refused by the check" 'fails_with "app.js:1: possible GitHub token" git commit -m token'
+
 # ── CI from the constitution's commands, managed files, existing PR gates ──
 rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"
 new_repo standard

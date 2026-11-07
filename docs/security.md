@@ -24,7 +24,7 @@ access control leads OWASP, and missing authorization jumped to #4 in the CWE li
 
 | When | Where | What it checks | Bypassable? |
 |---|---|---|---|
-| Every commit | git `pre-commit` (`.githooks/`) | `.env`, keys and credential files; provider tokens and passwords in added lines (Gitleaks too, when installed). Under a second. | locally, `--no-verify` |
+| Every commit | git `pre-commit` (`.githooks/`, or the repo's pre-commit framework or husky config) | `.env`, keys and credential files; provider tokens and passwords in added lines (Gitleaks too, when installed). Under a second. | locally, `--no-verify` |
 | Every command Claude runs | plugin `PreToolUse` guard (the plugin's own copy; the repo only supplies config) | refuses `--no-verify` (and `commit -n`), hooks switched off with `-c core.hooksPath`, `git add -A`, commits on base branches, pushes to base branches. It sees through chains, `env`/`command`/`VAR=` prefixes, `sh -c '…'`, git's global options and bundled flags; on Claude Code 2.1.295 or newer it also blocks when the guard times out or crashes | best effort: an unusual shell trick can get past it, which is why CI and branch protection back it up |
 | Every review Claude launches | plugin `PreToolUse` hook on the subagent tool (`hooks/guard-review.sh`) | refuses a launch of `jit-speckit:reviewer`, or of any agent whose prompt holds the reviewer line, without `model` set to `sonnet`, `opus` or `fable`, and in a fork of the author's session | only where the plugin is installed; `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` still forces one model (the record warns) |
 | Every push | git `pre-push` (`.githooks/`, or the repo's pre-commit framework or husky config) | re-scans every commit leaving the machine (catches `--no-verify` commits); base branches are PR-only (standard, full) | locally |
@@ -37,6 +37,12 @@ The local layers are fast feedback. **The CI gate plus branch protection is the 
 cannot be skipped from a laptop. On lite there is no CI gate: the hooks, the guard and the review
 before each PR are all that check the code, and nothing on GitHub re-checks a push. Move to
 standard (`/jit-speckit:level standard`) when that matters.
+
+The git hooks are enabled only where they really run: `/jit-speckit:level` prints "enabled" only
+when the `pre-commit` and `pre-push` that git will run are executable and call the checks. Otherwise
+it says so. An own `.githooks`, hooks already in `.git/hooks` (`core.hooksPath` is not set) and a
+machine-wide `core.hooksPath` (kept, and named as machine-wide) get the lines to add. Husky gets the
+lines, and "not active in this clone yet" until `core.hooksPath` reaches `.husky`.
 
 ## The audit: `/jit-speckit:security`
 

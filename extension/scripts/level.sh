@@ -372,14 +372,32 @@ done
 # A repo that already runs its hooks through the pre-commit framework or husky gets jit's two
 # checks added there, so they really run instead of being left as lines to paste.
 hooks_path="$(git config --get core.hooksPath || true)"
+local_path="$(git config --local --get core.hooksPath || true)"
 pc_cfg=.pre-commit-config.yaml
 pc_hook() { # pc_hook <indent of "- "> <id> <name> <entry> <stage>
   local pad; pad="$(printf '%*s' "${#1}" '')"
   printf '%s%sid: %s\n%s%sname: %s\n%s%sentry: %s\n%s%slanguage: system\n%s%spass_filenames: false\n%s%salways_run: true\n%s%sstages: [%s]\n' \
     "$pad" "$1" "$2" "$pad" "$pad" "$3" "$pad" "$pad" "$4" "$pad" "$pad" "$pad" "$pad" "$pad" "$pad" "$pad" "$pad" "$5"
 }
-if [[ "$hooks_path" == .githooks ]]; then
-  echo "git hooks: enabled (.githooks)"
+hook_calls() { grep -qsE "^[^#]*$2" "$1"; } # hook_calls <file> <regex>: outside a comment
+# Where git really runs hooks from says "enabled" only when both files run; else what to add.
+hook_status() { # hook_status [<what is wrong>]
+  local dir; dir="$(git rev-parse --git-path hooks)"
+  if [[ -x "$dir/pre-commit" && -x "$dir/pre-push" ]] && hook_calls "$dir/pre-commit" 'secrets\.sh' && hook_calls "$dir/pre-push" 'prepush\.sh'; then
+    echo "git hooks: enabled ($dir: secret check on commit, secret + branch check on push)"
+  else
+    echo "git hooks: ${1:-this repo already has its own} ($dir); add these lines to it:"
+    echo "  pre-commit: bash .specify/extensions/jit/scripts/secrets.sh staged"
+    echo "  pre-push:   bash .specify/extensions/jit/scripts/prepush.sh \"\$@\""
+  fi
+}
+husky_add() { # husky_add <file> <regex> <line>
+  hook_calls "$1" "$2" && return
+  [[ ! -s "$1" || -z "$(tail -c1 "$1")" ]] || echo >> "$1"
+  echo "$3" >> "$1"
+}
+if [[ "$local_path" == .githooks ]]; then
+  hook_status
 elif [[ -f "$pc_cfg" ]]; then
   if grep -q 'scripts/secrets.sh' "$pc_cfg" && grep -q 'scripts/prepush.sh' "$pc_cfg"; then
     echo "git hooks: already in $pc_cfg"
@@ -398,16 +416,24 @@ elif [[ -f "$pc_cfg" ]]; then
     || echo "git hooks: not active in this clone yet; run: pre-commit install --hook-type pre-commit --hook-type pre-push"
 elif [[ -d .husky ]]; then
   # husky runs these files as shell scripts, so git's arguments and stdin reach prepush.sh.
-  grep -qs 'scripts/secrets.sh' .husky/pre-commit || echo 'bash .specify/extensions/jit/scripts/secrets.sh staged' >> .husky/pre-commit
-  grep -qs 'scripts/prepush.sh' .husky/pre-push || echo 'bash .specify/extensions/jit/scripts/prepush.sh "$@"' >> .husky/pre-push
+  husky_add .husky/pre-commit 'scripts/secrets\.sh' 'bash .specify/extensions/jit/scripts/secrets.sh staged'
+  husky_add .husky/pre-push 'scripts/prepush\.sh' 'bash .specify/extensions/jit/scripts/prepush.sh "$@"'
+  chmod +x .husky/pre-commit .husky/pre-push
   echo "git hooks: added to .husky/pre-commit and .husky/pre-push"
-elif [[ -z "$hooks_path" ]]; then
-  git config core.hooksPath .githooks
-  echo "git hooks: enabled (.githooks: secret check on commit, secret + branch check on push)"
+  # Compared as real paths: husky 9 uses .husky/_, older ones .husky, and either can be absolute.
+  real_hooks="$(cd "$(git rev-parse --git-path hooks)" 2>/dev/null && pwd -P || true)"
+  case "$real_hooks/" in
+    "$(cd .husky && pwd -P)"/*) ;;
+    *) echo "git hooks: not active in this clone yet; run: npx husky (or: git config core.hooksPath .husky)" ;;
+  esac
+elif [[ -n "$hooks_path" && -z "$local_path" ]]; then
+  echo "git hooks: core.hooksPath is machine-wide ($hooks_path), so it stays in charge here"
+  hook_status "those hooks do not run jit's checks"
+elif [[ -n "$hooks_path" || -n "$(find "$(git rev-parse --git-path hooks)" -mindepth 1 -maxdepth 1 ! -type d ! -name '*.sample' 2>/dev/null)" ]]; then
+  hook_status
 else
-  echo "git hooks: this repo already has its own ($hooks_path); add these lines to it:"
-  echo "  pre-commit: bash .specify/extensions/jit/scripts/secrets.sh staged"
-  echo "  pre-push:   bash .specify/extensions/jit/scripts/prepush.sh \"\$@\""
+  git config core.hooksPath .githooks
+  hook_status
 fi
 
 if [[ "$previous" == full && "$level" != full ]] || [[ "$previous" == standard && "$level" == lite ]]; then

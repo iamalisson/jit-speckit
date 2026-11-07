@@ -71,7 +71,9 @@ disable-model-invocation: true
    the user to run `/speckit-constitution`.
 7. Summarize in four lines: the level, the files created, updated or kept, the GitHub settings
    and protections enabled, and the next command. If the script said the git hooks are "not active in this clone
-   yet", repeat the command it gave: without it, nothing checks commits locally.
+   yet", repeat the command it gave; if it said "add these lines to it", repeat those lines and
+   where they go: without either, nothing checks commits locally. A machine-wide `core.hooksPath`
+   stays in charge: never replace it.
 8. **Offer to commit it**, in one question: "Commit this on `chore/jit-speckit-<version>` and open
    the PR?" (the version is `version:` in `.specify/extensions/jit/extension.yml`). On yes: switch
    to that branch from the current one, stage **by name** only what the setup wrote (`.specify`,
