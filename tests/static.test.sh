@@ -254,6 +254,10 @@ if [[ "$v_plugin" == 1.8.0 ]]; then
     grep -qF -- "| $id |" "$notes" 2>/dev/null || missing+="$id "
   done
   check "when docs/releases/1.8.0.md is read, then it has a row for every fixed id${missing:+ — missing: $missing}" '[[ -f "$notes" && -z "$missing" ]]'
+  check "then Upgrading names claude plugin update and no longer says changed files are kept" \
+    'grep -qF "claude plugin update" "$notes" && ! grep -qF "are kept when you changed them" "$notes"'
+  check "then the notes list T013 to T021" \
+    'for n in 13 14 15 16 17 18 19 20 21; do grep -q "^| T0$n |" "$notes" || exit 1; done'
 fi
 
 exit "$FAIL"
