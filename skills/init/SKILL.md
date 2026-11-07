@@ -50,8 +50,12 @@ disable-model-invocation: true
      repos.
 
    If GitHub refuses one, say so plainly and continue.
-5. **Branch protection** (standard and full). Offer it, explain it in one line, and run it only
-   on yes:
+5. **Branch protection** (standard and full). Offer it only once the checks are green on the base
+   branch (`gh run list --branch <base branch>`). The gates read the whole history and every
+   lockfile, and `enforce_admins` binds the owner too, so a finding that is already there would
+   leave the setup PR red with no way to merge it. Until they are green, skip this step and say
+   that running `/jit-speckit:init` again offers it, and that docs/security.md ("When a gate is
+   red") says how to get there. Otherwise explain it in one line, and run it only on yes:
    - Branch protection on the base branches, requiring a pull request and the checks to pass:
      `gh api -X PUT repos/{owner}/{repo}/branches/<branch>/protection` with
      `required_status_checks`, `enforce_admins: true`, `required_pull_request_reviews` and
@@ -60,7 +64,9 @@ disable-model-invocation: true
        a job's `name:`, or to the job's key when it has no name. Read them from the generated
        `.github/workflows/ci.yml` and `security.yml` (for example `rust`, `Secrets (gitleaks, full
        history)`). Never use `CI` or `Security`: no job reports under those names, so every PR
-       would wait forever.
+       would wait forever. Leave `Dependencies (osv-scanner)` out: it fails on any open advisory
+       in the tree, so a new one would refuse every unrelated PR, and each Dependabot fix too. It
+       stays a visible check on every PR and runs weekly.
      - **Approvals:** 1 on full, 0 on standard. On full with a single contributor
        (`git shortlog -sn | wc -l` is 1), say that requiring 1 approval would block their own
        PRs, and offer 0 until a second person joins.

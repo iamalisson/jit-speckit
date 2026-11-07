@@ -156,6 +156,39 @@ check "when the default branch isn't on origin yet, then setup pushes nothing an
   'out="$("$l" standard 2>&1)" && grep -q "origin/develop not created yet" <<<"$out" && [[ -z "$(git ls-remote --heads origin)" ]]'
 
 
+# ── Generated CI on its first run ──
+ci_repo() { rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"; new_repo lite; }
+ci_yml=.github/workflows/ci.yml
+ci_repo
+printf '{"scripts":{"test":"x"}}\n' > package.json; : > pnpm-lock.yaml
+"$l" standard --no-branches >/dev/null
+check "when a pnpm project has no packageManager field, then CI gives pnpm/action-setup a version" \
+  'grep -A2 "pnpm/action-setup@" $ci_yml | grep -q "^          version: latest$"'
+printf '{"packageManager" : "pnpm@9.0.0","scripts":{"test":"x"}}\n' > package.json; rm $ci_yml
+"$l" standard --no-branches >/dev/null
+check "when packageManager names pnpm, then CI gives no version (the action refuses two)" \
+  'grep -q "pnpm/action-setup@" $ci_yml && ! grep -q "version: latest" $ci_yml'
+
+ci_repo
+printf '{"packageManager":"yarn@4.5.0","scripts":{"test":"x"}}\n' > package.json; : > yarn.lock
+"$l" standard --no-branches >/dev/null
+check "when packageManager is Yarn 2+, then setup-node has no cache (it would run the runner's Yarn 1) and corepack comes before the install" \
+  '! grep -q "cache:" $ci_yml && [[ "$(grep -A1 -F "npm install -g corepack && corepack enable" $ci_yml | tail -1)" == "      - run: yarn install --immutable" ]] && ! grep -q "frozen-lockfile" $ci_yml'
+printf '{"packageManager":"yarn@1.22.22","scripts":{"test":"x"}}\n' > package.json; rm $ci_yml
+"$l" standard --no-branches >/dev/null
+check "when packageManager is Yarn 1, then CI keeps the cache and the frozen install, with no corepack" \
+  'grep -q "cache: yarn" $ci_yml && grep -q "yarn install --frozen-lockfile" $ci_yml && ! grep -q corepack $ci_yml'
+
+ci_repo
+mkdir -p .specify/memory; cp "$ROOT/preset/templates/constitution-template.md" .specify/memory/constitution.md
+printf '{"scripts":{"test":"x"}}\n' > package.json
+for none in none None N/A -; do
+  sed -i.bak -E "s#^\*\*Commands\*\*.*#**Commands**: build \`$none\` · test \`make check\` · lint \`$none\` · mutate \`$none\`#" .specify/memory/constitution.md
+  rm -f $ci_yml; "$l" standard --no-branches >/dev/null
+  check "when the Commands line says build \`$none\`, then it is unset: no such step in CI and no such mutate command" \
+    '! grep -qF -- "run: $none" $ci_yml && grep -q "run: make check" $ci_yml && (source "$SCRIPTS/lib.sh"; [[ -z "$(constitution_cmd mutate)" ]])'
+done
+
 # ── Hooks in repos that already use the pre-commit framework or husky ──
 rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"
 new_repo lite

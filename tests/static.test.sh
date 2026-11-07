@@ -144,6 +144,18 @@ check "then for a PUBLIC repo it offers secret scanning with push protection and
 check "when the docs are read, then the README CI row names (standard and full), the security doc says lite has no CI gate, and the design doc ties the one-revert promise to one commit per task PR" \
   'grep -E "^\| \*\*every PR, and weekly\*\* \|" README.md | grep -qF "(standard and full)" && grep -q "On lite there is no CI gate" docs/security.md && sed -n "/^## One task = one issue/,/^## /p" docs/design.md | grep -q "one commit per task PR"'
 
+# Generated CI's first run: required jobs must have a way out, and a new advisory must not stop unrelated PRs.
+init_bp="$(sed -n '/^5\. \*\*Branch protection\*\*/,/^6\. /p' skills/init/SKILL.md)"
+check "when init's step 5 is read, then protection waits for green checks, and running init again offers it" \
+  'tr "\n" " " <<<"$init_bp" | grep -qE "Offer it only once .*green" && grep -qF "gh run list --branch <base branch>" <<<"$init_bp" && tr "\n" " " <<<"$init_bp" | grep -qF "/jit-speckit:init\` again"'
+check "then the osv-scanner job is left out of the required checks, and the security doc says so" \
+  'tr "\n" " " <<<"$init_bp" | grep -qE "Leave +\`Dependencies \(osv-scanner\)\` +out" && grep -qF "OSV-Scanner is not a required check" docs/security.md'
+gate_doc="$(sed -n '/^## When a gate is red/,/^## /p' docs/security.md)"
+check "when the security doc is read, then it says how to accept what each gate already finds" \
+  'for f in .gitleaksignore osv-scanner.toml zizmor.yml .trivyignore .semgrepignore; do grep -qF "\`$f\`" <<<"$gate_doc"; done'
+check "then the constitution template and adopt say to keep the placeholder when there is no such step" \
+  'grep -q "keep its \[PLACEHOLDER\]" preset/templates/constitution-template.md && grep -q "leave its placeholder" skills/adopt/SKILL.md'
+
 # review.sh record compares against the merge-base with origin's base (lib.sh base_ref): the prompt names the same one.
 check "the review prompt takes the range's start from origin/<base>, as review.sh record does" \
   'grep -qF "git merge-base HEAD origin/<base>" extension/commands/review.md && ! grep -qF "git merge-base HEAD <base>" extension/commands/review.md'

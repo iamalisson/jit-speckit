@@ -172,11 +172,12 @@ constitution_markers() {
 }
 
 # constitution_cmd <build|test|lint|mutate>: that command from the constitution's **Commands**
-# line ("build `x` · test `y` · ..."); empty when unset or still a [PLACEHOLDER].
+# line ("build `x` · test `y` · ..."); empty when unset, still a [PLACEHOLDER], or none, n/a or -
+# (a project with no such step: as a command, it would fail every CI run).
 constitution_cmd() {
   local c
   c="$(sed -nE "s/.*\*\*Commands\*\*.*$1 \`([^\`]+)\`.*/\1/p" .specify/memory/constitution.md 2>/dev/null | head -1)"
-  if [[ -n "$c" && "$c" != \[* ]]; then echo "$c"; fi
+  case "$(tr '[:upper:]' '[:lower:]' <<<"$c")" in ""|\[*|none|n/a|-) ;; *) echo "$c" ;; esac
 }
 
 # test_path_re: TEST_PATH_RE, plus the constitution's optional `tests: <regex>` line (grep -E) for

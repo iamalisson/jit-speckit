@@ -11,6 +11,7 @@
 <!-- Languages, frameworks, database, hosting, with versions. Source of truth: the manifest files. -->
 
 **Commands**: build `[BUILD_COMMAND]` · test `[TEST_COMMAND]` · lint `[LINT_COMMAND]` · mutate `[MUTATE_COMMAND]`
+<!-- A project with no such step (no build, say): keep its [PLACEHOLDER], so CI does not run it. -->
 <!-- Optional: a line `tests: <regex>` (grep -E) for test files the usual layouts miss
      (tests/, Tests/, __tests__/, *.test.*, test_*.py, ...); they then need `## Test changes` when edited. -->
 

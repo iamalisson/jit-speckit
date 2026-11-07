@@ -29,7 +29,7 @@ access control leads OWASP, and missing authorization jumped to #4 in the CWE li
 | Every review Claude launches | plugin `PreToolUse` hook on the subagent tool (`hooks/guard-review.sh`) | refuses a launch of `jit-speckit:reviewer`, or of any agent whose prompt holds the reviewer line, without `model` set to `sonnet`, `opus` or `fable`, and in a fork of the author's session | only where the plugin is installed; `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` still forces one model (the record warns) |
 | Every push | git `pre-push` (`.githooks/`, or the repo's pre-commit framework or husky config) | re-scans every commit leaving the machine (catches `--no-verify` commits); base branches are PR-only (standard, full) | locally |
 | Before a PR opens | after `/speckit-implement` | the independent review (`/speckit-jit-review`: a fresh agent, the whole repository, claims re-run, one mutation), scanners on the changed files (`pr.sh` refuses the PR until `security-scan.sh --changed` ran on its exact diff; a missing scanner is reported, not refused), `/security-review` | — |
-| Every PR, push and week | `security.yml` CI | Gitleaks over the full history, OSV-Scanner on every lockfile, zizmor on workflows; Semgrep with the OWASP rules on full, run from its official image pinned by sha256 digest, its rule sets fetched from the Semgrep registry at run time (their license forbids shipping them; a local `security-scan.sh` fetches them too). Weekly, because new CVEs hit dependencies nobody touched. | **no**, with branch protection |
+| Every PR, push and week | `security.yml` CI | Gitleaks over the full history, OSV-Scanner on every lockfile, zizmor on workflows; Semgrep with the OWASP rules on full, run from its official image pinned by sha256 digest, its rule sets fetched from the Semgrep registry at run time (their license forbids shipping them; a local `security-scan.sh` fetches them too). Weekly, because new CVEs hit dependencies nobody touched. OSV-Scanner is not a required check: it shows on every PR, but a new advisory never refuses a PR that did not cause it. | **no**, with branch protection (OSV-Scanner reports only) |
 | On demand, before releases | `/jit-speckit:security` | the full audit below | — |
 | On GitHub | offered by `/jit-speckit:init` | every level: rebase merges off (on lite, merge commits off too: squash only), and on a public repo secret scanning with push protection and private vulnerability reporting; standard and full: branch protection requiring CI | **no** |
 
@@ -43,6 +43,22 @@ when the `pre-commit` and `pre-push` that git will run are executable and call t
 it says so. An own `.githooks`, hooks already in `.git/hooks` (`core.hooksPath` is not set) and a
 machine-wide `core.hooksPath` (kept, and named as machine-wide) get the lines to add. Husky gets the
 lines, and "not active in this clone yet" until `core.hooksPath` reaches `.husky`.
+
+## When a gate is red
+
+The gates read the whole repository, not the PR's change, so a project adopted with history can be
+red on its first PR. Fix what is real first (a leaked secret: rotate it). Then accept the rest, in
+the PR itself, with a reason for each entry:
+
+| Gate | Accept a finding in |
+|---|---|
+| Gitleaks | `.gitleaksignore`: one `Fingerprint:` line from the job's output per finding |
+| OSV-Scanner | `osv-scanner.toml`, next to the lockfile: `[[IgnoredVulns]]` with `id` and `reason` |
+| zizmor | `zizmor.yml` or `.github/zizmor.yml`: `rules: <audit>: ignore:`, or a `# zizmor: ignore[<audit>]` comment on the line |
+| Trivy | `.trivyignore`: one check ID per line |
+| Semgrep | `.semgrepignore`: paths to skip, or a `# nosemgrep: <rule>` comment on the line |
+
+`/jit-speckit:init` offers branch protection only once these are green.
 
 ## The audit: `/jit-speckit:security`
 

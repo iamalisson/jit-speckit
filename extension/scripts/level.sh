@@ -191,13 +191,24 @@ ci_yaml() {
         run_steps "${lint_c:-cargo fmt --all -- --check && cargo clippy --all-targets -- -D warnings}" "${test_c:-cargo test --all}" "$build_c" ;;
       node:*) pm="${s#node:}"
         printf '  node:\n    runs-on: ubuntu-latest\n    steps:\n'; checkout_step
-        if [[ "$pm" == pnpm ]]; then printf '      - uses: %s\n' "$PIN_PNPM"; fi
+        if [[ "$pm" == pnpm ]]; then
+          printf '      - uses: %s\n' "$PIN_PNPM"
+          # The action fails with no version at all, and refuses one next to a pnpm packageManager field.
+          if ! grep -qE '"packageManager" *: *"pnpm@' package.json; then printf '        with:\n          version: latest\n'; fi
+        fi
         # The project's pinned Node, else the current LTS (never a hard-coded major that goes EOL).
         nv="node-version: lts/*"; for f in .node-version .nvmrc; do if [[ -f $f ]]; then nv="node-version-file: $f"; break; fi; done
-        printf '      - uses: %s\n        with:\n          %s\n          cache: %s\n' "$PIN_SETUP_NODE" "$nv" "$pm"
-        case "$pm" in pnpm) printf '      - run: pnpm install --frozen-lockfile\n' ;;
-                      yarn) printf '      - run: yarn install --frozen-lockfile\n' ;;
-                      npm) if [[ -f package-lock.json ]]; then printf '      - run: npm ci\n'; else printf '      - run: npm install\n'; fi ;; esac
+        printf '      - uses: %s\n        with:\n          %s\n' "$PIN_SETUP_NODE" "$nv"
+        # Yarn 2+: setup-node's cache step runs the runner's Yarn 1, which refuses the project, and
+        # current Node ships no corepack.
+        if [[ "$pm" == yarn ]] && grep -qE '"packageManager" *: *"yarn@([2-9]|[1-9][0-9])' package.json; then
+          printf '      - run: npm install -g corepack && corepack enable\n      - run: yarn install --immutable\n'
+        else
+          printf '          cache: %s\n' "$pm"
+          case "$pm" in pnpm) printf '      - run: pnpm install --frozen-lockfile\n' ;;
+                        yarn) printf '      - run: yarn install --frozen-lockfile\n' ;;
+                        npm) if [[ -f package-lock.json ]]; then printf '      - run: npm ci\n'; else printf '      - run: npm install\n'; fi ;; esac
+        fi
         nl=""; nb=""
         for script in lint typecheck; do if grep -qE "\"$script\" *:" package.json; then nl+="$pm run $script && "; fi; done
         if grep -qE '"build" *:' package.json; then nb="$pm run build"; fi
