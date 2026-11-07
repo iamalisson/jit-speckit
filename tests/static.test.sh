@@ -159,6 +159,15 @@ check "then the constitution template and adopt say to keep the placeholder when
 check "when init's summary is read, then it repeats a warning that a kept workflow never runs on task PRs, and the reference names it" \
   'sed -n "/^7\. Summarize/,/^8\. /p" skills/init/SKILL.md | grep -qF "never runs on a task PR" && grep -qF "never runs on a task PR" docs/reference.md'
 
+# The setup commit has to reach the base branch: task branches start there, and scripts read the level from the tree.
+init_commit="$(sed -n '/^8\. \*\*Offer to commit it/,$p' skills/init/SKILL.md)"
+check "when init's step 8 is read, then the setup branch starts from origin/<base> and the PR names that base, on yes and on no" \
+  'grep -qF "git switch -c <branch> origin/<base>" <<<"$init_commit" && grep -qF "gh pr create --base <base>" <<<"$init_commit" && tr "\n" " " <<<"$init_commit" | grep -qE "On no: .*into +\`<base>\`" && grep -q "next promotion" <<<"$init_commit"'
+check "when the level skill is read, then a level change goes to the base branch too" \
+  'grep -qF "gh pr create --base <base branch>" skills/level/SKILL.md'
+check "when the docs are read, then the README Start and the reference Update say the setup goes to the base branch" \
+  'sed -n "/^## Start/,/^## The loop/p" README.md | grep -q "base branch" && sed -n "/^## Update/,/^## What/p" docs/reference.md | grep -q "base branch"'
+
 # review.sh record compares against the merge-base with origin's base (lib.sh base_ref): the prompt names the same one.
 check "the review prompt takes the range's start from origin/<base>, as review.sh record does" \
   'grep -qF "git merge-base HEAD origin/<base>" extension/commands/review.md && ! grep -qF "git merge-base HEAD <base>" extension/commands/review.md'

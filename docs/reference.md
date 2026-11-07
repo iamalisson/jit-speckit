@@ -17,7 +17,8 @@ Inside a Claude Code session, the same line with a `!` in front runs it there. T
 `/jit-speckit:init` once**: each project keeps its own copy of the extension (hooks, scripts,
 review method, scaffold) under `.specify/`, and only `init` refreshes it. It keeps the project's
 level and touches nothing else. Skip it and the project keeps running the old version, whatever
-the plugin says.
+the plugin says. Its commit goes to the base branch (`develop` on standard and full, through the
+PR `init` offers), because that is where task branches start.
 
 From 1.8.0 on, `init` refuses to take a project back to an older version (`this plugin copy is
 <plugin>, the project is at <project>; run /reload-plugins (or setup.sh --downgrade)`), for

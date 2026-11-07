@@ -82,10 +82,19 @@ disable-model-invocation: true
    stays in charge: never replace it. If it said a workflow "never runs on a task PR", repeat that
    line: until that branch is added, the project's own CI does not check task PRs.
 8. **Offer to commit it**, in one question: "Commit this on `chore/jit-speckit-<version>` and open
-   the PR?" (the version is `version:` in `.specify/extensions/jit/extension.yml`). On yes: switch
-   to that branch from the current one, stage **by name** only what the setup wrote (`.specify`,
-   `.claude/skills`, and each file the script listed as created or updated; never `git add -A`),
-   commit `chore: jit-speckit <version> (level <level>)`, push, and open a PR with a two-line body
-   saying what moved and that nothing else changed. It is a small fix: no spec, no issue; the hooks
-   and CI still apply. Then `/jit-speckit:adopt` (step 6) runs on that branch. On no: leave it
-   uncommitted for the user to review, and say so.
+   the PR into `<base>`?" (the version is `version:` in `.specify/extensions/jit/extension.yml`;
+   `<base>` is `base_branch:` in `jit-config.yml`, or when that is `auto`, `develop` on standard and
+   full and the default branch on lite). Task branches start from `<base>` and scripts read the
+   level from the tree, so the setup has to land there, on an update too: anywhere else, the next
+   branch loses `.specify` and the git hooks, or keeps the old version. The default branch gets it
+   at the next promotion. On yes: `git fetch origin`, then `git switch -c <branch> origin/<base>`,
+   taking the setup along (if git refuses because the two branches differ in those files, say so,
+   and stop: run `/jit-speckit:init` again from `<base>`). Stage **by name** only what the setup
+   wrote (`.specify`, `.claude/skills`, and each file the script listed as created or updated;
+   never `git add -A`), commit `chore: jit-speckit <version> (level <level>)`, push, and open the
+   PR with `gh pr create --base <base>` and a two-line body saying what moved and that nothing else
+   changed. It is a small fix: no spec, no issue; the hooks and CI still apply. Then
+   `/jit-speckit:adopt` (step 6) runs on that branch. If `origin/<base>` does not exist yet (the
+   script said a branch is "not created yet"), there is no PR to open: tell the user to commit, push
+   the default branch and run `/jit-speckit:level <level>`. On no: leave it uncommitted for the user
+   to review, and say so, and that its PR goes into `<base>`.

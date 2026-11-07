@@ -213,6 +213,15 @@ check "when pull_request has no filter, then a push filter does not count and no
 gate_repo '  pull_request:\n    branches: [main]'; set_cfg base_branch main
 check "when base_branch names the branch in the filter, then nothing is said" 'out="$("$l" standard --no-branches)"; ! grep -q "^warning:" <<<"$out"'
 
+# Task branches start from the base branch, so that is where the setup has to land.
+rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"; new_repo lite
+git push --quiet origin --delete develop; git fetch --quiet --prune origin
+out="$("$l" full)"
+check "when level.sh creates the base branch, then it says the setup goes there and the default branch gets it at the next promotion" \
+  'git ls-remote --exit-code origin develop && grep -qF "open its PR with --base develop" <<<"$out" && grep -qF "main gets it at the next promotion" <<<"$out"'
+check "then it says so once, for the base branch and not for staging" '[[ "$(grep -c -- "--base" <<<"$out")" == 1 ]]'
+check "when the branch already exists, then it says nothing" '! "$l" full | grep -q -- "--base"'
+
 # ── Hooks in repos that already use the pre-commit framework or husky ──
 rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"
 new_repo lite

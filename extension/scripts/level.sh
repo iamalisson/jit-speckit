@@ -53,6 +53,9 @@ if $branches; then
           # nothing new (and nothing unscanned) leaves the machine.
           git push --quiet --no-verify origin "refs/remotes/origin/$(default_branch):refs/heads/$b"
           echo "branch: created origin/$b from origin/$(default_branch)"
+          if [[ "$b" == "$(base_branch)" ]]; then
+            echo "branch: task branches start from $b, which has no jit files yet: open its PR with --base $b ($(default_branch) gets it at the next promotion)"
+          fi
         else
           echo "branch: origin/$b not created yet ($(default_branch) isn't on origin); push $(default_branch) first, then run /jit-speckit:level again"
         fi
