@@ -32,6 +32,7 @@ fake_gh() {
   cat > "$TMP/bin/gh" <<'EOF'
 #!/usr/bin/env bash
 echo "$*" >> "$GH_LOG"
+echo "${GH_REPO:-(unset)} $1 $2" >> "$GH_LOG.repo"
 case "$1 $2" in
   "api -X") # pr.sh's Copilot request: prints, as its --jq does, the logins in $GH_REVIEWERS
             if [[ -n "${GH_REVIEWERS:-}" ]]; then echo "$GH_REVIEWERS"; fi; exit 0 ;;
