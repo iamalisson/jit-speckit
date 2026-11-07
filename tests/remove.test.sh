@@ -157,6 +157,12 @@ sed -i.bak '1s/.*/# App Constitution/' "$const"; rm -f "$const.bak"
 out="$("$ROOT/bin/remove.sh" . --with-speckit 2>&1 || true)"
 check "when --with-speckit deletes a filled constitution, then it says so and never that the text was kept" \
   '[[ ! -e .specify ]] && ! grep -q "your text kept" <<<"$out" && grep -q "the constitution went with it" <<<"$out"'
+check "then the closing text does not count .specify among what was kept" 'grep -q "files you edited outside .specify/" <<<"$out"'
+
+const_repo
+rm "$const"
+out="$("$ROOT/bin/remove.sh" . --with-speckit 2>&1 || true)"
+check "when --with-speckit finds no constitution, then it does not say one went" '! grep -q "the constitution went with it" <<<"$out"'
 
 const_repo
 awk '/^<!-- jit:end -->/ { next } /^<!-- jit:start/ { print "<!-- jit:end -->" } { print }' "$const" > "$const.tmp"; mv "$const.tmp" "$const"

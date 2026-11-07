@@ -136,9 +136,10 @@ if $speckit; then
   gone "spec-kit (.specify/, .claude/skills/speckit-*);$lost specs/ kept"
 fi
 
+edited="files you edited"; if $speckit; then edited="files you edited outside .specify/"; fi
 cat <<EOT
 
-Done. Kept on purpose: specs/, your commits, files you edited, and:
+Done. Kept on purpose: specs/, your commits, $edited, and:
   branches develop/staging, if created:   git push origin --delete develop staging
   GitHub protections set at init:         repository Settings → Branches, Code security
 Reinstall: /jit-speckit:init

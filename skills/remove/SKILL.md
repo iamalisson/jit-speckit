@@ -1,6 +1,6 @@
 ---
 name: remove
-description: "Remove jit-speckit from the current project only (the plugin stays in Claude Code): unregisters the spec-kit extension and preset, deletes the files it created, undoes its git hook setup and strips its block from the constitution. Specs and user edits stay. Use for /jit-speckit:remove or when the user wants a clean reinstall."
+description: "Remove jit-speckit from the current project only (the plugin stays in Claude Code): unregisters the spec-kit extension and preset, deletes the files it created, undoes its git hook setup and strips its block from the constitution. Specs and user edits stay; --with-speckit also deletes .specify/, the constitution included. Use for /jit-speckit:remove or when the user wants a clean reinstall."
 argument-hint: "[--with-speckit]"
 disable-model-invocation: true
 ---
@@ -12,8 +12,8 @@ disable-model-invocation: true
    took over (`.githooks/`, its workflows, Dependabot, PR template, `SECURITY.md`, `CODEOWNERS`,
    `.claude/settings.json`), its lines in `.pre-commit-config.yaml` or `.husky/`, and its block
    in the constitution. A file it wrote that changed since (edited, committed or not) is kept and
-   named `kept (edited): <file>`. With `--with-speckit`, also spec-kit's own files (`.specify/`,
-   `.claude/skills/speckit-*`); `specs/` is never touched. Deleted files that were never
+   named `kept (edited): <file>`. With `--with-speckit`, also spec-kit's own files (`.specify/`, the
+   user's constitution with it, `.claude/skills/speckit-*`); `specs/` is never touched. Deleted files that were never
    committed cannot be recovered: ask once before running.
 2. Run `bash "${CLAUDE_PLUGIN_ROOT}/bin/remove.sh" .` (add `--with-speckit` when asked). On
    failure, show the output and stop.
