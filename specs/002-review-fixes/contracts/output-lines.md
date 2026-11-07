@@ -59,8 +59,8 @@ non-zero); warnings go to stderr with exit 0; results go to stdout.
 | `level.sh` `put()` | a managed workflow has a newer pin | `kept newer pin: <action> <version>` |
 | `level.sh` `put()` | an old release's file, `name` | `kept (written by jit-speckit <versions>, no marker): <file> — delete it to get the current one` |
 | `level.sh` `put()` | a generated file kept after an old hook matched | `kept (written by jit-speckit <versions> or older, no marker): <file> — delete it to get the current one` |
-| `bin/remove.sh` | a file changed since jit wrote it, marked or not, or with no record and jit's scaffold shape | `kept (edited): <file>` |
-| `bin/remove.sh` | a kept file holds the record in place | `kept: .specify/jit-files.sha256 (it names the files kept above)` |
+| `bin/remove.sh` | a file changed since jit wrote it, marked or not, or with no record and jit's scaffold first line (not `.claude/settings.json` or a git hook, whose first line is generic) | `kept (edited): <file>` |
+| `bin/remove.sh` | a kept file holds the record in place (never with `--with-speckit`, which deletes it) | `kept: .specify/jit-files.sha256 (it names the files kept above)` |
 | `bin/remove.sh` | a kept hook still calls jit's scripts | `kept: .githooks still calls jit's scripts, which are gone; edit those lines out, or: git config --unset core.hooksPath` |
 | `bin/check-tools.sh` | always | `BEHIND=<n>`; one issue "Tool pins behind" when n > 0 and none is open |
 | `close-linked-issues.yml` | a close failed | `could not close: #<n> …`, job fails |

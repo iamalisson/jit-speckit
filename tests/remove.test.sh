@@ -75,6 +75,13 @@ rm -f .specify/jit-files.sha256
 out="$(rm_out)"
 check "when CODEOWNERS is untouched and no record exists, then it is still removed" '[[ ! -e .github/CODEOWNERS ]] && grep -qxF "removed: .github/CODEOWNERS" <<<"$out"'
 
+full_repo
+rm -f .specify/jit-files.sha256
+git remote set-url origin https://github.com/octo/app.git
+sed -i.bak '2s/.*/* @octo/' .github/CODEOWNERS; rm -f .github/CODEOWNERS.bak
+out="$(rm_out)"
+check "when CODEOWNERS names the repository's owner and no record exists, then it is removed" '[[ ! -e .github/CODEOWNERS ]] && grep -qxF "removed: .github/CODEOWNERS" <<<"$out"'
+
 rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"
 new_repo lite
 mkdir -p .claude; printf '{ "mine": true }\n' > .claude/settings.json
@@ -82,6 +89,17 @@ mkdir -p .claude; printf '{ "mine": true }\n' > .claude/settings.json
 out="$(rm_out)"
 check "when the user's own .claude/settings.json was there first, then it is kept and not called edited" \
   'grep -q mine .claude/settings.json && ! grep -q "kept (edited): .claude/settings.json" <<<"$out"'
+
+# "{" and a shebang open every such file, so with no record they say nothing about who wrote it.
+rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"
+new_repo lite
+"$SCRIPTS/level.sh" lite --no-branches >/dev/null
+rm -f .specify/jit-files.sha256
+printf '{\n  "mine": true\n}\n' > .claude/settings.json
+printf '#!/usr/bin/env bash\necho mine\n' > .githooks/pre-commit
+out="$(rm_out)"
+check "when there is no record, then the user's own settings.json and hook are kept and not called edited" \
+  'grep -q mine .claude/settings.json && grep -q mine .githooks/pre-commit && ! grep -qE "kept \(edited\): (.claude/settings.json|.githooks/pre-commit)" <<<"$out"'
 
 # A hook kept because it was edited still calls scripts that are gone: say so.
 rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"
@@ -91,6 +109,15 @@ echo "# my line" >> .githooks/pre-commit
 out="$(rm_out)"
 check "when a git hook is kept, then one line says it still calls jit's scripts and how to stop that" \
   '[[ -f .githooks/pre-commit ]] && grep -q "^kept: .githooks still calls jit.s scripts" <<<"$out"'
+
+# --with-speckit deletes the record with .specify, so it must not say the record stays.
+rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"
+new_repo lite
+"$SCRIPTS/level.sh" lite --no-branches >/dev/null
+echo "# my line" >> .githooks/pre-commit
+out="$("$ROOT/bin/remove.sh" . --with-speckit 2>&1 || true)"
+check "when --with-speckit runs with a kept file, then the file stays and no line says the record stays" \
+  '[[ -f .githooks/pre-commit && ! -e .specify ]] && grep -qxF "kept (edited): .githooks/pre-commit" <<<"$out" && ! grep -q "^kept: .specify/jit-files.sha256" <<<"$out"'
 
 # The constitution: only an untouched template is deleted, and markers are read at line start.
 const=.specify/memory/constitution.md
@@ -114,8 +141,22 @@ check "when a valid block is followed by a mid-line marker, then everything afte
 
 const_repo
 awk '/^<!-- jit:end -->/ { next } /^<!-- jit:start/ { print "<!-- jit:end -->" } { print }' "$const" > "$const.tmp"; mv "$const.tmp" "$const"
-echo '<!-- jit:start (managed) -->' >> "$const"; cp "$const" "$TMP/const.before"
-check "when the markers are reversed, then remove refuses and changes nothing, the scaffold included" \
-  'fails_with "damaged" "$ROOT/bin/remove.sh" . && cmp -s "$const" "$TMP/const.before" && [[ -f .githooks/pre-commit && -f .specify/jit-files.sha256 ]]'
+echo 'my text after' >> "$const"
+unchanged() { cmp -s "$const" "$TMP/const.before" && cmp -s "$JIT_CFG" "$TMP/cfg.before" && [[ -f .githooks/pre-commit && -f .specify/jit-files.sha256 ]]; }
+JIT_CFG=.specify/extensions/jit/jit-config.yml; cp "$const" "$TMP/const.before"; cp "$JIT_CFG" "$TMP/cfg.before"
+check "when the markers are reversed, then remove refuses and changes nothing, the scaffold and config included" \
+  'fails_with "damaged" "$ROOT/bin/remove.sh" . && unchanged'
+
+const_repo
+sed -i.bak '/^<!-- jit:end -->/d' "$const"; rm -f "$const.bak"; echo 'my text after' >> "$const"
+cp "$const" "$TMP/const.before"; cp "$JIT_CFG" "$TMP/cfg.before"
+check "when the end marker is missing, then remove refuses and changes nothing" \
+  'fails_with "no '"'"'<!-- jit:end -->'"'"'" "$ROOT/bin/remove.sh" . && unchanged'
+
+const_repo
+echo '<!-- jit:start (managed) -->' >> "$const"
+cp "$const" "$TMP/const.before"; cp "$JIT_CFG" "$TMP/cfg.before"
+check "when a second start marker follows the block, then remove refuses and changes nothing" \
+  'fails_with "damaged" "$ROOT/bin/remove.sh" . && unchanged'
 
 exit "$FAIL"

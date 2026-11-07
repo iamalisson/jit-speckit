@@ -69,9 +69,12 @@ check "when the jit:end marker is missing, then it refuses and keeps the user's 
 cp "$TMP/const.bak" .specify/memory/constitution.md
 
 awk '/^<!-- jit:end -->/ { next } /^<!-- jit:start/ { print "<!-- jit:end -->" } { print }' .specify/memory/constitution.md > "$TMP/const.rev"
-echo '<!-- jit:start (managed) -->' >> "$TMP/const.rev"; cp "$TMP/const.rev" .specify/memory/constitution.md; cp "$JIT_CFG" "$TMP/cfg.bak"
+echo 'my text after' >> "$TMP/const.rev"; cp "$TMP/const.rev" .specify/memory/constitution.md; cp "$JIT_CFG" "$TMP/cfg.bak"
 check "when the markers are reversed, then it refuses before anything changes, the level included" \
   'fails_with "damaged" "$l" lite && cmp -s "$TMP/const.rev" .specify/memory/constitution.md && cmp -s "$TMP/cfg.bak" "$JIT_CFG"'
+{ cat "$TMP/const.bak"; echo '<!-- jit:start (managed) -->'; } > .specify/memory/constitution.md; cp .specify/memory/constitution.md "$TMP/const.two"
+check "when a second start marker follows the block, then it refuses before anything changes" \
+  'fails_with "damaged" "$l" lite && cmp -s "$TMP/const.two" .specify/memory/constitution.md && cmp -s "$TMP/cfg.bak" "$JIT_CFG"'
 cp "$TMP/const.bak" .specify/memory/constitution.md
 printf 'The marker is written <!-- jit:start like this.\nkeep me\n' >> .specify/memory/constitution.md
 check "when a mid-line marker follows the block, then it is plain text and stays" \

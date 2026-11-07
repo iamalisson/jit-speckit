@@ -5,7 +5,8 @@
 # Deletes only what jit-speckit created: files that still carry its "managed file" marker and are
 # unchanged since it wrote them (.specify/jit-files.sha256), files identical to its scaffold, its
 # lines in hook configs, and its block in the constitution. Safe to re-run: what it keeps stays in
-# .specify/jit-files.sha256, except after --with-speckit, which deletes that record with .specify.
+# .specify/jit-files.sha256. Two limits: --with-speckit deletes that record with .specify, and with
+# no record (set up before 1.8.0) an edit committed between two runs looks like jit's own file.
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")/.." && pwd)"
@@ -67,8 +68,8 @@ ours() { # ours <file>: created by jit-speckit and not taken over by the user
     if [[ "$(wc -l < "$1")" -le 2 && ( "$line" == "* @OWNER" || ( -n "$owner" && "$line" == "* @$owner" ) ) ]]; then return 0; fi
     ours_shape=true
   fi
-  # "{" is every JSON file's first line, so settings.json says nothing about who wrote it.
-  if $ours_shape && [[ "$1" != .claude/settings.json ]]; then echo "kept (edited): $1"; fi
+  # "{" and a shebang open every such file, so they say nothing about who wrote it.
+  if $ours_shape && [[ "$1" != .claude/settings.json && "$1" != .githooks/* ]]; then echo "kept (edited): $1"; fi
   return 1
 }
 { (cd "$here/extension/scaffold" && find lite standard full -type f | sed 's#^[a-z]*/##')
@@ -77,7 +78,7 @@ ours() { # ours <file>: created by jit-speckit and not taken over by the user
   if ours "$f"; then rm "$f"; gone "$f"; fi
 done
 # The record outlives a kept file, so the next run still knows it was edited.
-if [[ -f "$record" ]]; then
+if [[ -f "$record" ]] && ! $speckit; then
   while read -r sum f; do if [[ -f "$f" ]]; then echo "$sum $f"; fi; done < "$record" > "$record.tmp"
   if [[ -s "$record.tmp" ]]; then mv "$record.tmp" "$record"; echo "kept: $record (it names the files kept above)"
   else rm -f "$record" "$record.tmp"; fi

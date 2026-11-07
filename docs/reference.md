@@ -144,7 +144,8 @@ constitution. A managed file that changed since jit-speckit wrote it (against th
 recorded in `.specify/jit-files.sha256`; for a project set up before 1.8.0, any file not committed
 or with uncommitted edits) is kept and named `kept (edited): <file>`, and the record stays
 while it names a kept file, so a second run keeps it too (`--with-speckit` deletes the record with
-`.specify`, so that protection ends there). The constitution is deleted only when it is jit's
+`.specify`, so that protection ends there). With no record, a run keeps only what is uncommitted:
+an edit you commit between two runs looks like jit's own file, and the second run deletes it. The constitution is deleted only when it is jit's
 untouched template; any other text stays, without jit's block. A damaged block refuses before
 anything is deleted. Your specs, commits and edits stay; `develop`/`staging` and the GitHub protections
 are listed for you to remove by hand. `/jit-speckit:remove --with-speckit` also removes spec-kit's

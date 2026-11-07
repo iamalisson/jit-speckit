@@ -159,8 +159,6 @@ resolve_feature() {
   echo "$m"
 }
 
-# constitution_cmd <build|test|lint|mutate>: that command from the constitution's **Commands**
-# line ("build `x` · test `y` · ..."); empty when unset or still a [PLACEHOLDER].
 # constitution_markers <file>: refuse a damaged jit block before anything is changed. Only a marker
 # at the start of a line counts: one mentioned in prose is plain text, and so is a file with none.
 constitution_markers() {
@@ -173,6 +171,8 @@ constitution_markers() {
   die "$1's jit block is damaged: it needs one '<!-- jit:start' line followed by one '<!-- jit:end -->' line; fix the markers, then run again"
 }
 
+# constitution_cmd <build|test|lint|mutate>: that command from the constitution's **Commands**
+# line ("build `x` · test `y` · ..."); empty when unset or still a [PLACEHOLDER].
 constitution_cmd() {
   local c
   c="$(sed -nE "s/.*\*\*Commands\*\*.*$1 \`([^\`]+)\`.*/\1/p" .specify/memory/constitution.md 2>/dev/null | head -1)"
