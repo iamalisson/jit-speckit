@@ -16,7 +16,10 @@ check "when run with --downgrade, then it is not refused for the version" \
   'out="$(PATH="$TMP/stub:$PATH" "$ROOT/bin/setup.sh" "$TMP/newer" --downgrade 2>&1 || true)"; ! grep -qF "this plugin copy is" <<<"$out" && ! grep -q "unknown option" <<<"$out"'
 check "then the usage line names --downgrade" 'fails_with "--downgrade" "$ROOT/bin/setup.sh" --help'
 
-if ! command -v specify >/dev/null; then echo "skip - the rest needs the specify CLI (not installed)"; exit "$FAIL"; fi
+if ! command -v specify >/dev/null; then
+  if [[ -n "${REQUIRE_SPECIFY:-}" ]]; then echo "FAIL - REQUIRE_SPECIFY is set, but the specify CLI is not installed"; exit 1; fi
+  echo "skip - the rest needs the specify CLI (not installed)"; exit "$FAIL"
+fi
 fake_gh
 
 # A PATH without the Claude Code CLI, as on a CI runner, even on a machine that has it.

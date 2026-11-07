@@ -12,7 +12,7 @@ die() { echo "jit: $*" >&2; exit 1; }
 # A spec-kit project in a subfolder of a bigger repo is refused, not half-supported: git hooks and
 # CI live at the repository root, so jit's files would land in the wrong place.
 jit_cd_root() {
-  local top d
+  local top d s
   top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "not inside a git repository"
   d="$(pwd -P)" # physical, like git's top level (macOS /tmp is a symlink)
   while [[ "$d" != "$top" && "$d" == "$top"/* ]]; do
@@ -22,6 +22,10 @@ jit_cd_root() {
     d="$(dirname "$d")"
   done
   cd "$top" || die "cannot enter $top"
+  # gh prefers an upstream or github remote, or a pinned one, while every push goes to origin.
+  # shortcut: only a github.com origin is pinned; an Enterprise host or SSH alias keeps gh's own pick, parse those when one needs it
+  s="$(origin_slug)"
+  if [[ -n "$s" && -z "${GH_REPO:-}" ]]; then export GH_REPO="$s"; fi
 }
 
 # cfg <key> <default>: read a flat `key: value` line from the config file. A quoted value is
@@ -172,11 +176,12 @@ constitution_markers() {
 }
 
 # constitution_cmd <build|test|lint|mutate>: that command from the constitution's **Commands**
-# line ("build `x` · test `y` · ..."); empty when unset or still a [PLACEHOLDER].
+# line ("build `x` · test `y` · ..."); empty when unset, still a [PLACEHOLDER], or none, n/a or -
+# (a project with no such step: as a command, it would fail every CI run).
 constitution_cmd() {
   local c
   c="$(sed -nE "s/.*\*\*Commands\*\*.*$1 \`([^\`]+)\`.*/\1/p" .specify/memory/constitution.md 2>/dev/null | head -1)"
-  if [[ -n "$c" && "$c" != \[* ]]; then echo "$c"; fi
+  case "$(tr '[:upper:]' '[:lower:]' <<<"$c")" in ""|\[*|none|n/a|-) ;; *) echo "$c" ;; esac
 }
 
 # test_path_re: TEST_PATH_RE, plus the constitution's optional `tests: <regex>` line (grep -E) for
@@ -249,11 +254,17 @@ task_field() {
 
 sha256() { if command -v sha256sum >/dev/null; then sha256sum; else shasum -a 256; fi | cut -d' ' -f1; }
 
-# owner/name of the GitHub repo: from gh, else parsed from the origin URL, else empty. Never fails.
+# origin_slug: owner/name of origin when it is on github.com, else empty. Never fails.
+origin_slug() {
+  git remote get-url origin 2>/dev/null | sed -nE 's#\.git$##; s#^(.*[@/])?github\.com[:/]([^/]+/[^/]+)$#\2#p' || true
+}
+
+# owner/name of the GitHub repo: origin's, else from gh, else empty. Never fails. Origin first:
+# `gh repo view` ignores GH_REPO and can name another remote.
 repo_slug() {
   local s
-  s="$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null || true)"
-  [[ -n "$s" ]] || s="$(git remote get-url origin 2>/dev/null | sed -nE 's#.*github\.com[:/]([^/]+/[^/.]+)(\.git)?$#\1#p' || true)"
+  s="$(origin_slug)"
+  [[ -n "$s" ]] || s="$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null || true)"
   echo "$s"
 }
 

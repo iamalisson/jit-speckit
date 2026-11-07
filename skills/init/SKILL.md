@@ -12,6 +12,10 @@ disable-model-invocation: true
      `uv tool install specify-cli --from git+https://github.com/github/spec-kit.git@v1.2.5`.
      If `uv` is missing too, point to https://docs.astral.sh/uv/ and stop.
    - If `gh auth status` fails, ask the user to run `! gh auth login` and stop.
+   - If `gh repo view` fails, there is no GitHub repository yet, and issues and PRs need one: ask
+     its name and visibility and offer `gh repo create <name> --private --source . --remote origin`
+     (`--public` for a public one; `git init -b main` first if there is no git repo). On no, go on
+     without steps 4 and 5, and say that `/speckit-tasks` stops at creating the issues until there is one.
 2. **Level.** Use the argument if it is `lite`, `standard` or `full`. If the project already has
    `.specify/extensions/jit/jit-config.yml`, this is an update: keep its `level:` and skip the
    question. Otherwise ask with these options, recommending one from what the repo shows:
@@ -50,8 +54,12 @@ disable-model-invocation: true
      repos.
 
    If GitHub refuses one, say so plainly and continue.
-5. **Branch protection** (standard and full). Offer it, explain it in one line, and run it only
-   on yes:
+5. **Branch protection** (standard and full). Offer it only once the checks are green on the base
+   branch (`gh run list --branch <base branch>`). The gates read the whole history and every
+   lockfile, and `enforce_admins` binds the owner too, so a finding that is already there would
+   leave the setup PR red with no way to merge it. Until they are green, skip this step and say
+   that running `/jit-speckit:init` again offers it, and that docs/security.md ("When a gate is
+   red") says how to get there. Otherwise explain it in one line, and run it only on yes:
    - Branch protection on the base branches, requiring a pull request and the checks to pass:
      `gh api -X PUT repos/{owner}/{repo}/branches/<branch>/protection` with
      `required_status_checks`, `enforce_admins: true`, `required_pull_request_reviews` and
@@ -60,7 +68,9 @@ disable-model-invocation: true
        a job's `name:`, or to the job's key when it has no name. Read them from the generated
        `.github/workflows/ci.yml` and `security.yml` (for example `rust`, `Secrets (gitleaks, full
        history)`). Never use `CI` or `Security`: no job reports under those names, so every PR
-       would wait forever.
+       would wait forever. Leave `Dependencies (osv-scanner)` out: it fails on any open advisory
+       in the tree, so a new one would refuse every unrelated PR, and each Dependabot fix too. It
+       stays a visible check on every PR and runs weekly.
      - **Approvals:** 1 on full, 0 on standard. On full with a single contributor
        (`git shortlog -sn | wc -l` is 1), say that requiring 1 approval would block their own
        PRs, and offer 0 until a second person joins.
@@ -71,12 +81,24 @@ disable-model-invocation: true
    the user to run `/speckit-constitution`.
 7. Summarize in four lines: the level, the files created, updated or kept, the GitHub settings
    and protections enabled, and the next command. If the script said the git hooks are "not active in this clone
-   yet", repeat the command it gave: without it, nothing checks commits locally.
+   yet", repeat the command it gave; if it said "add these lines to it", repeat those lines and
+   where they go: without either, nothing checks commits locally. A machine-wide `core.hooksPath`
+   stays in charge: never replace it. If it said a workflow "never runs on a task PR", repeat that
+   line: until that branch is added, the project's own CI does not check task PRs.
 8. **Offer to commit it**, in one question: "Commit this on `chore/jit-speckit-<version>` and open
-   the PR?" (the version is `version:` in `.specify/extensions/jit/extension.yml`). On yes: switch
-   to that branch from the current one, stage **by name** only what the setup wrote (`.specify`,
-   `.claude/skills`, and each file the script listed as created or updated; never `git add -A`),
-   commit `chore: jit-speckit <version> (level <level>)`, push, and open a PR with a two-line body
-   saying what moved and that nothing else changed. It is a small fix: no spec, no issue; the hooks
-   and CI still apply. Then `/jit-speckit:adopt` (step 6) runs on that branch. On no: leave it
-   uncommitted for the user to review, and say so.
+   the PR into `<base>`?" (the version is `version:` in `.specify/extensions/jit/extension.yml`;
+   `<base>` is `base_branch:` in `jit-config.yml`, or when that is `auto`, `develop` on standard and
+   full and the default branch on lite). Task branches start from `<base>` and scripts read the
+   level from the tree, so the setup has to land there, on an update too: anywhere else, the next
+   branch loses `.specify` and the git hooks, or keeps the old version. The default branch gets it
+   at the next promotion. On yes: `git fetch origin`, then `git switch -c <branch> origin/<base>`,
+   taking the setup along (if git refuses because the two branches differ in those files, say so,
+   and stop: run `/jit-speckit:init` again from `<base>`). Stage **by name** only what the setup
+   wrote (`.specify`, `.claude/skills`, and each file the script listed as created or updated;
+   never `git add -A`), commit `chore: jit-speckit <version> (level <level>)`, push, and open the
+   PR with `gh pr create --base <base>` and a two-line body saying what moved and that nothing else
+   changed. It is a small fix: no spec, no issue; the hooks and CI still apply. Then
+   `/jit-speckit:adopt` (step 6) runs on that branch. If `origin/<base>` does not exist yet (the
+   script said a branch is "not created yet"), there is no PR to open: tell the user to commit, push
+   the default branch and run `/jit-speckit:level <level>`. On no: leave it uncommitted for the user
+   to review, and say so, and that its PR goes into `<base>`.

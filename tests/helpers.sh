@@ -1,5 +1,6 @@
 # Test helpers: a throwaway repo with a local bare "origin" and a fake `gh` on PATH.
 # shellcheck shell=bash disable=SC2034  # SCRIPTS and FAIL are used by the test files
+unset GH_REPO # pr.sh exports it for gh; a test starts from none, as a fresh shell does
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -32,6 +33,7 @@ fake_gh() {
   cat > "$TMP/bin/gh" <<'EOF'
 #!/usr/bin/env bash
 echo "$*" >> "$GH_LOG"
+echo "${GH_REPO:-(unset)} $1 $2" >> "$GH_LOG.repo"
 case "$1 $2" in
   "api -X") # pr.sh's Copilot request: prints, as its --jq does, the logins in $GH_REVIEWERS
             if [[ -n "${GH_REVIEWERS:-}" ]]; then echo "$GH_REVIEWERS"; fi; exit 0 ;;

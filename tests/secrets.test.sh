@@ -61,6 +61,14 @@ check "when pushing a branch whose commits leak a secret, then pre-push refuses"
   'fails_with "pay.rb" bash "$SCRIPTS/prepush.sh" <<<"refs/heads/feat/x $(git rev-parse HEAD) refs/heads/feat/x $zero"'
 check "when pushing straight to develop on standard, then pre-push refuses" \
   'fails_with "open a pull request" bash "$SCRIPTS/prepush.sh" <<<"refs/heads/develop $(git rev-parse HEAD~1) refs/heads/develop $(git rev-parse HEAD~1)"'
+check "when a remote branch is deleted, then prepush.sh lets it through, a protected one too" \
+  'bash "$SCRIPTS/prepush.sh" <<<"(delete) $zero refs/heads/develop $(git rev-parse HEAD~1)"'
+set_cfg level lite
+check "when the level is lite, then a push straight to main passes" \
+  'bash "$SCRIPTS/prepush.sh" <<<"refs/heads/main $(git rev-parse HEAD~1) refs/heads/main $(git rev-parse HEAD~1)"'
+check "then a secret in that push is still refused" \
+  'fails_with "pay.rb" bash "$SCRIPTS/prepush.sh" <<<"refs/heads/main $(git rev-parse HEAD) refs/heads/main $(git rev-parse HEAD~1)"'
+set_cfg level standard
 
 # Lines added while resolving a merge are part of the push too.
 git switch --quiet -c side; echo side > side.txt; git add side.txt; git commit --quiet --no-verify -m side

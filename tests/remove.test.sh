@@ -84,6 +84,13 @@ check "when CODEOWNERS has the user's own third line and no record exists, then 
 
 full_repo
 rm -f .specify/jit-files.sha256
+printf '* @me/extra' >> .github/CODEOWNERS
+out="$(rm_out)"
+check "when that third line has no trailing newline, then CODEOWNERS is still kept and named" \
+  'grep -q "me/extra" .github/CODEOWNERS && grep -qxF "kept (edited): .github/CODEOWNERS" <<<"$out"'
+
+full_repo
+rm -f .specify/jit-files.sha256
 printf '# Our policy\nmine\n' > SECURITY.md
 out="$(rm_out)"
 check "when the user's own SECURITY.md has another first line and no record exists, then it is kept and not called edited" \

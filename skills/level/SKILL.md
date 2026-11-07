@@ -18,4 +18,6 @@ disable-model-invocation: true
    step 5.
 5. Report what the script printed: the level change, branches created, files created and kept.
    Going down never deletes files; list the ones the user may want to delete by hand. Nothing is
-   committed.
+   committed. Say that the change goes to the base branch of the new level
+   (`gh pr create --base <base branch>`), since scripts read the level from the tree: going up from
+   lite, `develop` was cut before this change and has none of it until that PR merges.

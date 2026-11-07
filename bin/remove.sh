@@ -65,7 +65,7 @@ ours() { # ours <file>: created by jit-speckit and not taken over by the user
   done
   if [[ "$1" == .github/CODEOWNERS && "$(head -1 "$1")" == "# Every change needs a review from an owner." ]]; then
     local owner line; owner="$(repo_slug)"; owner="${owner%%/*}"; line="$(sed -n 2p "$1")"
-    if [[ "$(wc -l < "$1")" -le 2 && ( "$line" == "* @OWNER" || ( -n "$owner" && "$line" == "* @$owner" ) ) ]]; then return 0; fi
+    if [[ -z "$(sed -n '3,$p' "$1")" && ( "$line" == "* @OWNER" || ( -n "$owner" && "$line" == "* @$owner" ) ) ]]; then return 0; fi
     ours_shape=true
   fi
   # "{" and a shebang open every such file, so they say nothing about who wrote it.

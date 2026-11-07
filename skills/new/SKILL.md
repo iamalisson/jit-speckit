@@ -64,7 +64,10 @@ today's, not the ones you remember: look them up.
    entry in `references.yaml`, find its current tools in the official docs and say which you
    chose.
 7. **Set up jit-speckit.** These are user-only commands, so do their work directly instead of
-   invoking them. If there is no git repo, run `git init`. Then run
+   invoking them. If there is no git repo, run `git init`. If `gh repo view` fails, there is no
+   GitHub repository yet, and issues and PRs need one: ask its name and visibility and offer
+   `gh repo create <name> --private --source . --remote origin` (`--public` for a public one). On
+   no, skip the GitHub settings below and say so. Then run
    `bash "${CLAUDE_PLUGIN_ROOT}/bin/setup.sh" . --level <level from step 2>`, and follow steps
    4 and 5 of `${CLAUDE_PLUGIN_ROOT}/skills/init/SKILL.md` (GitHub settings and branch
    protection, offered one by one)
@@ -74,6 +77,9 @@ today's, not the ones you remember: look them up.
    features follow them without loading `GUIDELINES.md`. Put the decisions and accepted risks
    from step 3 in `docs/decisions/0001-initial-choices.md`.
 8. **Finish** in five lines: the decisions, any accepted risks, what was set up, the checks that
-   passed, and the next step: review and commit the setup, then start with the foundation spec,
-   giving them the exact command to paste: `/speckit-specify "Foundation: <the Foundation spec
-   items that apply, in one sentence each>"`. Nothing is committed for them.
+   passed, and the next step: review and commit the setup, `git push -u origin <default branch>`
+   (the first push to an empty repository is the one allowed straight to it), and
+   `/jit-speckit:level <level>`, which creates `develop` (and `staging`) now that there is a
+   commit. Then start with the foundation spec, giving them the exact command to paste:
+   `/speckit-specify "Foundation: <the Foundation spec items that apply, in one sentence each>"`.
+   Nothing is committed for them.
