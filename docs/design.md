@@ -40,17 +40,13 @@ doc, and each task PR stays small and closes exactly one issue. The worked examp
 A review inside the session that wrote the code shares that session's assumptions and tests the
 path it already tested. jit's review before every PR (`/speckit-jit-review`) runs in a fresh agent
 that gets only facts: the branch, the task line, the PR body, the test command. It starts from the
-diff, then reads the repository around it (callers, the newest siblings of every new file and
-their guards), re-runs every claim, breaks the code once to prove the tests can fail, and walks
-the path where state already exists. This is how GitHub's Copilot code review works, and it is
-why a second reader catches what the first cannot. Every PR asks for Copilot's review too: two
-independent readers, not one. `pr.sh` prints `copilot: code review requested` only when GitHub's
-answer lists Copilot as a reviewer, and `copilot: not requested` otherwise, since GitHub can accept
-the request and add no one. The review is a gate, not a prompt: its
+diff and the code around it (what it calls and what calls it), once, and reports the real bugs in the changed lines. CI runs the tests. `## Evidence` is the author's: no script checks what it says.
+It works the way GitHub's Copilot code review does, one fast pass, with no Copilot subscription
+needed. The review is a gate, not a prompt: its
 report is recorded against the exact diff (`review.sh`), and `pr.sh` refuses the PR without a
 recorded `ready` for that diff, at every level; the same holds for the plan review before issues.
-What the gate proves is that a fresh reader reviewed this exact diff and said `ready`: the PR body
-shows those facts and nothing else, folded under "Independent review": the review was recorded for
+What the gate proves is that a report saying `ready` was recorded for this exact diff; that a fresh
+reader wrote it rests on the prompt and the launch hook. The PR body shows those facts and nothing else, folded under "Independent review": the review was recorded for
 this diff (its patch id), its `Assessment:` line, the model it ran on with any warning (a session
 that forces one subagent model, or a model outside the configured family), and the risk map's
 paths. The script copies none of the reviewer's
@@ -63,7 +59,7 @@ Depth follows risk. A script that sees only paths and added lines (`review.sh ri
 risky ones (a migration, a deletion, CI, authorization, secrets, money, a skipped gate), and
 `record` refuses a report that does not deep-check each, or name the test line that proves it. The
 reviewer adds the risks a path cannot show. A fix round is a **delta**: it reviews only the commits
-since the last recorded head, and `record --delta` holds it to that: it follows a full round, names
+since the last recorded head, and `record --delta` holds it to that: it follows a recorded round, names
 the head it starts from, and refuses a fix that grew past 20 lines outside the previous findings,
 a rebase, or a range that is not the delta's. Each report states the range and model it reviewed,
 so a commit made while the review ran is never recorded as reviewed.

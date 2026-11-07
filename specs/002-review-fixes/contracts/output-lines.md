@@ -14,6 +14,13 @@ non-zero); warnings go to stderr with exit 0; results go to stdout.
 | `pr.sh task` | the mutation record says `survivors` and `## Evidence` does not mention a survivor | `mutants.sh found surviving mutants; say in '## Evidence' why each changes nothing, or add the test that kills it` |
 | `pr.sh task` | no scan record for this diff | `no security-scan.sh --changed result for this diff; run bash .specify/extensions/jit/scripts/security-scan.sh --changed after the last commit` |
 | `pr.sh task` | an edited existing test (wider pattern), no `## Test changes` | today's message, naming the file |
+| `pr.sh task` | the mutation record says `unavailable` | `the mutate command could not run (<cmd>); install it or fix it in the constitution, then run mutants.sh again` |
+| `pr.sh task` | `gh pr edit` fails on the open PR | `could not update the body of <url>: <gh's first line>`, and no `PR=` line |
+| `pr.sh` | the open-PR lookup fails | gh's error, then `could not check for an open PR` |
+| `pr.sh spec` | no current plan review | `review.sh check --plan`'s refusal |
+| `lib.sh` `diff_id` | no merge base in a shallow clone | `this shallow clone has no merge base with <ref>; run git fetch --unshallow` |
+| `lib.sh` `diff_id` | no merge base in a full clone | `this branch shares no history with <ref>, so it has no diff to review` |
+| `lib.sh` `diff_id` | an empty id for a non-empty diff | `git patch-id gave no id for this diff against <ref>` |
 | `pr.sh spec` | the open-spec-PR lookup fails | gh's error, then `could not check for an open spec PR` |
 | `analyzed.sh` | no report file | `usage: analyzed.sh <report-file> (the /speckit-analyze report, saved as it came)` |
 | `analyzed.sh` | the file lacks the analysis headings | `<file> is not a /speckit-analyze report (no "Specification Analysis Report" or "Coverage Summary Table")` |
@@ -22,7 +29,7 @@ non-zero); warnings go to stderr with exit 0; results go to stdout.
 | `issues.sh` | the existing-issue lookup fails | gh's error, then `cannot list the repository's issues to avoid duplicates` |
 | `lib.sh` `test_path_re` | the constitution's `tests:` regex is invalid | `the constitution's tests: regex is invalid: <regex>` |
 | `guard.sh` | an abbreviation of `--no-verify`, `am -n`, or a commit or `HEAD` push after a switch to a base branch in one chain | today's messages, unchanged |
-| `review.sh record` | a risky path has no `- deep:` or `- proven: … <test file:line>` line | `the report does not check <path> (<category>): add '- deep: <path>' or '- proven: <path> by <test file:line>'` |
+| `review.sh record` | a risky path has no `- deep:` or `- proven: … <test file:line>` line | `the report does not check <path> (<category>): add '- deep: <path>' or '- proven: <path> by <test file:line>', and run the review again`; a gate, delete or test path takes `- deep:` only: `the report does not check <path> (<category>): add '- deep: <path>' (a gate, delete or test path needs a deep read), and run the review again` |
 | `review.sh record --delta` | no full round recorded | `a delta follows a recorded full review of this branch: run a new full review, then record it with review.sh record <report-file>` |
 | `review.sh record --delta` | the range does not start at the recorded head | `the delta must review <last>..HEAD (Reviewed: <last>..<head>): run the delta review again from <last>` |
 | `review.sh record --delta` | the recorded head is no longer on the branch | `<last> is no longer on this branch (rebased?): run a new full review` |
@@ -51,8 +58,9 @@ non-zero); warnings go to stderr with exit 0; results go to stdout.
 | `pr.sh task` | no test command | `jit: tests not run before the PR (no test command in the constitution)` (stderr) |
 | `review.sh risk` | always | one `RISK=<category> <path>` line per risky path, or `RISK=none` |
 | `review.sh record` | a task review recorded | `REVIEWED=<sha>` before `REVIEW=<assessment>` |
-| `review.sh record` | `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is set, `Model:` is not sonnet, opus or fable, or not the configured family | `jit: warning: <reason>; the review did not run on the configured model`, `<reason>` one of `CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set`, `the review ran on <id>`, `the review ran on <id>, not <review_model>`; one line only, the first reason that applies in that order (stderr, and stored as `warning:` in the record; `pr.sh` prints it from there) |
+| `review.sh record` | `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is set, `Model:` is not sonnet, opus or fable, or not the configured family | `jit: warning: <reason>; the review did not run on the configured model`, `<reason>` one of `CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set`, `the review ran on <id>`, `the review ran on <id>, not <review_model>`, `<id>` being `unknown` when `Model:` is not shaped like a model id or names none of claude, sonnet, opus, fable and haiku; one line only, the first reason that applies in that order (stderr, and stored as `warning:` in the record; `pr.sh` prints it from there) |
 | `next.sh` | other startable `[P]` tasks | `parallel <Tnnn> (<worktree and branch.sh command>)`, before the `DONE=` line |
+| `pr.sh task` | an open PR's body was replaced | `PR body replaced from <file>; edits made on GitHub are gone` |
 | `pr.sh` | Copilot listed in GitHub's answer | `copilot: code review requested` |
 | `pr.sh` | anything else | `copilot: not requested (GitHub did not add the reviewer)` |
 | `issues.sh` | a task's issue already exists | `<Tnnn> → #<n> (existing)` |

@@ -22,7 +22,8 @@ description: "Adopt jit-speckit in an existing codebase: read the repo and fill 
      gremlins; see `references.yaml`), scoped to the change where the tool allows it through
      `$JIT_DIFF_FILE` (a diff against the base) or `$JIT_CHANGED_FILES` (changed sources, space
      separated), and exiting non-zero when a mutant survives, for example
-     `cargo mutants --in-diff "$JIT_DIFF_FILE"`. It runs before every PR. If the project has no
+     `cargo mutants --in-diff "$JIT_DIFF_FILE"`, or for mutmut, whose own exit is 0 on a survivor,
+     `mutmut run && ! mutmut results | grep -q survived`. It runs before every PR. If the project has no
      such tool, leave the placeholder and say so in the summary: adding one is a small-fix PR;
    - a **Commands** line that already exists but has no `mutate` entry gets one appended;
    - `[PROJECT_PRINCIPLES]`: only rules specific to this codebase that you can point to (layer

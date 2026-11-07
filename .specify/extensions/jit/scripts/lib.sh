@@ -52,10 +52,10 @@ cfg_set() {
 
 jit_level() { cfg level standard; }
 
-# review_model: the model family the independent review must run on (default opus). Any other
+# review_model: the model family the independent review must run on (default sonnet). Any other
 # value dies, so the config can never lower the bar: callers read it with `|| exit 1`.
 review_model() {
-  local m; m="$(cfg review_model opus)"
+  local m; m="$(cfg review_model sonnet)"
   case "$m" in sonnet|opus|fable) echo "$m" ;; *) die "review_model must be sonnet, opus or fable" ;; esac
 }
 
@@ -64,6 +64,10 @@ review_model() {
 # letter or digit before it, so Contests.java or Latests.cs stay source. Read it through test_path_re.
 TEST_PATH_RE='(^|/)([Tt]ests?|__tests__|spec|e2e|cypress)/|(^|/)[^/]*\.[Tt]ests?/|[._-]([Tt]est|[Ss]pec|cy)\.[a-zA-Z]+$|(^|/)tests?\.py$|(^|/)test_[^/]*\.py$|[a-z0-9]Tests?\.[a-z]+$'
 
+# The skip markers of an added line, matched case-folded: review.sh's gate check and pr.sh's "new
+# tests need no explanation" rule. No `|| true` or `exit` here: new tests use both.
+# shellcheck disable=SC2034  # read by the scripts that source this file
+TEST_SKIP_RE='\.only\(|\.skip\(|xfail|@disabled|@ignore|t\.skip\(|pytest\.mark\.skip'
 
 # The repository's default branch: origin/HEAD when set, otherwise whichever of main/master
 # really exists (origin/HEAD is often unset when the remote was added by hand).
@@ -134,19 +138,36 @@ base_ref() {
 # diff_base: the commit where the branch left the base (HEAD itself when they share no history).
 diff_base() { git merge-base HEAD "$(base_ref)" 2>/dev/null || git rev-parse HEAD; }
 
+# Every diff whose bytes decide a record: the same text whatever the user's git config says.
+JIT_DIFF_FLAGS=(--no-color --no-ext-diff --no-textconv --ignore-submodules=none --submodule=short -U3 --inter-hunk-context=0 --no-renames --diff-algorithm=myers --src-prefix=a/ --dst-prefix=b/)
+# jit_diff <git diff args>: git diff with those flags, plus the two settings that have no flag.
+jit_diff() { git -c core.quotePath=false -c diff.suppressBlankEmpty=false diff "${JIT_DIFF_FLAGS[@]}" "$@"; }
+# jit_numstat <git diff args>: only the --numstat lines: -U3 adds the patch after a blank line, and
+# --no-patch would also drop the numstat on older git.
+jit_numstat() { jit_diff --numstat "$@" | sed '/^$/,$d'; }
+
 # diff_id: the patch id of the branch against the base (empty for an empty diff). Merging the base
 # in keeps it, any edit changes it. --verbatim keeps whitespace, so a re-indent (Python, YAML,
-# Makefiles) counts.
+# Makefiles) counts. Dies when an empty id would not mean an empty diff: callers read it in a plain
+# assignment, `|| exit 1`.
 diff_id() {
-  local from opt=--verbatim; from="$(diff_base)"
+  local from id ref opt=--verbatim; from="$(diff_base)"; ref="$(base_ref)"
   git patch-id --verbatim </dev/null >/dev/null 2>&1 || opt=--stable # git < 2.39: whitespace-only edits slip
-  git diff "$from" HEAD | git patch-id "$opt" | cut -d' ' -f1
+  id="$(jit_diff "$from" HEAD | git patch-id "$opt" | cut -d' ' -f1)"
+  if ! git merge-base HEAD "$ref" >/dev/null 2>&1; then
+    if [[ "$(git rev-parse --is-shallow-repository)" == true ]]; then
+      die "this shallow clone has no merge base with $ref; run git fetch --unshallow"
+    fi
+    die "this branch shares no history with $ref, so it has no diff to review"
+  fi
+  [[ -n "$id" ]] || jit_diff --quiet "$from" HEAD || die "git patch-id gave no id for this diff against $ref"
+  echo "$id"
 }
 
 # diff_record <kind>: the file that holds this diff's <kind> record (jit-mutants, jit-security),
 # under .git so it never dirties the tree; its folder is created. Any commit makes it a new file.
 diff_record() {
-  local d id; d="$(git rev-parse --git-common-dir)/$1"; id="$(diff_id)"
+  local d id; d="$(git rev-parse --git-common-dir)/$1"; id="$(diff_id)" || exit 1
   mkdir -p "$d"; echo "$d/${id:-empty}"
 }
 

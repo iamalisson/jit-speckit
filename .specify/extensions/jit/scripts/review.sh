@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Record and check the independent review (/speckit-jit-review), so nothing opens without one.
 #   review.sh record <report-file>          task review: tied to the branch's exact diff against the base
-#   review.sh record --delta <report-file>  fix round: reviews <last reviewed>..HEAD, after a recorded full round
+#   review.sh record --delta <report-file>  fix round: reviews <last reviewed>..HEAD, after any recorded round
 #   review.sh record --plan <report-file>   plan review: tied to the feature's plan.md and tasks.md (issue numbers aside)
 #   review.sh check [--plan]                exit 0 when a review that said "ready" matches the current state
 #   review.sh report [--plan]               check, then print the recorded facts: the patch id, "Assessment: ready",
@@ -36,7 +36,7 @@ if $plan; then
 elif [[ "$action" != risk ]]; then # risk reads only the diff, so it needs no branch
   branch="$(git branch --show-current)"; [[ -n "$branch" ]] || die "not on a branch (detached HEAD); switch to the task's branch first"
   name="task-${branch//\//__}"; what="this branch's diff"
-  state() { diff_id; }
+  state() { local id; id="$(diff_id)" || exit 1; echo "$id"; }
 fi
 record="$dir/${name:-}"
 
@@ -53,8 +53,7 @@ commit() { git rev-parse --verify --quiet "$1^{commit}" 2>/dev/null || true; }
 # risk <from>: one "RISK=<category> <path>" line per risky path of <from>..HEAD, by fixed rules on
 # the paths and the added lines; only paths and categories are printed, never a line's content.
 risk() {
-  local g=(git -c core.quotePath=false diff --no-renames --no-color --no-ext-diff --src-prefix=a/ --dst-prefix=b/)
-  { "${g[@]}" --name-status "$1" HEAD | awk '{ print "S\t" $0 }'; "${g[@]}" -U0 "$1" HEAD; } | awk '
+  { jit_diff --name-status "$1" HEAD | awk '{ print "S\t" $0 }'; jit_diff -U0 "$1" HEAD; } | SKIP="$TEST_SKIP_RE" awk '
     function flag(c, p) { print "RISK=" c " " p }
     /^S\t/ {
       split($0, f, "\t"); p = f[3]; l = tolower(p)
@@ -73,7 +72,7 @@ risk() {
     hunk && /^\+/ {
       l = tolower(substr($0, 2))
       if (l ~ /rm -r|rmtree|unlink\(|drop (table|column|database)|truncate |delete from|os\.remove|fs\.rm/) flag("delete", path)
-      if (l ~ /--no-verify|continue-on-error: *true|\|\| *true|\.only\(|\.skip\(|xfail|@disabled|@ignore|t\.skip\(|pytest\.mark\.skip/) flag("gate", path)
+      if (l ~ /--no-verify|continue-on-error: *true|\|\| *true/ || l ~ ENVIRON["SKIP"]) flag("gate", path)
     }
   ' | sort -u | grep . || echo RISK=none
 }
@@ -101,7 +100,7 @@ checked() {
     P="$p" O="$o" awk 'BEGIN { d = "- deep: " ENVIRON["P"]; q = "- proven: " ENVIRON["P"] " by " }
       (index($0, q) == 1 && ENVIRON["O"] ~ /^ or /) || (index($0, d) == 1 && (length($0) == length(d) || substr($0, length(d) + 1, 1) == " ")) { f = 1 }
       END { exit !f }' "$report" \
-      || die "the report does not check $p ($cats): add '- deep: $p'$o"
+      || die "the report does not check $p ($cats): add '- deep: $p'$o, and run the review again"
   done < <(risk "$1" | awk '$0 != "RISK=none" { c = substr($1, 6); p = substr($0, length($1) + 2)
       if (!(p in cats)) { order[++n] = p; cats[p] = c } else cats[p] = cats[p] ", " c }
       END { for (i = 1; i <= n; i++) print cats[order[i]] "\t" order[i] }')
@@ -118,7 +117,7 @@ outside() {
   while IFS=$'\t' read -r a d f; do
     if grep -qxF -- "$f" <<<"$found" || grep -qE -- "$re" <<<"$f"; then continue; fi
     if [[ "$a" == - ]]; then n=$((n + DELTA_LINES + 1)); else n=$((n + a + d)); fi
-  done < <(git -c core.quotePath=false diff --numstat --no-renames "$1" HEAD)
+  done < <(jit_numstat "$1" HEAD)
   echo "$n"
 }
 
@@ -130,6 +129,7 @@ case "$action" in
     [[ -n "$verdict" ]] || die "the report has no line that is exactly 'Assessment: ready' or 'Assessment: changes needed'"
     # Untracked files (the report itself, kept outside the repo anyway) cannot be part of the diff.
     if ! $plan && [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then die "commit the work first: the review is recorded for the committed diff"; fi
+    st="$(state)"
     want="$(review_model)" || exit 1
     model="$(field model)"; from=""; head=""; carried=""
     if $plan; then
@@ -141,7 +141,7 @@ case "$action" in
         rf="$(commit "${BASH_REMATCH[1]}")"; rh="$(commit "${BASH_REMATCH[2]}")"
       fi
       if $delta; then
-        [[ -f "$record" && "$(hdr round)" == full ]] \
+        [[ -f "$record" && -n "$(hdr round)" ]] \
           || die "a delta follows a recorded full review of this branch: run a new full review, then record it with review.sh record <report-file>"
         from="$(hdr head)"
         [[ -n "$df" ]] || die "a delta report names its base: Delta from: $from; run the delta review again"
@@ -166,14 +166,19 @@ case "$action" in
     fi
     # The model the review ran on: a warning, never a refusal (the session may force one model).
     warn=""; fam="$(tr '[:upper:]' '[:lower:]' <<<"$model" | grep -oE 'sonnet|opus|fable|haiku' | head -1 || true)"
+    # The id reaches the PR body: anything that is not shaped like a model id stays out of it.
+    mre='^[A-Za-z0-9][]A-Za-z0-9.:@_[-]{1,79}$'
+    if ! [[ "$model" =~ $mre ]] || ! grep -qiE 'claude|sonnet|opus|fable|haiku' <<<"$model"; then model=unknown; fi
     if [[ -n "${CLAUDE_CODE_SUBAGENT_MODEL_FORCE:-}" ]]; then warn="CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set"
     elif [[ "$fam" != sonnet && "$fam" != opus && "$fam" != fable ]]; then warn="the review ran on $model"
     elif [[ "$fam" != "$want" ]]; then warn="the review ran on $model, not $want"
     fi
     if [[ -n "$warn" ]]; then warn="$warn; the review did not run on the configured model"; echo "jit: warning: $warn" >&2; fi
     map="$(grep -oE '^- (deep|proven): [^ ]+' "$report" || true)"
+    # A task's map reaches the PR body, so only paths of the diff are kept; a plan's never does.
+    if ! $plan; then map="$(awk 'NR == FNR { p[$0]; next } $3 in p' <(jit_diff --name-only "$(diff_base)" HEAD) <(cat <<<"$map"))"; fi
     {
-      echo "state: $(state)"; echo "assessment: $verdict"
+      echo "state: $st"; echo "assessment: $verdict"
       if ! $plan; then echo "head: $head"; if $delta; then echo "round: delta"; else echo "round: full"; fi; fi
       echo "model: $model"
       if [[ -n "$warn" ]]; then echo "warning: $warn"; fi
@@ -185,8 +190,9 @@ case "$action" in
     if ! $plan; then echo "REVIEWED=$head"; fi
     echo "REVIEW=$verdict" ;;
   check|report)
+    st="$(state)"
     [[ -f "$record" ]] || die "no independent review recorded for $what; run /speckit-jit-review and record its report: review.sh record$($plan && echo ' --plan') <report-file>"
-    [[ "$(hdr state)" == "$(state)" ]] \
+    [[ "$(hdr state)" == "$st" ]] \
       || die "$what changed since the last review; run /speckit-jit-review again and record it"
     [[ "$(hdr assessment)" == ready ]] \
       || die "the last review said 'changes needed'; fix the findings, then review again and record it"

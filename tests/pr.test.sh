@@ -5,7 +5,7 @@ source "$(dirname "$0")/helpers.sh"
 fake_gh
 p="$SCRIPTS/pr.sh"
 # range: the Reviewed: and Model: lines every task report states.
-range() { printf 'Reviewed: %s..%s\nModel: claude-opus-4-7\n' "$(git merge-base HEAD origin/develop)" "$(git rev-parse HEAD)"; }
+range() { printf 'Reviewed: %s..%s\nModel: claude-sonnet-4-7\n' "$(git merge-base HEAD origin/develop)" "$(git rev-parse HEAD)"; }
 # reviewed: a ready review of HEAD that deep-checks every path review.sh risk flags.
 reviewed() {
   { printf 'What changed: x\n\n'; { "$SCRIPTS/review.sh" risk 2>/dev/null || true; } | sed -n 's/^RISK=[a-z]* /- deep: /p' | sort -u
@@ -67,18 +67,12 @@ check "then none of the report's text reaches the body" '! grep -qE "LEAK|What c
 check "when the work is committed, then it pushes and opens the PR into the base" \
   '[[ "$out" == *"PR=https://github.com/acme/app/pull/99" ]] && git ls-remote --exit-code origin "$(git branch --show-current)" && grep -q -- "--base develop" "$GH_LOG"'
 check "then the body links the issue with Closes #N" 'grep -q "Closes #5" "$GH_LOG"'
-check "then a Copilot code review is requested on the new PR" \
-  'grep -q "^api -X POST repos/acme/app/pulls/99/requested_reviewers -f reviewers\[\]=copilot-pull-request-reviewer\[bot\] --jq .requested_reviewers\[\]\.login$" "$GH_LOG"'
-check "when GitHub answers with no reviewer, then the output says copilot: not requested, not code review requested" \
-  'grep -qxF "copilot: not requested (GitHub did not add the reviewer)" <<<"$out" && ! grep -q "code review requested" <<<"$out"'
+check "then no outside reviewer is asked for" '! grep -q "requested_reviewers" "$GH_LOG" && ! grep -qi copilot <<<"$out"'
 check "then the user is assigned and no milestone or project is guessed" \
   'grep -q -- "^pr edit https://github.com/acme/app/pull/99 --add-assignee @me" "$GH_LOG" && ! grep -qE -- "--milestone|--add-project" "$GH_LOG"'
 
 out="$("$p" task T001 "feat(search): add search" "$TMP/body.md")"
 check "when the PR already exists, then it is reused, not duplicated" '[[ "$(grep -c "^pr create" "$GH_LOG")" == 1 ]]'
-rm -f "$GH_PR"; out="$(GH_REVIEWERS=Copilot "$p" task T001 "feat(search): add search" "$TMP/body.md")"
-check "when GitHub lists Copilot among the requested reviewers, then the output says copilot: code review requested" \
-  'grep -qxF "copilot: code review requested" <<<"$out" && ! grep -q "not requested" <<<"$out"'
 
 sed -i.bak 's/^level: .*/level: full/' .specify/extensions/jit/jit-config.yml
 rm -f "$GH_PR"; printf 'No evidence here.\n' > "$TMP/thin.md"
@@ -116,6 +110,7 @@ git -C "$TMP" clone --quiet "$TMP/origin.git" squash 2>/dev/null
 git fetch --quiet origin; rm -f "$GH_PR"; git switch --quiet main
 mkdir -p specs/002-new; git checkout --quiet origin/develop -- specs/002-new; git reset --quiet
 printf '%s\n' '- [ ] T003 Added by converge in `c` — #13' >> specs/002-new/tasks.md
+"$SCRIPTS/review.sh" record --plan "$TMP/plan.md" >/dev/null 2>&1
 "$p" spec >/dev/null
 check "when a later spec PR follows a squash-merged one, then it starts fresh from the base" \
   'git merge-base --is-ancestor origin/develop HEAD && [[ "$(git branch --show-current)" == spec/002-new ]]'
@@ -169,6 +164,36 @@ git push --quiet origin --delete "$(git branch --show-current)" 2>/dev/null || t
 echo 'assert 2 == 2' > tests/test_new.py; git add tests/test_new.py; git commit --quiet -m "test: add"; reviewed; scanned
 check "when only new tests are added, then no explanation is needed" '"$p" task T001 "feat(search): add search" "$TMP/plain.md" | grep -q "^PR="'
 
+# ── FR-006: adding to an existing test file needs no explanation; a deletion, an edit or an added skip does ──
+rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR"
+new_repo standard
+mkdir -p tests; printf 'check one\nexit "$FAIL"\n' > tests/a.test.sh; printf 'it("a")\n' > tests/b.test.js
+printf 'one\n' > tests/xfail.test.sh; printf '\0\1' > tests/data.test.bin
+commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
+"$SCRIPTS/branch.sh" T001 >/dev/null
+fresh() { git push --quiet origin --delete "$(git branch --show-current)" 2>/dev/null || true; git reset --quiet --hard origin/develop; rm -f "$GH_PR"; }
+opens() { git commit --quiet -am "test: change"; reviewed; scanned; "$p" task T001 "test: change" "$TMP/plain.md" | grep -q "^PR="; }
+refused() { git commit --quiet -am "test: change"; fails_with "existing tests were changed: $1" "$p" task T001 "test: change" "$TMP/plain.md"; }
+printf 'check one\ncheck two\nexit "$FAIL"\n' > tests/a.test.sh
+check "when a test is added above a file's closing exit, then the PR opens with no Test changes section" opens; fresh
+printf 'check one\nrun x || true\ncat > stub <<EOF\nexit 0\nEOF\nexit "$FAIL"\n' > tests/a.test.sh
+check "when a new test holds || true and a heredoc stub with exit 0, then the PR opens with no Test changes section" opens; fresh
+echo two >> tests/xfail.test.sh
+check "when a line is added to a test whose path holds a skip word, then the path does not count as a skip" opens; fresh
+printf 'it("a")\nit.skip("b")\n' > tests/b.test.js
+check "when an added line skips a test, then it refuses and names the file" 'refused tests/b.test.js'; fresh
+printf 'it("a")\n@Disabled\n' > tests/b.test.js
+check "when an added skip is in another case (@Disabled), then it refuses too" 'refused tests/b.test.js'; fresh
+printf 'it("changed")\n' > tests/b.test.js
+check "when a line is edited, then it refuses" 'refused tests/b.test.js'; fresh
+git config color.ui always; printf 'it("a")\nit("b")\n' > tests/b.test.js; git commit --quiet -am "test: more"
+printf 'it("changed")\nit("b")\n' > tests/b.test.js
+check "when a line is edited under color.ui=always, then it refuses" 'refused tests/b.test.js'; git config --unset color.ui; fresh
+chmod +x tests/a.test.sh; echo x > other.txt; git add other.txt
+check "when only a test's mode changes, then it refuses" 'refused tests/a.test.sh'; fresh
+printf '\0\2' > tests/data.test.bin
+check "when a binary test changes, then it refuses" 'refused tests/data.test.bin'; fresh
+
 # ── Common test layouts count as tests, and the constitution can add one ──
 layouts=$'app/tests.py\nTests/AppTests/AppTests.swift\nMyApp.Tests/FooTests.cs\ncypress/e2e/login.cy.ts\nsrc/Foo.Test.cs\nsrc/foo.spec.TS\ntests/test_a.py\nsrc/a.test.ts\n__tests__/a.js'
 sources=$'src/latest.ts\nlib/contest.py\nsrc/attest.go\npkg/protest.rb\nsrc/greatest.js\nsrc/Contests.java\nsrc/Latests.cs\nsrc/utils.py\napp/Manifest.swift\nsrc/LatestRelease.swift\nsrc/specification.py\ndocs/e2e.md\nlib/testing.go'
@@ -216,6 +241,12 @@ check "when mutants.sh found survivors and Evidence does not mention them, then 
 printf 'Adds search.\n\n## Review\n\nready: no findings\n\n## Evidence\n\nOne survivor, in a log line: it changes nothing observable.\n' > "$TMP/survivor.md"
 check "when Evidence says why the survivor changes nothing, then the PR opens" \
   '"$p" task T001 "feat(search): add search" "$TMP/survivor.md" | grep -q "^PR="'
+{ cat "$TMP/survivor.md"; seq 1 20000; } > "$TMP/long.md"; rm -f "$GH_PR"
+check "when Evidence explains the survivor and runs on past the pipe buffer, then the PR opens" \
+  '"$p" task T001 "feat(search): add search" "$TMP/long.md" | grep -q "^PR="'
+mutate no-such-mutator; "$SCRIPTS/mutants.sh" >/dev/null; rm -f "$GH_PR"
+check "when the mutate command could not run, then it refuses naming it, whatever Evidence says of survivors" \
+  'fails_with "the mutate command could not run (no-such-mutator)" "$p" task T001 "feat(search): add search" "$TMP/survivor.md"'
 rm .specify/memory/constitution.md; rm -f "$GH_PR"; : > "$GH_LOG"
 check "when there is no mutate command, then the body says mutation testing was not run" \
   '"$p" task T001 "feat(search): add search" "$TMP/body.md" | grep -q "^PR=" && grep -qxF "Mutation testing: not run (no mutate command in the constitution)" "$GH_LOG"'
@@ -229,20 +260,91 @@ mkdir -p db/migrations; echo 'DROP TABLE users;' > db/migrations/002_drop.sql; g
 printf 'What changed: x\n\n- deep: db/migrations/002_drop.sql — PROSE-1 drops users: checked the backup\n\n%s\n\nAssessment: changes needed\n' "$(range)" > "$TMP/review.md"
 "$SCRIPTS/review.sh" record "$TMP/review.md" >/dev/null 2>&1 || true
 echo 'DROP TABLE orders;' >> db/migrations/002_drop.sql; git commit --quiet -am "fix: drop orders"
-printf 'What changed: y\n\n- deep: db/migrations/002_drop.sql — PROSE-2 second drop\n\nDelta from: %s\nReviewed: %s..%s\nModel: claude-opus-4-7\n\nAssessment: ready\n' "$h1" "$h1" "$(git rev-parse HEAD)" > "$TMP/review.md"
+printf 'What changed: y\n\n- deep: db/migrations/002_drop.sql — PROSE-2 second drop\n\nDelta from: %s\nReviewed: %s..%s\nModel: claude-sonnet-4-7\n\nAssessment: ready\n' "$h1" "$h1" "$(git rev-parse HEAD)" > "$TMP/review.md"
 CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 "$SCRIPTS/review.sh" record --delta "$TMP/review.md" >/dev/null 2>&1 || true
 scanned; "$p" task T001 "feat: drop" "$TMP/body.md" >/dev/null 2>&1 || true
 body="$(sed -n "/^pr create/,\$p" "$GH_LOG")"
 check "after a delta, then the PR body lists both labeled risk maps, as paths" \
   'grep -A1 -xF "Risk map (round 1)" <<<"$body" | grep -qxF -- "- deep: db/migrations/002_drop.sql" && grep -A1 -xF "Risk map (fix round)" <<<"$body" | grep -qxF -- "- deep: db/migrations/002_drop.sql"'
 check "when the record was made with CLAUDE_CODE_SUBAGENT_MODEL_FORCE set, then the PR body has the model and the warning, though pr.sh ran without it" \
-  'grep -qxF "Model: claude-opus-4-7" <<<"$body" && grep -qxF "warning: CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set; the review did not run on the configured model" <<<"$body"'
+  'grep -qxF "Model: claude-sonnet-4-7" <<<"$body" && grep -qxF "warning: CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set; the review did not run on the configured model" <<<"$body"'
 check "then no risk-map prose reaches the PR body" '[[ -n "$body" ]] && ! grep -q PROSE "$GH_LOG"'
-printf 'What changed: x\n\n- deep: db/migrations/002_drop.sql\n\n%s\n\nAssessment: ready\n' "$(range | sed 's/^Model: .*/Model: claude-sonnet-4-5/')" > "$TMP/review.md"
+printf 'What changed: x\n\n- deep: db/migrations/002_drop.sql\n\n%s\n\nAssessment: ready\n' "$(range | sed 's/^Model: .*/Model: claude-opus-4-8/')" > "$TMP/review.md"
 "$SCRIPTS/review.sh" record "$TMP/review.md" >/dev/null 2>&1 || true; rm -f "$GH_PR"; : > "$GH_LOG"
 "$p" task T001 "feat: drop" "$TMP/body.md" >/dev/null 2>&1 || true
 check "when Model: is outside the configured family, then the warning reaches the PR body from the record" \
-  'grep -qxF "warning: the review ran on claude-sonnet-4-5, not opus; the review did not run on the configured model" "$GH_LOG"'
+  'grep -qxF "warning: the review ran on claude-opus-4-8, not sonnet; the review did not run on the configured model" "$GH_LOG"'
+
+# ── FR-009: the diff id ignores the user's git config ──
+rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR"
+new_repo standard
+seq 1 40 | sed '4s/.*//; 16s/.*//' > big.txt; echo one > a.conv; printf '*.conv diff=conv\n' > .gitattributes
+commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
+"$SCRIPTS/branch.sh" T001 >/dev/null
+sed -i.bak '5s/.*/five/; 15s/.*/fifteen/' big.txt; rm big.txt.bak; mkdir sub
+git update-index --add --cacheinfo "160000,$(git rev-parse HEAD),sub"; git add big.txt; git commit --quiet -m "feat: edit"
+printf '#!/usr/bin/env bash\necho same\n' > "$TMP/same.sh"; chmod +x "$TMP/same.sh"
+lib_id() { (source "$SCRIPTS/lib.sh"; diff_id); }
+# config_case <key> <value> <edit>: with the key set, the id is the one without it, and a commit
+# (whose change the key would hide) after a ready review makes pr.sh refuse.
+config_case() {
+  git config "$1" "$2"; reviewed
+  on="$(lib_id)"; git config --unset "$1"; off="$(lib_id)"; git config "$1" "$2"
+  eval "$3"; git commit --quiet -am "chore: $1"
+  check "with $1 set, then the diff id is the one without it, and a commit after a ready review makes pr.sh refuse" \
+    '[[ -n "$on" && "$on" == "$off" ]] && fails_with "changed since" "$p" task T001 "feat: edit" "$TMP/body.md"'
+  git config --unset "$1"
+}
+config_case color.ui always 'echo a >> big.txt'
+config_case diff.external "$TMP/same.sh" 'echo b >> big.txt'
+config_case diff.conv.textconv "$TMP/same.sh" 'echo two > a.conv'
+config_case diff.ignoreSubmodules all 'git update-index --cacheinfo "160000,$(git rev-parse HEAD~1),sub"'
+config_case diff.interHunkContext 20 'echo c >> big.txt'
+config_case diff.suppressBlankEmpty true 'echo d >> big.txt'
+
+# A shallow clone that lost the merge base stops at once: an empty id would pass for an empty diff.
+shallow_repo
+check "on a --depth 1 clone with no merge base, then pr.sh task prints one refusal naming git fetch --unshallow and opens nothing" \
+  ': > "$GH_LOG"; one_refusal "git fetch --unshallow" "$p" task T001 "feat: edit" "$TMP/body.md" && ! grep -q "^pr create" "$GH_LOG"'
+cd "$TMP"
+
+# ── FR-009: an open task PR stays true to its diff ──
+rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR"; : > "$GH_LOG"
+new_repo standard
+commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
+"$SCRIPTS/branch.sh" T001 >/dev/null
+mkdir -p .specify/memory; printf '**Commands**: build `[BUILD_COMMAND]` · test `true` · lint `[LINT_COMMAND]` · mutate `[MUTATE_COMMAND]`\n' > .specify/memory/constitution.md
+echo 'export const search = 1' > search.ts; git add search.ts; git commit --quiet -m "feat: search"; reviewed; scanned
+"$p" task T001 "feat: search" "$TMP/body.md" >/dev/null 2>&1
+echo 'export const more = 2' >> search.ts; git commit --quiet -am "feat: more"; reviewed; scanned
+id2="$(source "$SCRIPTS/lib.sh"; diff_id | cut -c1-12)"; : > "$GH_LOG"
+out="$("$p" task T001 "feat: search" "$TMP/body.md")"
+check "when pr.sh task runs again on an open PR, then the body is updated to the new patch id and no PR is created" \
+  'grep -q "^pr edit https://github.com/acme/app/pull/99 --body " "$GH_LOG" && grep -qxF "Independent review recorded for this diff (patch id $id2)" "$GH_LOG" && ! grep -q "^pr create" "$GH_LOG"'
+check "then it prints that the body was replaced from the author's file" 'grep -qxF "PR body replaced from $TMP/body.md; edits made on GitHub are gone" <<<"$out"'
+edit_rc=0; out="$(GH_FAIL_EDIT=1 "$p" task T001 "feat: search" "$TMP/body.md" 2>"$TMP/pr.err")" || edit_rc=$?
+check "when the edit fails, then it prints one refusal naming the PR and no PR= line" \
+  '((edit_rc != 0)) && [[ "$(wc -l < "$TMP/pr.err")" -eq 1 ]] && grep -q "^jit: .*https://github.com/acme/app/pull/99" "$TMP/pr.err" && ! grep -q "^PR=" <<<"$out"'
+list_rc=0; out="$(GH_FAIL_PR_LIST=1 "$p" task T001 "feat: search" "$TMP/body.md" 2>&1)" || list_rc=$?
+check "when the open-PR lookup fails, then it stops after gh's error and creates no PR" \
+  '((list_rc != 0)) && grep -q "HTTP 502" <<<"$out" && grep -qxF "jit: could not check for an open PR" <<<"$out" && ! grep -q "^PR=" <<<"$out" && ! grep -q "^pr create" "$GH_LOG"'
+printf 'What changed: x\n\n- deep: ghp_abc123\n- deep: Token=abc\n- deep: search.ts\n\n%s\n\nAssessment: ready\n' "$(range)" > "$TMP/review.md"
+"$SCRIPTS/review.sh" record "$TMP/review.md" >/dev/null 2>&1; : > "$GH_LOG"
+"$p" task T001 "feat: search" "$TMP/body.md" >/dev/null
+check "when a report's map names a token outside the diff, then it never reaches the body, and a path in the diff does" \
+  '! grep -qE "ghp_abc123|Token=abc" "$GH_LOG" && grep -qxF -- "- deep: search.ts" "$GH_LOG"'
+
+# ── A stale plan review stops pr.sh spec ──
+git switch --quiet main; rm -f "$GH_PR"; : > "$GH_LOG"
+printf 'Plan read.\n\nModel: claude-sonnet-4-7\n\nAssessment: ready\n' > "$TMP/plan.md"
+check "when no plan review was recorded, then pr.sh spec stops and opens nothing" \
+  'fails_with "no independent review" "$p" spec && ! grep -q "^pr create" "$GH_LOG"'
+"$SCRIPTS/review.sh" record --plan "$TMP/plan.md" >/dev/null
+printf '%s\n' '- [ ] T002 Added by analysis in `b`' >> specs/001-demo/tasks.md
+printf '## Specification Analysis Report\n\nCoverage Summary Table\n' > "$TMP/analysis.md"; "$SCRIPTS/analyzed.sh" "$TMP/analysis.md" >/dev/null
+check "when the analysis changed tasks.md after the plan review, then pr.sh spec stops, pushes nothing and stays on the branch" \
+  'fails_with "changed since the last review" "$p" spec && ! grep -q "^pr create" "$GH_LOG" && [[ "$(git branch --show-current)" == main ]] && ! git ls-remote --exit-code origin spec/001-demo'
+git checkout --quiet -- specs/001-demo/tasks.md
 
 # ── The spec folder survives a refused branch switch ──
 rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR"
@@ -251,6 +353,7 @@ echo a > app.txt; git add app.txt; git commit --quiet -m app; git push --quiet o
 echo b > app.txt; git add app.txt; git commit --quiet -m app2   # local only: HEAD differs from origin/develop...
 echo c > app.txt                                                  # ...and an unstaged edit on top: git switch refuses
 printf '%s\n' '- [ ] T001 Thing in `a` — #11' > specs/001-demo/tasks.md; echo draft > specs/001-demo/spec.md
+"$SCRIPTS/review.sh" record --plan "$TMP/plan.md" >/dev/null
 check "when the switch to the spec branch is refused, then it fails and the spec folder is put back untouched" \
   'fails_with "put back" "$p" spec && [[ "$(cat specs/001-demo/spec.md)" == draft && "$(cat specs/001-demo/tasks.md)" == *"#11" && "$(git branch --show-current)" == main ]]'
 

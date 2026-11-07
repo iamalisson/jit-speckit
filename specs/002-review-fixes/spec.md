@@ -284,8 +284,8 @@ change, the promise it restores, and its check, which fails on 1.7.2 and passes 
   path or a `- proven:` line naming the test (`file:line`) that covers it.
 - **FR-031**: The PR body MUST show the risk map as paths only (`- deep:` / `- proven:`), never the
   reviewer's prose.
-- **FR-032**: `review.sh record --delta` MUST accept a fix round only when it follows a recorded full
-  round of this branch, names that round's commit (`Delta from: <sha>`), that commit is still an
+- **FR-032**: `review.sh record --delta` MUST accept a fix round only when it follows a recorded
+  round of this branch (full or delta), names that round's commit (`Delta from: <sha>`), that commit is still an
   ancestor of HEAD, something was committed since, and the change outside the previous findings
   stays small; otherwise it refuses and asks for a full round.
 - **FR-033**: A delta's `ready` MUST still be checked against the whole branch diff, and its risk check

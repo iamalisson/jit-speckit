@@ -50,4 +50,8 @@ PATH="$TMP/none" bash "$scan" --changed >/dev/null
 check "when --changed finds no changed file, then that result is recorded for the empty diff too" \
   '[[ "$(cat .git/jit-security/empty)" == "all skipped no changed files" ]]'
 
+git switch --quiet feat/x; shallow_repo
+check "on a --depth 1 clone with no merge base, then --changed prints one refusal naming git fetch --unshallow and writes no record" \
+  'one_refusal "git fetch --unshallow" env PATH="$TMP/none" bash "$scan" --changed && [[ -z "$(find .git/jit-security -maxdepth 1 -type f 2>/dev/null)" ]]'
+
 exit "$FAIL"
