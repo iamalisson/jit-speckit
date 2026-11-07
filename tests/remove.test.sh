@@ -77,6 +77,20 @@ check "when CODEOWNERS is untouched and no record exists, then it is still remov
 
 full_repo
 rm -f .specify/jit-files.sha256
+echo "* @me/extra" >> .github/CODEOWNERS
+out="$(rm_out)"
+check "when CODEOWNERS has the user's own third line and no record exists, then it is kept and named" \
+  'grep -q "me/extra" .github/CODEOWNERS && grep -qxF "kept (edited): .github/CODEOWNERS" <<<"$out"'
+
+full_repo
+rm -f .specify/jit-files.sha256
+printf '# Our policy\nmine\n' > SECURITY.md
+out="$(rm_out)"
+check "when the user's own SECURITY.md has another first line and no record exists, then it is kept and not called edited" \
+  'grep -q mine SECURITY.md && ! grep -q "kept (edited): SECURITY.md" <<<"$out"'
+
+full_repo
+rm -f .specify/jit-files.sha256
 git remote set-url origin https://github.com/octo/app.git
 sed -i.bak '2s/.*/* @octo/' .github/CODEOWNERS; rm -f .github/CODEOWNERS.bak
 out="$(rm_out)"
@@ -109,6 +123,22 @@ echo "# my line" >> .githooks/pre-commit
 out="$(rm_out)"
 check "when a git hook is kept, then one line says it still calls jit's scripts and how to stop that" \
   '[[ -f .githooks/pre-commit ]] && grep -q "^kept: .githooks still calls jit.s scripts" <<<"$out"'
+
+rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"
+new_repo lite
+"$SCRIPTS/level.sh" lite --no-branches >/dev/null
+echo "# my line" >> .githooks/pre-push
+out="$(rm_out)"
+check "when only the pre-push hook is kept, then the line is printed too" \
+  '[[ -f .githooks/pre-push && ! -e .githooks/pre-commit ]] && grep -q "^kept: .githooks still calls jit.s scripts" <<<"$out"'
+
+rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"
+new_repo lite
+"$SCRIPTS/level.sh" lite --no-branches >/dev/null
+printf '#!/usr/bin/env bash\necho mine\n' > .githooks/pre-commit
+out="$(rm_out)"
+check "when the user rewrote the hook and it no longer calls jit, then the line is not printed" \
+  'grep -q mine .githooks/pre-commit && ! grep -q "still calls jit" <<<"$out"'
 
 # --with-speckit deletes the record with .specify, so it must not say the record stays.
 rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"

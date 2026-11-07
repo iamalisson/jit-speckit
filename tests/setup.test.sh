@@ -48,7 +48,7 @@ check "then the preset templates win over the core ones" 'out="$(specify preset 
 check "then spec-kit's implement command ends with jit's one-task, no-tick override" \
   'f=.claude/skills/speckit-implement/SKILL.md; grep -q "Do not mark tasks \`\[X\]\`" "$f" && [[ "$(grep -n "mark the task off as \[X\]" "$f" | cut -d: -f1)" -lt "$(grep -n "Do not mark tasks" "$f" | cut -d: -f1)" ]]'
 check "then the constitution starts from the jit template with a standard block" \
-  'grep -q "\[PROJECT_NAME\] Constitution" .specify/memory/constitution.md && grep -q "level: standard" .specify/memory/constitution.md'
+  'grep -q "\[PROJECT_NAME\] Constitution" .specify/memory/constitution.md && grep -q "^## Project$" .specify/memory/constitution.md && grep -q "level: standard" .specify/memory/constitution.md'
 check "then develop exists on origin and CI was scaffolded" 'git ls-remote --exit-code origin develop && [[ -f .github/workflows/ci.yml ]]'
 
 setup .
