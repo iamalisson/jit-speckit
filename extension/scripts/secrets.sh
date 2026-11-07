@@ -6,12 +6,12 @@
 #   secrets.sh range - <to>      check every commit reachable from <to> that no remote has yet
 # Refuses secret-bearing files (.env, private keys, credential files) and secret-looking added
 # lines. Uses gitleaks when installed; the built-in patterns below always run too.
-# A line can be allowed on purpose with a trailing comment containing "jit:allow-secret".
+# A line can be allowed on purpose with a trailing comment containing "landspec:allow-secret".
 # Exits 1 with findings as file:line and the kind of secret, never the secret itself; 0 when clean.
 set -euo pipefail
 # shellcheck source=lib.sh
 source "$(dirname "$0")/lib.sh"
-jit_cd_root
+landspec_cd_root
 
 mode="${1:-staged}"
 # The diff format is pinned, whatever the user's git config says: color.ui=always or
@@ -61,12 +61,12 @@ add "hard-coded credential"   '(password|passwd|secret|api_?key|access_?token|au
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 printf '%s\n' "${patterns[@]}" > "$tmp/patterns"
 # One line per added line: where it is (meta) and what it says (text), in the same order.
-# Lines marked jit:allow-secret are blanked, so they never match.
+# Lines marked landspec:allow-secret (or jit:allow-secret, the name before 2.0.0) are blanked, so they never match.
 awk -v meta="$tmp/meta" -v text="$tmp/text" '
   /^\+\+\+ b\// { file = substr($0, 7); next }
   /^(\+\+\+|---)/ { next }
   /^@@/ { split($3, n, ","); line = substr(n[1], 2) + 0; next }
-  /^\+/ { s = substr($0, 2); if (index(s, "jit:allow-secret")) s = ""
+  /^\+/ { s = substr($0, 2); if (index(s, "landspec:allow-secret") || index(s, "jit:allow-secret")) s = ""
            print file ":" line > meta; print s > text; line++ }
 ' <<<"$diff"
 touch "$tmp/meta" "$tmp/text"
@@ -90,12 +90,12 @@ if command -v gitleaks >/dev/null; then
 fi
 
 if ((${#findings[@]})); then
-  echo "jit: refusing: possible secrets" >&2
+  echo "landspec: refusing: possible secrets" >&2
   printf '  %s\n' "${findings[@]}" >&2
   cat >&2 <<'EOF'
   Remove them (and rotate any real credential that was ever committed or pushed).
   Load secrets from the environment and keep a .env.example with the keys only.
-  A false positive can be allowed on that line with a comment containing: jit:allow-secret
+  A false positive can be allowed on that line with a comment containing: landspec:allow-secret
 EOF
   exit 1
 fi

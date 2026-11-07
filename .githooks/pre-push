@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# jit-speckit: managed file. /jit-speckit:level re-creates it while this line stays; delete the line to keep your own edits.
-# jit-speckit: before anything leaves this machine, re-check every pushed commit for secrets
+# landspec: managed file. /landspec:level re-creates it while this line stays; delete the line to keep your own edits.
+# landspec: before anything leaves this machine, re-check every pushed commit for secrets
 # (this also catches commits made with --no-verify), and keep base branches PR-only.
 set -euo pipefail
-s=.specify/extensions/jit/scripts/prepush.sh
-[ -f "$s" ] || { echo "jit: $s missing, so nothing was checked; run /jit-speckit:init to restore it, or git config --unset core.hooksPath to drop these hooks" >&2; exit 1; }
+s=.specify/extensions/landspec/scripts/prepush.sh
+[ -f "$s" ] || { echo "landspec: $s missing, so nothing was checked; run /landspec:init to restore it, or git config --unset core.hooksPath to drop these hooks" >&2; exit 1; }
 exec bash "$s" "$@"

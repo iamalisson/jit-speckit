@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Record and check the independent review (/speckit-jit-review), so nothing opens without one.
+# Record and check the independent review (/speckit-landspec-review), so nothing opens without one.
 #   review.sh record <report-file>          task review: tied to the branch's exact diff against the base
 #   review.sh record --delta <report-file>  fix round: reviews <last reviewed>..HEAD, after any recorded round
 #   review.sh record --plan <report-file>   plan review: tied to the feature's plan.md and tasks.md (issue numbers aside)
@@ -14,7 +14,7 @@
 set -euo pipefail
 # shellcheck source=lib.sh
 source "$(dirname "$0")/lib.sh"
-jit_cd_root
+landspec_cd_root
 
 action="${1:-}"; shift || true
 plan=false; delta=false
@@ -26,7 +26,7 @@ if $plan && [[ "$action" == risk ]]; then die "risk maps a diff; a plan review h
 # A fix round may change this many lines outside the previous findings' files (tests aside);
 # more means the fix is new work, which gets a full review.
 DELTA_LINES=20
-dir="$(git rev-parse --git-common-dir)/jit-review"; mkdir -p "$dir"
+dir="$(git rev-parse --git-common-dir)/landspec-review"; mkdir -p "$dir"
 
 if $plan; then
   fdir="$(feature_dir)"; name="plan-$(basename "$fdir")"; what="the plan ($fdir/plan.md and tasks.md)"
@@ -53,7 +53,7 @@ commit() { git rev-parse --verify --quiet "$1^{commit}" 2>/dev/null || true; }
 # risk <from>: one "RISK=<category> <path>" line per risky path of <from>..HEAD, by fixed rules on
 # the paths and the added lines; only paths and categories are printed, never a line's content.
 risk() {
-  { jit_diff --name-status "$1" HEAD | awk '{ print "S\t" $0 }'; jit_diff -U0 "$1" HEAD; } | SKIP="$TEST_SKIP_RE" awk '
+  { landspec_diff --name-status "$1" HEAD | awk '{ print "S\t" $0 }'; landspec_diff -U0 "$1" HEAD; } | SKIP="$TEST_SKIP_RE" awk '
     function flag(c, p) { print "RISK=" c " " p }
     /^S\t/ {
       split($0, f, "\t"); p = f[3]; l = tolower(p)
@@ -117,7 +117,7 @@ outside() {
   while IFS=$'\t' read -r a d f; do
     if grep -qxF -- "$f" <<<"$found" || grep -qE -- "$re" <<<"$f"; then continue; fi
     if [[ "$a" == - ]]; then n=$((n + DELTA_LINES + 1)); else n=$((n + a + d)); fi
-  done < <(jit_numstat "$1" HEAD)
+  done < <(landspec_numstat "$1" HEAD)
   echo "$n"
 }
 
@@ -173,10 +173,10 @@ case "$action" in
     elif [[ "$fam" != sonnet && "$fam" != opus && "$fam" != fable ]]; then warn="the review ran on $model"
     elif [[ "$fam" != "$want" ]]; then warn="the review ran on $model, not $want"
     fi
-    if [[ -n "$warn" ]]; then warn="$warn; the review did not run on the configured model"; echo "jit: warning: $warn" >&2; fi
+    if [[ -n "$warn" ]]; then warn="$warn; the review did not run on the configured model"; echo "landspec: warning: $warn" >&2; fi
     map="$(grep -oE '^- (deep|proven): [^ ]+' "$report" || true)"
     # A task's map reaches the PR body, so only paths of the diff are kept; a plan's never does.
-    if ! $plan; then map="$(awk 'NR == FNR { p[$0]; next } $3 in p' <(jit_diff --name-only "$(diff_base)" HEAD) <(cat <<<"$map"))"; fi
+    if ! $plan; then map="$(awk 'NR == FNR { p[$0]; next } $3 in p' <(landspec_diff --name-only "$(diff_base)" HEAD) <(cat <<<"$map"))"; fi
     {
       echo "state: $st"; echo "assessment: $verdict"
       if ! $plan; then echo "head: $head"; if $delta; then echo "round: delta"; else echo "round: full"; fi; fi
@@ -191,9 +191,9 @@ case "$action" in
     echo "REVIEW=$verdict" ;;
   check|report)
     st="$(state)"
-    [[ -f "$record" ]] || die "no independent review recorded for $what; run /speckit-jit-review and record its report: review.sh record$($plan && echo ' --plan') <report-file>"
+    [[ -f "$record" ]] || die "no independent review recorded for $what; run /speckit-landspec-review and record its report: review.sh record$($plan && echo ' --plan') <report-file>"
     [[ "$(hdr state)" == "$st" ]] \
-      || die "$what changed since the last review; run /speckit-jit-review again and record it"
+      || die "$what changed since the last review; run /speckit-landspec-review again and record it"
     [[ "$(hdr assessment)" == ready ]] \
       || die "the last review said 'changes needed'; fix the findings, then review again and record it"
     if [[ "$action" == check ]]; then echo "REVIEW=ready"; exit 0; fi

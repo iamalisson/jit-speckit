@@ -33,22 +33,22 @@ or one with another summary never matches.
    linked task gets sub-bullets added or fixed, not a new line. Report what changed in one short
    list.
 2. **Independent review of the plan.** Launch the reviewer exactly as `commands/review.md`
-   (`/speckit-jit-review`) says, as a plan review: one `jit-speckit:reviewer` subagent, with `model` as review.md says, given that
+   (`/speckit-landspec-review`) says, as a plan review: one `landspec:reviewer` subagent, with `model` as review.md says, given that
    file and the feature folder, nothing of your own conclusions. Save its report to a file outside the repository (`mktemp`) and record it:
-   `bash .specify/extensions/jit/scripts/review.sh record --plan <file>`. Fix what it finds in
+   `bash .specify/extensions/landspec/scripts/review.sh record --plan <file>`. Fix what it finds in
    `tasks.md` and `plan.md` under the same rules as step 1, and run it again until it says
    `ready`. The issue bodies are the task lines, so they must be right
    before any issue exists: `issues.sh` refuses to run without a recorded `ready` plan review for
    the current `tasks.md`.
-3. Then create the issues: run `bash .specify/extensions/jit/scripts/issues.sh` from the repository root.
+3. Then create the issues: run `bash .specify/extensions/landspec/scripts/issues.sh` from the repository root.
    - If it fails (no `gh`, not logged in, no remote), show its message and stop. Do not create
      issues any other way.
    - Show the `Tnnn → #N` lines it printed.
-4. Read the level: `level:` in `.specify/extensions/jit/jit-config.yml` (default `standard`).
+4. Read the level: `level:` in `.specify/extensions/landspec/landspec-config.yml` (default `standard`).
 5. Open the spec PR, so the tasks reach the base branch where task branches start from:
    - **lite**: ask "Open the spec PR now?"; on yes run
-     `bash .specify/extensions/jit/scripts/pr.sh spec`.
-   - **standard**: run `bash .specify/extensions/jit/scripts/pr.sh spec`.
+     `bash .specify/extensions/landspec/scripts/pr.sh spec`.
+   - **standard**: run `bash .specify/extensions/landspec/scripts/pr.sh spec`.
    - **full**: do not open it yet. Tell the user to run `/speckit-analyze` next; the spec PR opens
      after the analysis.
    - If `pr.sh spec` stops on a stale plan review, run the plan review again, record it, and run

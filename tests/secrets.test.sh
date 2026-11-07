@@ -39,8 +39,10 @@ printf 'url = "postgres://app:s3cretpw@db:5432/app"\n' > cfg.toml; staged cfg.to
 check "when a database URL carries a password, then it is refused" 'fails_with "cfg.toml" "$s" staged'
 reset
 
+printf 'aws = "AKIAABCDEFGHIJKLMNOP"  # landspec:allow-secret (AWS docs example key)\n' > doc.py; staged doc.py
+check "when the line is marked landspec:allow-secret, then it passes" '"$s" staged'
 printf 'aws = "AKIAABCDEFGHIJKLMNOP"  # jit:allow-secret (AWS docs example key)\n' > doc.py; staged doc.py
-check "when the line is marked jit:allow-secret, then it passes" '"$s" staged'
+check "when the line carries the mark from before 2.0.0, then it still passes" '"$s" staged'
 reset
 
 printf 'password = os.environ["DB_PASSWORD"]\ntoken: ${{ secrets.TOKEN }}\nconst apiKey = process.env.API_KEY\n' > ok.py; staged ok.py
@@ -87,7 +89,7 @@ git config --unset color.ui; git config --unset diff.noprefix
 # A first push of a brand-new repo: the root commit itself carries the secret, and no remote has
 # anything yet. Nothing may be skipped.
 mkdir -p "$TMP/fresh" && cd "$TMP/fresh" && git init --quiet -b feat/first && git config user.email t@t && git config user.name t
-mkdir -p .specify/extensions/jit && ln -s "$SCRIPTS" .specify/extensions/jit/scripts
+mkdir -p .specify/extensions/landspec && ln -s "$SCRIPTS" .specify/extensions/landspec/scripts
 printf 'key = "sk_live_%s"\n' "$(printf 'c%.0s' {1..24})" > root.rb; git add root.rb; git commit --quiet --no-verify -m root
 # A feature branch, so the secret scan (not the protected-branch rule) is what refuses.
 check "when the first push of a new repo has a secret in the root commit, then pre-push refuses" \
@@ -98,8 +100,8 @@ check "when the first push of a new repo has a secret in the root commit, then p
 git init --quiet --bare "$TMP/empty.git"
 mkdir -p "$TMP/boot" && cd "$TMP/boot" && git init --quiet -b main && git config user.email t@t && git config user.name t
 git remote add origin "$TMP/empty.git"
-mkdir -p .specify/extensions/jit && ln -s "$SCRIPTS" .specify/extensions/jit/scripts
-printf 'level: standard\n' > .specify/extensions/jit/jit-config.yml
+mkdir -p .specify/extensions/landspec && ln -s "$SCRIPTS" .specify/extensions/landspec/scripts
+printf 'level: standard\n' > .specify/extensions/landspec/landspec-config.yml
 echo setup > README.md; git add README.md; git commit --quiet --no-verify -m setup
 check "when the first push of a new repo goes to its empty remote, then main is allowed once and says so" \
   'bash "$SCRIPTS/prepush.sh" origin "$TMP/empty.git" <<<"refs/heads/main $(git rev-parse HEAD) refs/heads/main $zero" 2>&1 | grep -q "first push to an empty repository"'
@@ -145,7 +147,7 @@ sample() { # sample <kind>: the added line for that kind of secret
 kinds=("AWS access key" "GitHub token" "GitHub fine-grained token" "GitLab token" "Slack token" "Stripe live key" "Google API key"
   "Anthropic key" "OpenAI key" "SendGrid key" "private key" "URL with a password" "hard-coded credential")
 mkdir -p "$TMP/pats" && cd "$TMP/pats" && git init --quiet -b feat/pats && git config user.email t@t && git config user.name t
-mkdir -p .specify/extensions/jit && ln -s "$SCRIPTS" .specify/extensions/jit/scripts
+mkdir -p .specify/extensions/landspec && ln -s "$SCRIPTS" .specify/extensions/landspec/scripts
 echo ok > f.txt; git add f.txt; git commit --quiet --no-verify -m base
 for kind in "${kinds[@]}"; do
   sample "$kind" > f.txt; git add f.txt

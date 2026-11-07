@@ -13,8 +13,8 @@ follows". The pins were checked against GitHub on 2026-11-05.
 | P16 | Every PR, push and week the CI gate runs Gitleaks on full history, OSV-Scanner, zizmor (Semgrep on full, trivy with infra); pinned and checksum-verified; not skippable with branch protection | limit | generated `security.yml` (below) runs on `pull_request`, pushes to the base branches and weekly; gitleaks with `fetch-depth: 0`; every action pinned by SHA and every binary checked with `sha256sum -c`, each SHA and checksum matching upstream. On the sandbox, protection with `init`'s check names blocked a red PR. On lite none of it exists: F4.4. Semgrep is not checksum-pinned: F4.5 |
 | P17 | Every action pin is in one place; Dependabot proposes updates; generated workflows use `persist-credentials: false` and read-only permissions | limit | one place: `extension/scripts/pins.sh:6-25`, and every generated `uses:` comes from it; `persist-credentials: false` on every checkout; `contents: read` at the top of `ci.yml` and `security.yml` (`release.yml` needs `contents: write`, and `close-linked-issues.yml` needs `issues: write`). Dependabot reaches 2 of the 9 action pins (F4.1), and a refresh with `init` undoes a project's own bumps (F4.7) |
 | P25 | Security findings are never put in a public place | broken | the audit report stays in `.git` (`skills/security/SKILL.md:82`), but its private advisory call is refused (F4.2), and the PR prompt copies security findings into the public PR body (F4.3) |
-| P27 | Before a release, `/jit-speckit:security` runs the full audit | limit | the audit is a command the user runs (`docs/security.md:32`, "On demand, before releases"); nothing checks it ran before a release: F4.6 |
-| P28 | `/jit-speckit:init` offers secret scanning with push protection and branch protection requiring CI | limit | `skills/init/SKILL.md` step 4 offers them on standard and full, with check names taken from the job names, and the sandbox run shows those names match the real check runs. On lite nothing is offered: F4.4 |
+| P27 | Before a release, `/landspec:security` runs the full audit | limit | the audit is a command the user runs (`docs/security.md:32`, "On demand, before releases"); nothing checks it ran before a release: F4.6 |
+| P28 | `/landspec:init` offers secret scanning with push protection and branch protection requiring CI | limit | `skills/init/SKILL.md` step 4 offers them on standard and full, with check names taken from the job names, and the sandbox run shows those names match the real check runs. On lite nothing is offered: F4.4 |
 
 Also checked, no finding:
 - **Pins are what they say.** For each action pin, `gh api repos/<action>/git/ref/tags/<tag>`
@@ -174,7 +174,7 @@ Adds `find_user(name)`, a lookup by name for the admin search page, and calls it
 ## Evidence
 
 tests 14/14 · lint clean · build ok · security-scan.sh --changed: no findings · /security-review: no findings after the fix
-mutation testing: not run. `mutants.sh` reports `missing` because the constitution has no `mutate` command. Run `/jit-speckit:adopt` to add one.
+mutation testing: not run. `mutants.sh` reports `missing` because the constitution has no `mutate` command. Run `/landspec:adopt` to add one.
 
 <details>
 <summary>Review reports</summary>
@@ -202,7 +202,7 @@ Round 2: reviewed the fix commit (bound parameter, plus a test with a quote in t
   (`README.md:124`), and `init` offers GitHub protections on "standard and full" only
   (`skills/init/SKILL.md` step 4). But "Security, built in" lists "every PR, and weekly | CI
   gate: …" with no level (`README.md:109`), and `docs/security.md:33-36` lists branch protection as
-  "offered by `/jit-speckit:init`" and says "The CI gate plus branch protection is the boundary".
+  "offered by `/landspec:init`" and says "The CI gate plus branch protection is the boundary".
   On lite that boundary does not exist: the local hooks and the command guard are all there is,
   and both can be bypassed locally (`docs/security.md:27-29`). Step 4 also offers private
   vulnerability reporting "(full, or any public repo)", yet step 4 runs only on standard and
@@ -222,7 +222,7 @@ Round 2: reviewed the fix commit (bound parameter, plus a test with a quote in t
 
 - **verdict**: limit (the docs mislead)
 - **evidence**: a Dependabot PR in a project bumps the SHA inside the managed `security.yml` and
-  keeps its `# jit-speckit: managed file` line. `level.sh` rewrites every file that still has that
+  keeps its `# landspec: managed file` line. `level.sh` rewrites every file that still has that
   line (`level.sh:124`, `put`), and the documented update path runs it (`init` → `bin/setup.sh:71`
   → `level.sh`, `docs/reference.md` "Update"). So after an update the plugin's `pins.sh` SHA is
   back, older than the one the project merged, and only `updated: .github/workflows/security.yml`
@@ -264,9 +264,9 @@ Round 2: reviewed the fix commit (bound parameter, plus a test with a quote in t
 - **verdict**: limit
 - **evidence**: the full `release.yml` runs on `push: tags: ["v*"]` and calls `gh release create
   "$TAG" --generate-notes --verify-tag`, with no check that CI passed on the tagged commit or that
-  `/jit-speckit:security` ran. `docs/security.md:32` says "On demand, before releases", which is
+  `/landspec:security` ran. `docs/security.md:32` says "On demand, before releases", which is
   accurate; the README's "before a release" row reads more like an automatic step. It stays Low:
-  that row names a command, `/jit-speckit:security`, in a table whose other rows also name what to
+  that row names a command, `/landspec:security`, in a table whose other rows also name what to
   run, not a CI step, and the security doc it points to says "On demand".
 - **note**: `release.yml` could require a passing `Security` run on the tagged commit (`gh run
   list --commit "$GITHUB_SHA" --workflow security.yml`) before creating the release.
@@ -280,8 +280,8 @@ Round 2: reviewed the fix commit (bound parameter, plus a test with a quote in t
 # T004: generate the workflows level.sh writes, run as: bash t004-gen.sh <v1.7.2 worktree> <out dir>
 source "$1/tests/helpers.sh"
 fake_gh; new_repo standard
-[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/jit-speckit ] || exit 1
-ln -s "$1/extension/scaffold" .specify/extensions/jit/scaffold 2>/dev/null || true
+[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/landspec ] || exit 1
+ln -s "$1/extension/scaffold" .specify/extensions/landspec/scaffold 2>/dev/null || true
 printf '{"name":"x","version":"1.0.0"}\n' > package.json; printf '{"lockfileVersion":3}\n' > package-lock.json
 for l in standard full; do
   bash "$SCRIPTS/level.sh" $l --no-branches > "$2/level-$l.log" 2>&1 || echo "level $l rc=$?"
@@ -293,7 +293,7 @@ Files written: standard `ci.yml`, `close-linked-issues.yml`, `security.yml`; ful
 `release.yml`, plus `SECURITY.md` and `.github/CODEOWNERS`.
 
 ```yaml
-# jit-speckit: managed file. /jit-speckit:level re-creates it while this line stays; delete the line to keep your own edits.
+# landspec: managed file. /landspec:level re-creates it while this line stays; delete the line to keep your own edits.
 # Security gate: runs on every pull request, on pushes to long-lived branches, and weekly
 # (new CVEs land in dependencies nobody touched). Tools are pinned and checksum-verified.
 name: Security
@@ -363,7 +363,7 @@ jobs:
 ```
 
 ```yaml
-# jit-speckit: managed file. /jit-speckit:level re-creates it while this line stays; delete the line to keep your own edits.
+# landspec: managed file. /landspec:level re-creates it while this line stays; delete the line to keep your own edits.
 # Commands come from the constitution (**Commands** line); stack defaults fill the gaps.
 name: CI
 
@@ -391,7 +391,7 @@ jobs:
 ```
 
 ```yaml
-# jit-speckit: managed file. /jit-speckit:level re-creates it while this line stays; delete the line to keep your own edits.
+# landspec: managed file. /landspec:level re-creates it while this line stays; delete the line to keep your own edits.
 # Push a tag like v1.2.3 to publish a GitHub release with generated notes.
 name: Release
 
@@ -424,8 +424,8 @@ jobs:
 # T004: does a re-run of level.sh (what init does) keep a newer pin a project's Dependabot wrote?
 source "$1/tests/helpers.sh"
 fake_gh; new_repo standard
-[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/jit-speckit ] || exit 1
-ln -s "$1/extension/scaffold" .specify/extensions/jit/scaffold 2>/dev/null || true
+[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/landspec ] || exit 1
+ln -s "$1/extension/scaffold" .specify/extensions/landspec/scaffold 2>/dev/null || true
 printf '{"name":"x","version":"1.0.0"}\n' > package.json; printf '{"lockfileVersion":3}\n' > package-lock.json
 bash "$SCRIPTS/level.sh" standard --no-branches >/dev/null 2>&1
 sed -i 's/actions\/checkout@[0-9a-f]\{40\} # v7.0.1/actions\/checkout@1111111111111111111111111111111111111111 # v7.1.0/' .github/workflows/security.yml
@@ -449,13 +449,13 @@ after level.sh again: 0 lines at v7.1.0; 3 at v7.0.1
 # T004 on the sandbox: branch protection with the check names init would require. Run from the sandbox clone.
 set -u
 [ "$(git remote)" = origin ] && [ "$(gh repo view --json nameWithOwner -q .nameWithOwner)" = iamalisson/jit-speckit-sandbox ] || exit 1
-R=iamalisson/jit-speckit-sandbox; REC="$(git rev-parse --git-common-dir)/jit-repro/t004-created.txt"; P=review-001-t004-protected; C=review-001-t004-change
+R=iamalisson/jit-speckit-sandbox; REC="$(git rev-parse --git-common-dir)/landspec-repro/t004-created.txt"; P=review-001-t004-protected; C=review-001-t004-change
 git fetch -q origin
 git push -q origin "origin/develop:refs/heads/$P" 2>&1 | grep -v '^remote:' || true; echo "branch $P" >> "$REC"
 echo "== protection before (restore command recorded first)"
 gh api "repos/$R/branches/$P/protection" 2>&1 | head -1
 echo "restore: gh api -X DELETE repos/$R/branches/$P/protection" >> "$REC"
-echo "== apply, as /jit-speckit:init step 4 says (job names, enforce_admins, PR required, 0 approvals on standard)"
+echo "== apply, as /landspec:init step 4 says (job names, enforce_admins, PR required, 0 approvals on standard)"
 printf '%s' '{"required_status_checks":{"strict":false,"contexts":["python","Secrets (gitleaks, full history)","Dependencies (osv-scanner)","Workflows (zizmor)"]},"enforce_admins":true,"required_pull_request_reviews":{"required_approving_review_count":0},"restrictions":null}' \
   | gh api -X PUT "repos/$R/branches/$P/protection" --input - --jq '"contexts: " + (.required_status_checks.contexts|join(", ")) + " | enforce_admins: " + (.enforce_admins.enabled|tostring)'
 echo "== a direct push to the protected branch"
@@ -463,7 +463,7 @@ git switch -q -c "$C" "origin/$P"; echo "t004 probe" > docs/001-review-t004.md; 
 git push origin "HEAD:refs/heads/$P" 2>&1 | grep -E 'protected|rejected|GH006' | head -3
 echo "== a PR into it"
 git push -q -u origin "$C" 2>&1 | grep -v '^remote:' || true; echo "branch $C" >> "$REC"
-url=$(gh pr create -R $R --base "$P" --head "$C" --title "[001 review T004] branch protection probe" --body "Probe for the jit-speckit 001 review, T004. Closed after."); n=${url##*/}; echo "pr $n" >> "$REC"; echo "PR #$n"
+url=$(gh pr create -R $R --base "$P" --head "$C" --title "[001 review T004] branch protection probe" --body "Probe for the landspec 001 review, T004. Closed after."); n=${url##*/}; echo "pr $n" >> "$REC"; echo "PR #$n"
 sleep 60
 gh pr view "$n" -R $R --json mergeStateStatus,statusCheckRollup -q '"mergeStateStatus: " + .mergeStateStatus, (.statusCheckRollup[] | "  " + .name + ": " + (.conclusion // .status))'
 gh pr merge "$n" -R $R --squash 2>&1 | head -2
@@ -472,7 +472,7 @@ gh pr merge "$n" -R $R --squash 2>&1 | head -2
 ```text
 == protection before (restore command recorded first)
 {"message":"Branch not protected","documentation_url":"https://docs.github.com/rest/branches/branch-protection#get-branch-protection","status":"404"}gh: Branch not protected (HTTP 404)
-== apply, as /jit-speckit:init step 4 says (job names, enforce_admins, PR required, 0 approvals on standard)
+== apply, as /landspec:init step 4 says (job names, enforce_admins, PR required, 0 approvals on standard)
 contexts: python, Secrets (gitleaks, full history), Dependencies (osv-scanner), Workflows (zizmor) | enforce_admins: true
 == a direct push to the protected branch
 remote: error: GH006: Protected branch update failed for refs/heads/review-001-t004-protected.        
@@ -493,12 +493,12 @@ minute); `develop` was not touched. Then a red one:
 # T004 on the sandbox, part 2: a PR with a failing test into the protected branch. Run from the sandbox clone.
 set -u
 [ "$(git remote)" = origin ] && [ "$(gh repo view --json nameWithOwner -q .nameWithOwner)" = iamalisson/jit-speckit-sandbox ] || exit 1
-R=iamalisson/jit-speckit-sandbox; REC="$(git rev-parse --git-common-dir)/jit-repro/t004-created.txt"; P=review-001-t004-protected; C=review-001-t004-red
+R=iamalisson/jit-speckit-sandbox; REC="$(git rev-parse --git-common-dir)/landspec-repro/t004-created.txt"; P=review-001-t004-protected; C=review-001-t004-red
 git fetch -q origin; git switch -q -c "$C" "origin/$P"
 printf '\n\ndef test_001_review_t004_red():\n    assert False\n' >> tests/test_convert.py
 git add tests/test_convert.py; git commit -q -m "test: 001 review T004 red probe"
 git push -q -u origin "$C" 2>&1 | grep -v '^remote:' || true; echo "branch $C" >> "$REC"
-url=$(gh pr create -R $R --base "$P" --head "$C" --title "[001 review T004] red check probe" --body "Probe for the jit-speckit 001 review, T004. Closed after."); n=${url##*/}; echo "pr $n" >> "$REC"; echo "PR #$n"
+url=$(gh pr create -R $R --base "$P" --head "$C" --title "[001 review T004] red check probe" --body "Probe for the landspec 001 review, T004. Closed after."); n=${url##*/}; echo "pr $n" >> "$REC"; echo "PR #$n"
 for i in $(seq 1 12); do sleep 15; s=$(gh pr view "$n" -R $R --json statusCheckRollup -q '[.statusCheckRollup[] | select(.name=="python") | (.conclusion // .status)] | .[0]'); [ "$s" = FAILURE ] || [ "$s" = SUCCESS ] && break; done
 gh pr view "$n" -R $R --json mergeStateStatus,statusCheckRollup -q '"mergeStateStatus: " + .mergeStateStatus, (.statusCheckRollup[] | "  " + .name + ": " + (.conclusion // .status))'
 echo "== merge attempt"; gh pr merge "$n" -R $R --squash 2>&1 | head -2; echo "rc=$?"
@@ -524,6 +524,6 @@ The `rc=0` after the merge attempt is `head`'s, not `gh`'s. Cleanup: PR #17 clos
 `gh api -X DELETE repos/iamalisson/jit-speckit-sandbox/branches/review-001-t004-protected/protection`
 (afterwards `Branch not protected`); branches `review-001-t004-protected`, `review-001-t004-change`
 and `review-001-t004-red` deleted on origin and locally. Left in place: PR #16, merged into the
-deleted side branch. The record is the sandbox clone's `.git/jit-repro/t004-created.txt`.
+deleted side branch. The record is the sandbox clone's `.git/landspec-repro/t004-created.txt`.
 
 </details>

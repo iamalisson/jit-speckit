@@ -10,7 +10,7 @@
 
 ## Purpose being checked
 
-jit-speckit promises (README, constitution "Project"): every task gets an issue, a branch and a
+landspec promises (README, constitution "Project"): every task gets an issue, a branch and a
 PR; secrets are refused at commit and push; every PR passes an independent review and a security
 gate; every project starts with defaults sized to its level; and it never commits or pushes
 outside its documented flows, never overwrites a user's file, never opens a PR on red checks, and
@@ -68,7 +68,7 @@ names any step whose cost is out of proportion to what it protects at that level
    how the project itself is built and tested, **Then** every place where the project does not
    follow what it asks of its users is listed, with whether the exception is documented.
 3. **Given** Anthropic's current context-engineering guidance for Claude 5 generation models,
-   **When** the review reads every prompt jit-speckit ships, **Then** each principle gets a verdict
+   **When** the review reads every prompt landspec ships, **Then** each principle gets a verdict
    (follows / departs for a stated reason / departs) with the files it applies to, and every
    departure says what the prompt would look like if it followed the principle.
 
@@ -135,10 +135,10 @@ a "done when" that a test can check.
   simpler model would keep the same promises. These findings are marked **design** (not defects):
   they carry a recommendation and its reason instead of a reproduction, and sit in their own section,
   outside the High/Medium/Low ranking (FR-009, FR-010 apply to defects only).
-- **FR-014**: The review MUST check every prompt jit-speckit ships or loads (`skills/*/SKILL.md`,
+- **FR-014**: The review MUST check every prompt landspec ships or loads (`skills/*/SKILL.md`,
   `extension/commands/*.md`, `preset/commands/*.md`, `extension/levels/*.md`, the constitution and
   tasks templates, `.github/copilot-instructions.md`, and the docs a command reads up front, such as
-  `docs/GUIDELINES.md`, `docs/GUARDRAILS.md` and `docs/references.yaml` for `/jit-speckit:new`)
+  `docs/GUIDELINES.md`, `docs/GUARDRAILS.md` and `docs/references.yaml` for `/landspec:new`)
   against the context-engineering principles C1–C11 in research R8, from Anthropic's primary
   sources. A rigid rule kept on purpose is acceptable where it guards a promise: the guidance itself
   allows over-constraining "highly important areas", so the finding then checks the reason is
@@ -152,8 +152,8 @@ a "done when" that a test can check.
   are planned separately.
 - **FR-012**: The report MUST NOT contain a working secret or a step-by-step bypass that would help
   someone defeat a user's protections.
-- **FR-013**: A finding is **exploitable** when someone other than the person running jit-speckit can
-  use it to cause harm: a secret leaves through what jit-speckit generates or runs, a protected branch
+- **FR-013**: A finding is **exploitable** when someone other than the person running landspec can
+  use it to cause harm: a secret leaves through what landspec generates or runs, a protected branch
   changes on GitHub, or a pull request from someone else gets past the CI gate. A gap in the secret checks is
   exploitable when the docs say that kind of secret is refused and it is not; a secret format the
   docs never claim to catch is a public `limit`. An exploitable finding
@@ -196,7 +196,7 @@ a "done when" that a test can check.
 
 - Q: Should the review question the purpose itself, or only check delivery of it? → A: Both: it
   also challenges the core model (one task = one PR, the separate spec PR, levels) (FR-008a).
-- Q: Does jit-speckit go against current best practices for prompting Claude 5 models? → A: The
+- Q: Does landspec go against current best practices for prompting Claude 5 models? → A: The
   review checks every shipped prompt against Anthropic's context-engineering guidance, after
   confirming the sources (FR-014, research R8).
 
@@ -204,7 +204,7 @@ a "done when" that a test can check.
 
 - The audience is the maintainer, who knows the project; the report does not explain spec-kit.
 - The review is of the tag `v1.7.2` (commit `172f8c5`) only; earlier releases and upgrade paths are
-  checked only where a promise is about upgrading (`/jit-speckit:init` refreshing a project).
+  checked only where a promise is about upgrading (`/landspec:init` refreshing a project).
 - "Best effort" mechanisms that are documented as best effort (the command guard) are judged against
   their documentation; their real boundary is CI plus branch protection, as `docs/security.md` says.
 - The project's own exception for mutation testing (no mutation tool for bash) is accepted as long

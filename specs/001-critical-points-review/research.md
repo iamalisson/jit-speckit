@@ -6,11 +6,11 @@
   "Supply chain hygiene"), `docs/reference.md` ("What happens automatically"), `docs/design.md`
   and the constitution's "Project" section. Each promise is numbered P01–P28 in the contract with
   where it is stated.
-- **Rationale**: FR-001 names those documents; `/jit-speckit:help` answers from them, so they are
+- **Rationale**: FR-001 names those documents; `/landspec:help` answers from them, so they are
   what users believe.
 - **Alternatives considered**: deriving promises from the code (rejected: that checks the code
   against itself); including `GUIDELINES.md`/`GUARDRAILS.md` (rejected as promises: they are advice
-  to generated projects, not guarantees of jit-speckit; they enter only through section 6).
+  to generated projects, not guarantees of landspec; they enter only through section 6).
 
 ## R2. How a verdict is proven
 
@@ -20,9 +20,9 @@
   Behavior the fake `gh` cannot show (issues, PRs, the Copilot request, branch protection,
   auto-merge) is run for real on the private sandbox `iamalisson/jit-speckit-sandbox`, only from its clone, after
   checking it has one remote and `gh repo view --json nameWithOwner -q .nameWithOwner` prints `iamalisson/jit-speckit-sandbox`;
-  direct `gh` writes name the sandbox and carry the task id (`[001 review Tnnn]`, `review-001-tnnn-*`), jit's own
+  direct `gh` writes name the sandbox and carry the task id (`[001 review Tnnn]`, `review-001-tnnn-*`), landspec's own
   scripts run under the highest free sandbox feature number from `099` down, each task closes and deletes only what it
-  recorded creating (the record is a file in `.git/jit-repro/`, appended as each item is made, so an interrupted run
+  recorded creating (the record is a file in `.git/landspec-repro/`, appended as each item is made, so an interrupted run
   can still be cleaned up), merges stay and are listed, and each changed setting
   is put back with the command recorded before it changed (tasks.md, "Rules every task follows").
 - **Rationale**: the fake `gh` keeps most checks offline and is the harness the fixes will use
@@ -65,11 +65,11 @@
 
 - **Decision**: an **exploitable** finding (FR-013: harm someone other than the operator can cause) is
   filed as a private draft repository security advisory (`gh api -X POST
-  repos/iamalisson/jit-speckit/security-advisories`, the same endpoint `skills/security/SKILL.md`
+  repos/iamalisson/landspec/security-advisories`, the same endpoint `skills/security/SKILL.md`
   uses), with its reproduction and fix. The request body is JSON sent with `--input -`, with the
   fields GitHub's REST docs ("Create a repository security advisory", read 2026-11-05) require:
   `summary`, `description`, `severity` (`high` for a High finding, `medium` for a Medium one) and
-  `vulnerabilities: [{"package": {"ecosystem": "other", "name": "jit-speckit"}}]` (`other`: a
+  `vulnerabilities: [{"package": {"ecosystem": "other", "name": "landspec"}}]` (`other`: a
   plugin of prompts and scripts fits no package ecosystem). **Verified on this repository on
   2026-11-05**: `summary` + `description` alone is refused (HTTP 422, "object is missing required
   key: vulnerabilities"); this body created draft `GHSA-6w2r-c97c-h3vw`, closed right after; after
@@ -122,13 +122,13 @@ Where they disagree (examples), [A] is later and written for Claude 5 models, so
   its output is pasted in) — otherwise `unverified`.
 - **Not in the sources**: neither page gives guidance on ALL-CAPS or MUST/NEVER wording, long
   checklists, or telling the model the reason for a rule; the review does not claim they do.
-- **Rationale**: the user asked whether jit-speckit goes against current best practice (2026-11-05);
-  [A] reports the change for the same model family that runs jit-speckit's prompts.
+- **Rationale**: the user asked whether landspec goes against current best practice (2026-11-05);
+  [A] reports the change for the same model family that runs landspec's prompts.
 
 ## R7. Fake secrets in reproductions
 
 - **Decision**: no token-shaped string is ever written to a committed file. Reproductions build fake
   secrets at run time inside the throwaway repo (for example by joining two halves), so
   `secrets.sh` on the staged report is always clean.
-- **Rationale**: one rule instead of two; `jit:allow-secret` exceptions in a review of the secret
+- **Rationale**: one rule instead of two; `landspec:allow-secret` exceptions in a review of the secret
   checker would blur the evidence.

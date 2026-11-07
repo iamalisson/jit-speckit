@@ -2,23 +2,23 @@
 # Run the deterministic security scanners that are installed and collect their reports.
 #   security-scan.sh [--changed]
 #     --changed  only the files this branch changed against the base branch (pre-PR check); the
-#                summary lines are kept as this diff's record (.git/jit-security/<diff id>)
+#                summary lines are kept as this diff's record (.git/landspec-security/<diff id>)
 # Scanners (each optional; missing ones are reported with how to install them):
 #   gitleaks     secrets in files and git history
 #   osv-scanner  known vulnerabilities in dependencies (every lockfile)
 #   semgrep      code patterns: injection, XSS, SSRF, path traversal, crypto misuse (OWASP rules)
 #   zizmor       GitHub Actions workflow weaknesses (injection, excessive permissions, unpinned)
 #   trivy        Dockerfile / Terraform / Kubernetes misconfiguration (only when such files exist)
-# Reports go to .git/jit-security/<timestamp>/ so they are never committed or pushed.
+# Reports go to .git/landspec-security/<timestamp>/ so they are never committed or pushed.
 # Prints one line per scanner: "<tool> ok|findings|missing|skipped <detail>", then REPORT_DIR=<dir>.
 set -uo pipefail
 # shellcheck source=lib.sh
 source "$(dirname "$0")/lib.sh"
-jit_cd_root
+landspec_cd_root
 
 changed=false; [[ "${1:-}" == --changed ]] && changed=true
-if $changed; then rec="$(diff_record jit-security)" || exit 1; fi
-dir="$(git rev-parse --git-common-dir)/jit-security/$(date +%Y%m%d-%H%M%S)"
+if $changed; then rec="$(diff_record landspec-security)" || exit 1; fi
+dir="$(git rev-parse --git-common-dir)/landspec-security/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$dir"
 summary="$dir/summary.txt"; : > "$summary"
 

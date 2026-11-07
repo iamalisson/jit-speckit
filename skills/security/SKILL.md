@@ -1,6 +1,6 @@
 ---
 name: security
-description: "Full security audit of the project: scanners, a manual OWASP Top 10 and CWE Top 25 sweep, business-logic and race-condition flaws, each finding verified, then tracked and fixed safely. Use for /jit-speckit:security, before a release, or when the user asks whether the software is secure."
+description: "Full security audit of the project: scanners, a manual OWASP Top 10 and CWE Top 25 sweep, business-logic and race-condition flaws, each finding verified, then tracked and fixed safely. Use for /landspec:security, before a release, or when the user asks whether the software is secure."
 argument-hint: "[quick|full|deep]"
 ---
 
@@ -34,7 +34,7 @@ Write a short map before hunting:
 
 ## 2. Run the scanners
 
-Run `bash .specify/extensions/jit/scripts/security-scan.sh` (add `--changed` in `quick` mode).
+Run `bash .specify/extensions/landspec/scripts/security-scan.sh` (add `--changed` in `quick` mode).
 - For each `missing` tool, list its install line once at the end. Missing scanners mean less
   coverage, so say exactly which categories went unscanned.
 - Read every report in `REPORT_DIR`. For each scanner finding decide: **reachable** and

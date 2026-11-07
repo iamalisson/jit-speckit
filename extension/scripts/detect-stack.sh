@@ -5,7 +5,7 @@
 set -euo pipefail
 # shellcheck source=lib.sh
 source "$(dirname "$0")/lib.sh"
-jit_cd_root
+landspec_cd_root
 
 if [[ -f Cargo.toml ]]; then echo rust; fi
 if [[ -f package.json ]]; then

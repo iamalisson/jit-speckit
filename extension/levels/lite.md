@@ -25,6 +25,6 @@
   goes on a normal branch and PR: no spec or issue needed, but the hooks and CI still apply.
 - Branch flow: `{{BRANCH_FLOW}}`, always through a pull request.
 - Before a PR opens, a fresh reader reviews it against the whole repository
-  (`/speckit-jit-review`); High and Medium findings are fixed, the review is recorded for the
+  (`/speckit-landspec-review`); High and Medium findings are fixed, the review is recorded for the
   exact diff, and the PR's `## Review` section says what was found and done. No task PR opens
   without it.

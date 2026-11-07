@@ -92,7 +92,7 @@ check "then it runs on every tag" 'grep -qF "tags: [\"**\"]" <<<"$on_push"'
 check "then no if: in macos.yml names github.event_name (it would skip the PR and tag runs)" '[[ -f "$mac" ]] && ! grep -qE "^ *if:.*github\.event_name" "$mac"'
 check "then test.yml has no macOS job left" '! grep -qE "runs-on: *macos" .github/workflows/test.yml'
 
-# The spec-kit version jit-speckit is tested with is written in three places; they must agree.
+# The spec-kit version landspec is tested with is written in three places; they must agree.
 sk="$(sed -nE 's/^SPECKIT_VERSION="(v[0-9.]+)".*/\1/p' bin/setup.sh)"
 check "the spec-kit version in setup.sh ($sk) matches the init skill and the README badge" \
   '[[ -n "$sk" ]] && grep -qF "spec-kit.git@$sk\`" skills/init/SKILL.md && grep -qF "spec--kit-$sk-" README.md && grep -qF "alt=\"spec-kit $sk\"" README.md'
@@ -147,7 +147,7 @@ check "when the docs are read, then the README CI row names (standard and full),
 # Generated CI's first run: required jobs must have a way out, and a new advisory must not stop unrelated PRs.
 init_bp="$(sed -n '/^5\. \*\*Branch protection\*\*/,/^6\. /p' skills/init/SKILL.md)"
 check "when init's step 5 is read, then protection waits for green checks, and running init again offers it" \
-  'tr "\n" " " <<<"$init_bp" | grep -qE "Offer it only once .*green" && grep -qF "gh run list --branch <base branch>" <<<"$init_bp" && tr "\n" " " <<<"$init_bp" | grep -qF "/jit-speckit:init\` again"'
+  'tr "\n" " " <<<"$init_bp" | grep -qE "Offer it only once .*green" && grep -qF "gh run list --branch <base branch>" <<<"$init_bp" && tr "\n" " " <<<"$init_bp" | grep -qF "/landspec:init\` again"'
 check "then the osv-scanner job is left out of the required checks, and the security doc says so" \
   'tr "\n" " " <<<"$init_bp" | grep -qE "Leave +\`Dependencies \(osv-scanner\)\` +out" && grep -qF "OSV-Scanner is not a required check" docs/security.md'
 gate_doc="$(sed -n '/^## When a gate is red/,/^## /p' docs/security.md)"
@@ -179,9 +179,9 @@ check "when the docs are read, then the README Start and the reference Update sa
   'grep -q "base branch" <<<"$(sed -n "/^## Start/,/^## The loop/p" README.md)" && grep -q "base branch" <<<"$(sed -n "/^## Update/,/^## What/p" docs/reference.md)"'
 
 # A new project needs a GitHub repo before the foundation spec, and develop after its first push.
-new_jit="$(sed -n '/^7\. \*\*Set up jit-speckit/,$p' skills/new/SKILL.md)"
+new_landspec="$(sed -n '/^7\. \*\*Set up landspec/,$p' skills/new/SKILL.md)"
 check "when new's steps 7 and 8 are read, then it offers gh repo create before setup, and the next step is commit, push and level, before the spec" \
-  'tr "\n" " " <<<"$new_jit" | grep -qE "gh repo create .*--source \. --remote origin.*bin/setup\.sh" && tr "\n" " " <<<"$new_jit" | grep -qE "commit the setup.*git push -u origin.*/jit-speckit:level <level>.*/speckit-specify"'
+  'tr "\n" " " <<<"$new_landspec" | grep -qE "gh repo create .*--source \. --remote origin.*bin/setup\.sh" && tr "\n" " " <<<"$new_landspec" | grep -qE "commit the setup.*git push -u origin.*/landspec:level <level>.*/speckit-specify"'
 check "when init's step 1 is read, then it checks for a GitHub repository and offers to create one" \
   'grep -qE "gh repo view.*gh repo create .*--source \. --remote origin" <<<"$(sed -n "/^1\. \*\*Tools/,/^2\. /p" skills/init/SKILL.md | tr "\n" " ")"'
 
@@ -195,18 +195,18 @@ check "when agents/reviewer.md is read, then it has name: reviewer, model: sonne
 # Guard half (FR-035): it passes on main too, so it is never presented as failing-first.
 check "then the plugin ships no fast-model checker agent and plugin.json has no agents key (the default scan finds agents/)" \
   '[[ ! -e agents/checker.md ]] && ! grep -q "\"agents\"" .claude-plugin/plugin.json'
-check "when review.md, pr.md and issues.md launch the reviewer, then each names jit-speckit:reviewer and pr.md and issues.md no longer launch a general-purpose subagent" \
-  'grep -qF "jit-speckit:reviewer" extension/commands/review.md && grep -qF "jit-speckit:reviewer" extension/commands/pr.md && grep -qF "jit-speckit:reviewer" extension/commands/issues.md \
+check "when review.md, pr.md and issues.md launch the reviewer, then each names landspec:reviewer and pr.md and issues.md no longer launch a general-purpose subagent" \
+  'grep -qF "landspec:reviewer" extension/commands/review.md && grep -qF "landspec:reviewer" extension/commands/pr.md && grep -qF "landspec:reviewer" extension/commands/issues.md \
    && ! tr "\n" " " < extension/commands/pr.md | grep -qE "general-purpose +subagent" && ! tr "\n" " " < extension/commands/issues.md | grep -qE "general-purpose +subagent"'
 check "when review.md sets the reviewer model, then it names review_model:, the refusal line, never haiku, the general-purpose fallback and the sentinel line" \
-  'f=extension/commands/review.md; grep -qF "review_model:" $f && grep -qF "jit: review_model must be sonnet, opus or fable" $f && grep -qF "Never run the review on \`haiku\`" $f \
-   && grep -qF "general-purpose" $f && grep -qF "jit-speckit review: independent reviewer" $f'
+  'f=extension/commands/review.md; grep -qF "review_model:" $f && grep -qF "landspec: review_model must be sonnet, opus or fable" $f && grep -qF "Never run the review on \`haiku\`" $f \
+   && grep -qF "general-purpose" $f && grep -qF "landspec review: independent reviewer" $f'
 check "when docs/reference.md is read, then the Configuration table has a review_model row, and it says CLAUDE_CODE_SUBAGENT_MODEL_FORCE overrides it and the hook exists only where the plugin is installed" \
   'grep -q "^| \`review_model\` |" docs/reference.md && grep -qF "CLAUDE_CODE_SUBAGENT_MODEL_FORCE" docs/reference.md && grep -qi "only where the plugin is installed" docs/reference.md'
 # The section is read into a variable: a pipe into grep -q can fail under pipefail (SIGPIPE on sed).
 sec_readme="$(sed -n "/^## Security, built in/,/^## Levels/p" README.md)"
 check "when the README's Security, built in table is read, then it names the reviewer's model" \
-  '[[ "$sec_readme" == *"jit-speckit:reviewer"* && "$sec_readme" == *Sonnet* ]]'
+  '[[ "$sec_readme" == *"landspec:reviewer"* && "$sec_readme" == *Sonnet* ]]'
 
 # FR-006: mutmut's own exit code says nothing of survivors, so adopt names one that does.
 check "when skills/adopt is read, then it names the mutmut command that exits non-zero on a survivor" \
@@ -217,15 +217,15 @@ check "when docs/reference.md is read, then adding tests to an existing file nee
 # The installed copies (specify extension add --dev extension --force) are what this repo runs: they match the source.
 stale=""
 for f in extension/commands/*.md extension/scripts/*.sh; do
-  d="${f#extension/}"; cmp -s "$f" ".specify/extensions/jit/$d" || stale+="$d "
+  d="${f#extension/}"; cmp -s "$f" ".specify/extensions/landspec/$d" || stale+="$d "
 done
 # The skill .claude/skills links to is generated from each command: its body (after spec-kit's frontmatter) is the command's.
 body() { awk 'n >= 2 { print } /^---$/ { n++ }' "$1"; }
 for f in extension/commands/*.md; do
-  s=".specify-dev/agent-commands/claude/speckit-jit-$(basename "$f" .md)/SKILL.md"
-  [[ -f ".specify/extensions/jit/$s" && "$(body "$f")" == "$(body ".specify/extensions/jit/$s")" ]] || stale+="$s "
+  s=".specify-dev/agent-commands/claude/speckit-landspec-$(basename "$f" .md)/SKILL.md"
+  [[ -f ".specify/extensions/landspec/$s" && "$(body "$f")" == "$(body ".specify/extensions/landspec/$s")" ]] || stale+="$s "
 done
-check "every extension command and script equals its .specify/extensions/jit copy${stale:+ — stale: $stale(fix: specify extension add --dev extension --force)}" '[[ -z "$stale" ]]'
+check "every extension command and script equals its .specify/extensions/landspec copy${stale:+ — stale: $stale(fix: specify extension add --dev extension --force)}" '[[ -z "$stale" ]]'
 
 # A link copied from the README into docs/ keeps its docs/ prefix and breaks; every relative link
 # in a markdown file must point at a file that exists next to it.

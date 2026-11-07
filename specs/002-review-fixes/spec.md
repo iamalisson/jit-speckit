@@ -6,11 +6,11 @@
 
 **Status**: Draft
 
-**Input**: User description: "Fix what the critical-points review found, for release 1.8.0. Input: specs/001-critical-points-review/report.md, its *Fixes* list: every public High and Medium finding (F5.2, F5.4, F1.1, F1.2, F1.6, F1.8, F2.3, F2.4, F3.1, F3.3, F3.4, F3.5, F3.6, F3.8, F3.9, F4.1, F4.2, F4.3, F4.4, F4.7, F5.3, F5.6), each with the change, the promise it restores, and its "when …, then …" check in the named tests/<script>.test.sh, which must fail before the fix and pass after. Plus GitHub issue #41: /jit-speckit:init offers squash-only merges (allow_squash_merge=true, allow_merge_commit=false, allow_rebase_merge=false) at every level so one revert removes one task, with its tests/static.test.sh check. The docs (README.md, docs/*.md) are corrected in the same change as the behavior they describe. Out of scope: the private finding F2.1 (fixed in its own advisory, never described publicly), the Low findings (notes only), and the core-model changes D1–D3 from report/7-core-model.md (a separate feature). The release is 1.8.0: the three version files bumped together, per the constitution."
+**Input**: User description: "Fix what the critical-points review found, for release 1.8.0. Input: specs/001-critical-points-review/report.md, its *Fixes* list: every public High and Medium finding (F5.2, F5.4, F1.1, F1.2, F1.6, F1.8, F2.3, F2.4, F3.1, F3.3, F3.4, F3.5, F3.6, F3.8, F3.9, F4.1, F4.2, F4.3, F4.4, F4.7, F5.3, F5.6), each with the change, the promise it restores, and its "when …, then …" check in the named tests/<script>.test.sh, which must fail before the fix and pass after. Plus GitHub issue #41: /landspec:init offers squash-only merges (allow_squash_merge=true, allow_merge_commit=false, allow_rebase_merge=false) at every level so one revert removes one task, with its tests/static.test.sh check. The docs (README.md, docs/*.md) are corrected in the same change as the behavior they describe. Out of scope: the private finding F2.1 (fixed in its own advisory, never described publicly), the Low findings (notes only), and the core-model changes D1–D3 from report/7-core-model.md (a separate feature). The release is 1.8.0: the three version files bumped together, per the constitution."
 
 ## Where this comes from
 
-Feature 001 reviewed jit-speckit 1.7.2 against its own promises and wrote one fix per public High
+Feature 001 reviewed landspec 1.7.2 against its own promises and wrote one fix per public High
 and Medium finding in [`specs/001-critical-points-review/report.md`](../001-critical-points-review/report.md),
 section *Fixes*. Each entry there names the change, the promise (P01–P28) it restores, and a check
 written as "when …, then …" in a named `tests/<script>.test.sh`. That entry is the source of truth
@@ -20,7 +20,7 @@ for its requirement below; this spec does not restate the detail, it commits to 
 
 ### User Story 1 - Nothing of mine disappears without a word (Priority: P1)
 
-As a jit-speckit user, when I update, change level or remove jit-speckit, I never lose an edit, a
+As a landspec user, when I update, change level or remove landspec, I never lose an edit, a
 newer pin or a protection without being told, and an old plugin copy never quietly takes my project
 backwards.
 
@@ -33,9 +33,9 @@ bump a managed workflow pin and refresh. Each prints what it kept or refused, an
 
 **Acceptance Scenarios**:
 
-1. **Given** a managed file with an uncommitted edit, **When** I remove jit-speckit, **Then** the
+1. **Given** a managed file with an uncommitted edit, **When** I remove landspec, **Then** the
    file is kept and the output says `kept (edited)` (F5.2).
-2. **Given** a project at a newer jit-speckit version than the plugin copy running setup, **When**
+2. **Given** a project at a newer landspec version than the plugin copy running setup, **When**
    setup runs, **Then** it refuses, says which versions are involved and how to reload the plugin
    (F5.4).
 3. **Given** files an earlier release wrote before the managed-file marker existed, **When** I
@@ -164,7 +164,7 @@ the review runs on a strong model whatever my session runs on, and I can start e
 ready in parallel.
 
 **Why this priority**: the review is the costliest step of every task (feature 001, section 6); the
-user asked on 2026-11-05 for jit-speckit itself to work this way in 1.8.0.
+user asked on 2026-11-05 for landspec itself to work this way in 1.8.0.
 
 **Independent Test**: in a throwaway project, a diff touching a migration is refused at record time
 without a deep check of it; a second round recorded as a delta from the last reviewed commit is
@@ -211,11 +211,11 @@ Each requirement delivers the fix entry of the same id in feature 001's `report.
 change, the promise it restores, and its check, which fails on 1.7.2 and passes after.
 
 **User's files and setup (US1)**
-- **FR-001**: Removing jit-speckit MUST keep a managed file that has uncommitted edits or differs
-  from what jit-speckit wrote, and say so (F5.2, P20). "What jit-speckit wrote" is the SHA-256 it
+- **FR-001**: Removing landspec MUST keep a managed file that has uncommitted edits or differs
+  from what landspec wrote, and say so (F5.2, P20). "What landspec wrote" is the SHA-256 it
   recorded when it wrote the file; a file with no record is removed only when it is committed and
   unchanged.
-- **FR-002**: Setup MUST refuse to take a project to an older jit-speckit version than it is at,
+- **FR-002**: Setup MUST refuse to take a project to an older landspec version than it is at,
   unless the user asks for a downgrade explicitly, and say how to reload the plugin (F5.4, P21, P10).
 - **FR-003**: Refresh MUST recognize files an earlier release wrote without the marker: replace them,
   or name each with the release that wrote it (F5.3, P19, P21).

@@ -1,4 +1,4 @@
-# Why jit-speckit works this way
+# Why landspec works this way
 
 Design decisions, each with its reason. The what is in the [README](../README.md) and the
 [reference](reference.md).
@@ -21,7 +21,7 @@ Design decisions, each with its reason. The what is in the [README](../README.md
   squash only, and on standard and full task PRs are squashed by convention (merge commits stay for
   the `develop` → `main` promotions, which a squash would split from `develop`).
 - **"Done" has an external definition.** The issue says which requirement produced the code and
-  closes only when the PR merges. That is what makes `/jit-speckit:next` resumable after a month,
+  closes only when the PR merges. That is what makes `/landspec:next` resumable after a month,
   and what the independent review checks the PR against.
 
 The cost is real: a CI run, a review round and a merge per task. It pays off when tasks are
@@ -38,7 +38,7 @@ doc, and each task PR stays small and closes exactly one issue. The worked examp
 ## The review is independent
 
 A review inside the session that wrote the code shares that session's assumptions and tests the
-path it already tested. jit's review before every PR (`/speckit-jit-review`) runs in a fresh agent
+path it already tested. landspec's review before every PR (`/speckit-landspec-review`) runs in a fresh agent
 that gets only facts: the branch, the task line, the PR body, the test command. It starts from the
 diff and the code around it (what it calls and what calls it), once, and reports the real bugs in the changed lines. CI runs the tests. `## Evidence` is the author's: no script checks what it says.
 It works the way GitHub's Copilot code review does, one fast pass, with no Copilot subscription
@@ -68,23 +68,23 @@ so a commit made while the review ran is never recorded as reviewed.
 
 A prototype and a payment service do not need the same ceremony, and a checklist that is too
 heavy gets skipped. `lite`, `standard` and `full` size the branch flow, the constitution's
-defaults, the CI and the review bar to how serious the project is, and `/jit-speckit:level`
+defaults, the CI and the review bar to how serious the project is, and `/landspec:level`
 moves between them without deleting anything.
 
 ## Nothing of yours is overwritten
 
-Files jit-speckit generates carry a `# jit-speckit: managed file` first line and are re-created
-on `/jit-speckit:level`; delete that line and the file is yours. Files it cannot mark (the PR
+Files landspec generates carry a `# landspec: managed file` first line and are re-created
+on `/landspec:level`; delete that line and the file is yours. Files it cannot mark (the PR
 template, `.claude/settings.json`, `SECURITY.md`) are written only when missing. `remove` deletes
 only what still matches what it wrote.
 
-When a managed workflow is re-created, an action pin newer than jit-speckit's own (a Dependabot
+When a managed workflow is re-created, an action pin newer than landspec's own (a Dependabot
 bump: `uses: <action>@<sha> # <version>`) is kept and named `kept newer pin: <action> <version>`.
-A `container.image` digest is not such a line and goes back to jit-speckit's.
+A `container.image` digest is not such a line and goes back to landspec's.
 
 Releases before the marker (1.0.0 to 1.3.1) wrote some files byte for byte;
 `extension/scripts/old-files.sha256` lists them. Their two git hooks are replaced and marked. Their
-`close-linked-issues.yml` and `release.yml` are kept and named (`kept (written by jit-speckit
+`close-linked-issues.yml` and `release.yml` are kept and named (`kept (written by landspec
 <versions>, no marker)`), since a 1.4.0+ copy with its marker deleted has the same bytes; and once
 an old hook matched, so are the generated workflows, Dependabot and `CODEOWNERS` (`<versions> or
 older`). Delete one to get the current version.

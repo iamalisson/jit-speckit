@@ -8,18 +8,18 @@ A fresh reader, not the author, in one fast pass, the way GitHub's Copilot code 
 reads the diff and the code around it, and reports few findings, each tied to a changed line. It
 catches what the author's own session misses, because that session shares the author's assumptions.
 
-**Two roles.** If you are the author's session (`/speckit-jit-pr`, `/speckit-jit-issues`, or the
-user ran `/speckit-jit-review`): launch one subagent of type `jit-speckit:reviewer` whose prompt
-starts with the line `jit-speckit review: independent reviewer`, then this whole file plus the
+**Two roles.** If you are the author's session (`/speckit-landspec-pr`, `/speckit-landspec-issues`, or the
+user ran `/speckit-landspec-review`): launch one subagent of type `landspec:reviewer` whose prompt
+starts with the line `landspec review: independent reviewer`, then this whole file plus the
 facts below, and nothing else: no summary of what you built, no "I already checked X". Pass the
-call's `model`: `review_model:` from `.specify/extensions/jit/jit-config.yml` when it is `sonnet`,
+call's `model`: `review_model:` from `.specify/extensions/landspec/landspec-config.yml` when it is `sonnet`,
 `opus` or `fable`, `sonnet` when the key is absent or empty. If `review_model:` holds any other
-value, print `jit: review_model must be sonnet, opus or fable` and stop.
-Never run the review on `haiku`, and never in a fork of this session. If the call refuses the type `jit-speckit:reviewer`
+value, print `landspec: review_model must be sonnet, opus or fable` and stop.
+Never run the review on `haiku`, and never in a fork of this session. If the call refuses the type `landspec:reviewer`
 (the plugin is not installed), launch a `general-purpose` subagent with the same prompt and the
 same `model`. The plugin's hook blocks a review launch without one of those models, or in a fork.
 Wait for its report, save it as it came to a file outside the repository (`mktemp`), and record it:
-`bash .specify/extensions/jit/scripts/review.sh record <file>` (`record --plan <file>` for a plan
+`bash .specify/extensions/landspec/scripts/review.sh record <file>` (`record --plan <file>` for a plan
 review, `record --delta <file>` for a fix round). The record is tied to the exact diff (or `tasks.md`): `pr.sh` and `issues.sh` refuse to
 open anything without a recorded review that said `ready` for the current state, at every level,
 so a commit after the review means another review. If you are that subagent: follow the method
@@ -30,7 +30,7 @@ Facts the author passes:
   `specs/NNN-*/`;
 - the task's line from `tasks.md` with its sub-bullets, or "plan review";
 - the path of the PR body draft, if there is one;
-- the project's test command (the constitution's **Commands** line or its jit block);
+- the project's test command (the constitution's **Commands** line or its landspec block);
 - for a fix round (a **delta**): the `REVIEWED=<sha>` the last `record` printed and the path of
   that round's report.
 
@@ -47,7 +47,7 @@ One pass. A review should take a couple of minutes, so read, do not run: CI runs
 
 1. **Read the rules**, from the branch: `.specify/memory/constitution.md`, `AGENTS.md`, `CLAUDE.md`
    and `.github/copilot-instructions.md` where they exist, and the task's line in `tasks.md`.
-2. **Read the diff and what it touches.** Run `bash .specify/extensions/jit/scripts/review.sh risk`
+2. **Read the diff and what it touches.** Run `bash .specify/extensions/landspec/scripts/review.sh risk`
    (for a delta, `review.sh risk <sha>`), then read `git diff origin/<base>...HEAD` once, and open
    what each changed function calls and what calls it. Look for real bugs in the changed lines:
    a wrong result, data loss, a crash, a broken upgrade on existing state, a write to the user's

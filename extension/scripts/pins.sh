@@ -1,4 +1,4 @@
-# Every third-party action and tool version jit-speckit writes into a project, in one place.
+# Every third-party action and tool version landspec writes into a project, in one place.
 # Actions are pinned to full commit SHAs: tags can be moved (aquasecurity/trivy-action, March 2026).
 # Downloaded binaries are verified against their published SHA-256.
 # shellcheck shell=bash disable=SC2034  # read by level.sh

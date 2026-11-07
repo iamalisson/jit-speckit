@@ -47,7 +47,7 @@
   <!-- commands -->
   <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#9198a1">
     <text x="30" y="168">/speckit-specify · /speckit-plan · /speckit-tasks</text>
-    <text x="850" y="168" text-anchor="end">/jit-speckit-next   (or /speckit-implement T003)</text>
+    <text x="850" y="168" text-anchor="end">/landspec-next   (or /speckit-implement T003)</text>
   </g>
   <text x="440" y="206" text-anchor="middle" font-size="13" fill="#9198a1">Defaults sized to the project: lite · standard · full</text>
 </svg>

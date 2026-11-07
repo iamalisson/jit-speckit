@@ -227,7 +227,7 @@ decisions here say how to build it and correct the entry where the research prov
   collides). `close-linked-issues.yml` and `release.yml` are `name` only: their 1.4.0+ versions
   with the marker deleted (the documented take-over) are byte-identical to the old hashes, so
   replacing them would undo a take-over. Generated files get only the message
-  `kept (written by jit-speckit <versions> or older, no marker): <file> — delete it to get the
+  `kept (written by landspec <versions> or older, no marker): <file> — delete it to get the
   current one`, and only when an old hook matched. `sha256()` in `lib.sh` already picks
   `sha256sum` or `shasum -a 256`.
 - **Test.** F4.1 (`static.test.sh`): when `pins.sh` has a `PIN_*` action, then some workflow uses
@@ -248,15 +248,15 @@ decisions here say how to build it and correct the entry where the research prov
   `diff_record DIR` (`<git-common-dir>/DIR/<id or "empty">`); `review.sh`'s task state calls it. One
   key for review, mutation and scan records.
 - **F3.3.** `pr.sh task`, after the cheap refusals and before the push: with a test command
-  (`constitution_cmd test`), run it, log to `<git-common-dir>/jit-test/<branch>.log` (one per branch: plan review), and on failure print
+  (`constitution_cmd test`), run it, log to `<git-common-dir>/landspec-test/<branch>.log` (one per branch: plan review), and on failure print
   its last 20 lines and die `the test command failed (<cmd>); fix it before opening the PR`; with
   none, say `tests not run before the PR (no test command in the constitution)` and go on.
   `constitution_cmd` treats a `[PLACEHOLDER]` value as unset (this repo's `mutate`).
-- **F3.4.** `mutants.sh` also writes its result line to `diff_record jit-mutants`. `pr.sh task`,
+- **F3.4.** `mutants.sh` also writes its result line to `diff_record landspec-mutants`. `pr.sh task`,
   only when a mutate command is set, dies without a record for this diff (`no mutants.sh result for
   this diff; run …`) or on `survivors` with no `## Evidence` line mentioning a survivor. With no
   mutate command it appends "Mutation testing: not run (no mutate command in the constitution)".
-- **F3.6.** `security-scan.sh --changed` copies its summary lines to `diff_record jit-security` on
+- **F3.6.** `security-scan.sh --changed` copies its summary lines to `diff_record landspec-security` on
   both exits. `pr.sh task` dies without one (`no security-scan.sh --changed result for this diff;
   run …`); `missing` or findings do not refuse. Tests run it with a `PATH` holding no scanners, so
   the suite needs no network (critic A7). It also scans uncommitted files, so it runs after the last
@@ -276,15 +276,15 @@ decisions here say how to build it and correct the entry where the research prov
 - **F3.9.** `lib.sh` `TEST_PATH_RE` becomes the pattern in 001 F3.9 (tested there); a new
   `test_path_re()` adds the constitution's `tests: <regex>` and dies on an invalid one; `pr.sh` and
   `mutants.sh` use it.
-- **F5.2.** `put()` records the SHA-256 of every file it writes in `.specify/jit-files.sha256`
+- **F5.2.** `put()` records the SHA-256 of every file it writes in `.specify/landspec-files.sha256`
   (`<sha256> <path>`). `bin/remove.sh` deletes a marked file only when its hash matches its record;
   a file with no record (a project from before 1.8.0) only when it is tracked and unchanged
   (`git diff --quiet HEAD`); otherwise `kept (edited): <file>`. This meets "differs from what
-  jit-speckit wrote" without rendering (R9's open point, resolved in the plan).
+  landspec wrote" without rendering (R9's open point, resolved in the plan).
 - **F5.4.** `bin/setup.sh` reads both `version:` lines and refuses to go below the project's without
   `--downgrade`: `this plugin copy is <plugin>, the project is at <project>; run /reload-plugins (or
   setup.sh --downgrade)`. It sources `lib.sh` for `version_newer` (one comparator: critic A6).
-- **F1.1.** `branch.sh:56`: on a failed push, `jit: warning: could not claim <branch> on origin:
+- **F1.1.** `branch.sh:56`: on a failed push, `landspec: warning: could not claim <branch> on origin:
   <git's error>; other clones may start this task` to stderr, exit 0.
 - **F1.6.** `close-linked-issues.yml`: `failed+=" #$n"` for each failed close, then
   `could not close:<list>` and exit 1.
@@ -312,7 +312,7 @@ decisions here say how to build it and correct the entry where the research prov
 | A6 three version comparators | One `version_newer` in `lib.sh`; `setup.sh` sources `lib.sh`. The static test keeps its own `IFS=. read` compare (tests do not source scripts' helpers for checks). |
 | A7 real scanners in tests | Tests run the scan with a `PATH` without scanners. |
 | A8 Semgrep digest vs version | `check-tools.sh` names `SEMGREP_DIGEST` with the version; a `container.image` is not a kept pin (docs say so). |
-| B FR-025 release | Plan, last task: three version files (`.specify/presets/jit/preset.yml` is the installed copy, refreshed by `init`, not bumped by hand), release notes listing ids. |
+| B FR-025 release | Plan, last task: three version files (`.specify/presets/landspec/preset.yml` is the installed copy, refreshed by `init`, not bumped by hand), release notes listing ids. |
 | B FR-022–FR-024 | Plan's rules for every task (seen-failing evidence, docs in the same PR, no F2.1 detail). |
 | C wrong line (security.md guard row) | Line 28, used above. |
 | D same lines | Plan's task groups and order. |
@@ -329,7 +329,7 @@ Before their tasks start (spec edge case), these *Fixes* entries are corrected i
 - **F4.2** check: scoped to the POST body and the lookup order.
 - **F4.5** change and check: digest-pinned image; docs say rules are fetched at run time (U2).
 - **F4.7** change: `version_newer` instead of `sort -V`.
-- **F5.2** change: the SHA-256 record of what jit wrote.
+- **F5.2** change: the SHA-256 record of what landspec wrote.
 - **F5.3** check: `tests/level.test.sh` with a committed fixture.
 - **F5.6** change and check: `macos.yml`.
 - **F2.3** change: `am -n` too.
@@ -337,7 +337,7 @@ Before their tasks start (spec edge case), these *Fixes* entries are corrected i
 
 # Part 2: the review redesign added on 2026-11-05 (US6)
 
-The user asked for jit-speckit itself to review faster and smarter: depth where the risk is, delta
+The user asked for landspec itself to review faster and smarter: depth where the risk is, delta
 rounds, a strong model for judgment, and tasks in parallel. A second research workflow (facts on a
 fast model, five designs on the senior model, one senior confirmation) produced R10–R12. The
 confirmation kept three designs and cut two:
@@ -350,7 +350,7 @@ confirmation kept three designs and cut two:
   R11's enforced delta. It goes to the core-model feature.
 
 Facts (primary sources, gathered on a fast model): a plugin ships subagents from an `agents/`
-directory; a plugin agent `reviewer` is named `jit-speckit:reviewer`; its frontmatter takes `model`
+directory; a plugin agent `reviewer` is named `landspec:reviewer`; its frontmatter takes `model`
 (`opus`, `sonnet`, `haiku`, `fable`, a full id or `inherit`) and `effort`; the Agent tool's `model`
 parameter takes an alias and overrides frontmatter; `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` makes every
 subagent run on one model and ignores both; plugin agents ignore `hooks`, `mcpServers` and
@@ -388,7 +388,7 @@ grep -E '^- proven: ' "$report" | grep -vqE ':[0-9]+' && die "a '- proven:' line
 ```
 - In the `case`, before :51: `risk) $plan && die "risk maps a diff; a plan review has none"; risk ;;`. Add `| review.sh risk` to the usage line.
 
-2) extension/commands/review.md, step 2 (:35). Fold the map into step 2 so that 'Plan review: steps 1, 2 and 6' (:63) and pr.md's step references keep their numbers. New bold head: **Map the risk, then start from the diff and end in the repository.** Lead text: "Run `bash .specify/extensions/jit/scripts/review.sh risk`. Every `RISK=` path is deep. Then rank the other hunks for what a path cannot show: data loss, secrets, authorization, money, a migration, a branch or CI change, a deletion, a skipped gate, a write to the user's files. Those are deep too. Deep means steps 2 to 7 in full. Everything else is sampled (read the hunk and its callers once) or proven (an existing test fails if it breaks: name it as `file:line` and what it asserts). Steps 4 and 5 still cover the whole diff."
+2) extension/commands/review.md, step 2 (:35). Fold the map into step 2 so that 'Plan review: steps 1, 2 and 6' (:63) and pr.md's step references keep their numbers. New bold head: **Map the risk, then start from the diff and end in the repository.** Lead text: "Run `bash .specify/extensions/landspec/scripts/review.sh risk`. Every `RISK=` path is deep. Then rank the other hunks for what a path cannot show: data loss, secrets, authorization, money, a migration, a branch or CI change, a deletion, a skipped gate, a write to the user's files. Those are deep too. Deep means steps 2 to 7 in full. Everything else is sampled (read the hunk and its callers once) or proven (an existing test fails if it breaks: name it as `file:line` and what it asserts). Steps 4 and 5 still cover the whole diff."
 
 3) review.md Report, after *What changed* (:77):
 "- **Risk map**, before the findings, one line per path you went deep on or skipped:
@@ -404,7 +404,7 @@ Write each `- deep:` line exactly as shown, starting at the beginning of the lin
 
 - **Adjustments from the senior confirmation**: `auth([^o]|$)` misses `authorization`/`authorize`: use `auth([^o]|$)|authori[sz]`, with a check on `src/authorization.py`; `review.sh risk` takes its starting commit, and `record --delta` checks only `<last>..HEAD`; the PR body gets only `grep -oE '^- (deep|proven): [^ ]+'` (paths, no prose: T003 part a never copies findings); reuse `diff_id` and `test_path_re` from T002.
 - **Checks**: when the diff touches nothing risky, then `review.sh risk` prints exactly RISK=none: FAILS on main (no risk action; usage error); when the diff adds db/migrations/002_drop.sql containing DROP TABLE, then risk prints RISK=migration and RISK=delete for that path: FAILS on main; when an added line swallows a failure (`x || true`), then risk prints RISK=gate <file>: FAILS on main; when the report has no `- deep:` line for a risky path, then record refuses and names the path: FAILS on main (main records it); when a deep line names a longer path that only starts with the risky one (002_drop.sql.bak), then record still refuses: FAILS on main (killed the boundary mutant in the prototype); when a `- proven:` line names no test file:line, then record refuses with 'file:line': FAILS on main; when every risky path has a `- deep:` line, then record and check pass: PASSES on main (it guards against over-refusal, not a new behavior); when `review.sh risk --plan` runs, then it refuses ('a plan review has none'): FAILS on main (not in the prototype tests; add it); when the existing suites run (review 17, pr 20, issues 18, next 20, mutants 5), then all pass unchanged: PASSES on main and on the prototype (their diffs have no risky paths)
-- **Risks**: False positives: path rules over-match (secret matches this repo's secrets.sh; checkout matches any checkout path; `|| true` matches this repo's own scripts, e.g. review.sh:13), so jit's own PRs will get many deep lines. Each costs reviewer depth, never correctness. Tighten a rule only after a real false positive.; False negatives: risk in a file whose name says nothing, or a delete written in an unlisted API, is not flagged. That is by design: the prompt's ranking covers it, and nothing enforces it.; Line-format strictness: the agent must save the report as it came (review.md:16), so a reviewer that bolds or reorders a `- deep:` line forces another review round. The error names the missing paths and the format is spelled out in review.md, but expect at least one retry the first time it happens.; Merge order with feature 002: T002 moves the merge-base logic in state() into lib.sh `diff_id` (tasks.md:150), and T003 part a edits review.sh record/report and the review.md Report section. Build this after both, or rebase onto them, and reuse their base helper instead of a second merge-base.; Portability: the TAB marker must come from awk or a literal tab, not sed `\t` (BSD sed). shellcheck is not installed locally, so it was not run on the prototype; CI runs `shellcheck -S warning` (test.yml:26). The busybox/bash 3.2 and macOS jobs were not run; the prototype ran on GNU bash and awk only.; Every rename now shows up as a delete of the old path (--no-renames). That is intended (the reviewer checks callers of the old path), but it adds deep lines on pure moves.; Unverified: whether static.test.sh or reference docs must list the new `risk` action. Grepping docs/reference.md found no review.sh action list, and static.test.sh was not run against the prototype.
+- **Risks**: False positives: path rules over-match (secret matches this repo's secrets.sh; checkout matches any checkout path; `|| true` matches this repo's own scripts, e.g. review.sh:13), so landspec's own PRs will get many deep lines. Each costs reviewer depth, never correctness. Tighten a rule only after a real false positive.; False negatives: risk in a file whose name says nothing, or a delete written in an unlisted API, is not flagged. That is by design: the prompt's ranking covers it, and nothing enforces it.; Line-format strictness: the agent must save the report as it came (review.md:16), so a reviewer that bolds or reorders a `- deep:` line forces another review round. The error names the missing paths and the format is spelled out in review.md, but expect at least one retry the first time it happens.; Merge order with feature 002: T002 moves the merge-base logic in state() into lib.sh `diff_id` (tasks.md:150), and T003 part a edits review.sh record/report and the review.md Report section. Build this after both, or rebase onto them, and reuse their base helper instead of a second merge-base.; Portability: the TAB marker must come from awk or a literal tab, not sed `\t` (BSD sed). shellcheck is not installed locally, so it was not run on the prototype; CI runs `shellcheck -S warning` (test.yml:26). The busybox/bash 3.2 and macOS jobs were not run; the prototype ran on GNU bash and awk only.; Every rename now shows up as a delete of the old path (--no-renames). That is intended (the reviewer checks callers of the old path), but it adds deep lines on pure moves.; Unverified: whether static.test.sh or reference docs must list the new `risk` action. Grepping docs/reference.md found no review.sh action list, and static.test.sh was not run against the prototype.
 
 ## R11 · Delta rounds the script enforces (FR-032, FR-033)
 
@@ -435,7 +435,7 @@ These run after the existing dirty-tree refusal at line 41.
 - review.md Method: a delta runs `git diff <sha>..HEAD`, checks each previous finding is fixed, and applies steps 2-6 to the delta only.
 - review.md Report: a delta report has the line `Delta from: <sha>`.
 - extension/commands/pr.md step 4 (lines 42-50): round 2 uses `review.sh record --delta <file>`. Its "at most three rounds" becomes the plan's 2.
-- Regenerate the tracked copies under .specify/extensions/jit/ however the repo normally syncs them.
+- Regenerate the tracked copies under .specify/extensions/landspec/ however the repo normally syncs them.
 
 - **Adjustments from the senior confirmation**: `pr.md` keeps "at most three rounds" for users (round 2 a `record --delta`, round 3 full if needed): the 2-round limit is this feature's own rule, not the product's; scrape only the first `path:line` per finding line for the size exemption; `data-model.md` gets `head:`/`round:`, `contracts/output-lines.md` gets `REVIEWED=`; `docs/design.md` says the PR's review block stays facts only (no reviewer prose, 2026-11-06).
 - **Checks**: Setup before the new block: `git checkout --quiet -- specs; git switch --quiet -` (the plan tests leave tasks.md/plan.md edited and checked out on main). Without it, record refuses with 'commit the work first'.; When a full round is recorded, then record prints REVIEWED=<HEAD sha> (and REVIEW= stays the last line) -- FAILS on main (no REVIEWED= line); When nothing was committed since the last full round, then `record --delta` refuses with 'nothing was committed' -- FAILS on main (--delta is taken as the report path, so the usage error comes back); When the delta report's 'Delta from:' names a commit other than the recorded head, then it is refused with 'Delta from: <head>' -- FAILS on main; When the delta report has no 'Delta from:' line, then it is refused, naming 'Delta from' -- FAILS on main; When the fix changes 25 lines of a file named in the previous findings plus a 30-line new tests/search.test.ts, then a ready delta is recorded (REVIEW=ready) and `review.sh check` passes on the whole diff -- FAILS on main; kills both the findings-file and the test-path exemption mutants; When the last recorded round was a delta, then another --delta is refused with 'follows a recorded full review' -- FAILS on main; When the fix adds 21 lines to a file outside the previous findings, then --delta refuses with '21 lines outside' and `check` still refuses ('changed since') -- FAILS on main; When the last reviewed commit is no longer an ancestor of HEAD (after a full record, `git reset --hard HEAD~1; git commit --amend -m rewritten`; simpler than the prototype's lines 72-73), then --delta refuses with 'no longer on this branch' -- FAILS on main; When `record --plan --delta` is used, then it is refused with 'always full' -- FAILS on main; All 16 existing checks in tests/review.test.sh still pass, and tests/run.sh passes -- pass on main and with the patch
@@ -447,23 +447,23 @@ These run after the existing dirty-tree refusal at line 41.
 
 Ship two plugin subagents under a new plugin-root `agents/` directory. plugin.json needs no `agents` key: the default scan finds them, and setting the key would replace that scan (plugins-reference). The judgment (review verdicts, triage, fixes, plan grounding, commits, PR body) stays with the senior model. Only commands whose result is an exit code go to the fast model.
 
-1. NEW agents/reviewer.md (registers as `jit-speckit:reviewer`):
+1. NEW agents/reviewer.md (registers as `landspec:reviewer`):
 ```
 ---
 name: reviewer
-description: jit-speckit's independent reviewer, a fresh reader for a branch or a plan. Launched by /speckit-jit-pr, /speckit-jit-issues and /speckit-jit-review with commands/review.md as its prompt.
+description: landspec's independent reviewer, a fresh reader for a branch or a plan. Launched by /speckit-landspec-pr, /speckit-landspec-issues and /speckit-landspec-review with commands/review.md as its prompt.
 model: opus
 effort: high
 ---
-You are the reviewer your prompt describes (jit-speckit's commands/review.md plus the author's facts). Follow its Method and return only its Report, ending with the Assessment line. You did not write this code: fix nothing, and restore every file you change to break a test.
+You are the reviewer your prompt describes (landspec's commands/review.md plus the author's facts). Follow its Method and return only its Report, ending with the Assessment line. You did not write this code: fix nothing, and restore every file you change to break a test.
 ```
 The body has no Method. review.md stays the only copy of it, so the two cannot drift.
 
-2. NEW agents/checker.md (registers as `jit-speckit:checker`):
+2. NEW agents/checker.md (registers as `landspec:checker`):
 ```
 ---
 name: checker
-description: Runs jit-speckit's mechanical pre-PR commands exactly as given and returns only their result lines. Never edits, fixes or judges.
+description: Runs landspec's mechanical pre-PR commands exactly as given and returns only their result lines. Never edits, fixes or judges.
 model: haiku
 effort: low
 disallowedTools: Edit, Write, NotebookEdit, Agent
@@ -471,29 +471,29 @@ disallowedTools: Edit, Write, NotebookEdit, Agent
 Run each command you are given, in order, from the repository root, exactly as written. Change no file, fix nothing, judge nothing.
 - A project command (test, lint, build): run `<cmd> > "$log" 2>&1; echo "exit=$?" >> "$log"` with `log="$(mktemp)"`, then print one line: `<name> ok exit=0 log=<file>` or `<name> fail exit=<code> log=<file>`.
 - If `test` failed, do not run mutants.sh: print `mutants skipped tests failed`.
-- A jit script (mutants.sh, security-scan.sh): print its own lines unchanged, `REPORT_DIR=` included.
+- A landspec script (mutants.sh, security-scan.sh): print its own lines unchanged, `REPORT_DIR=` included.
 Print nothing else: no summary, no advice.
 ```
 
 3. extension/commands/review.md lines 13-16 ("Two roles"). Replace "launch one general-purpose subagent whose prompt is" with:
-"launch one subagent of type `jit-speckit:reviewer` (elsewhere, a general-purpose subagent) whose prompt is". Then add after line 16:
-"Pass the call's `model`: `review_model:` from `.specify/extensions/jit/jit-config.yml` when it is `sonnet`, `opus` or `fable`, otherwise `opus`. If `review_model:` holds any other value, print `jit: review_model must be sonnet, opus or fable` and stop. Never run the review on `haiku`."
+"launch one subagent of type `landspec:reviewer` (elsewhere, a general-purpose subagent) whose prompt is". Then add after line 16:
+"Pass the call's `model`: `review_model:` from `.specify/extensions/landspec/landspec-config.yml` when it is `sonnet`, `opus` or `fable`, otherwise `opus`. If `review_model:` holds any other value, print `landspec: review_model must be sonnet, opus or fable` and stop. Never run the review on `haiku`."
 The model is passed on every call, so the fallback general-purpose agent does not take the session's model (which may be cheap). The Agent tool's `model` parameter accepts only aliases, so `inherit` and full model IDs are refused by design (sub-agents doc).
 
 4. extension/commands/pr.md
-- Step 2 (lines 10-11): "Run the constitution's test command, plus lint and build if they exist" becomes "Launch one `jit-speckit:checker` subagent (elsewhere, run them yourself) with the constitution's test command, lint and build if they exist, then `bash .specify/extensions/jit/scripts/mutants.sh`. Confirm each `ok` line with `tail -n 1 <log>` (it must read `exit=0`). On any `fail`, read its log, fix the code and run the checker again."
+- Step 2 (lines 10-11): "Run the constitution's test command, plus lint and build if they exist" becomes "Launch one `landspec:checker` subagent (elsewhere, run them yourself) with the constitution's test command, lint and build if they exist, then `bash .specify/extensions/landspec/scripts/mutants.sh`. Confirm each `ok` line with `tail -n 1 <log>` (it must read `exit=0`). On any `fail`, read its log, fix the code and run the checker again."
 - Lines 20-21 ("Run `mutants.sh`"): the mutants line now comes from the checker. Keep the ok/survivors/missing rules unchanged, plus: "on survivors, read REPORT_DIR yourself."
-- Step 4 (lines 34-38): "one fresh general-purpose subagent" becomes "one `jit-speckit:reviewer` subagent, with `model` as review.md says". Then: "In the same message, launch a `jit-speckit:checker` with `bash .specify/extensions/jit/scripts/security-scan.sh --changed`." The next bullet becomes "Read every finding in its REPORT_DIR yourself, fix the real ones, list false positives with the reason." `/security-review` stays in the author's session.
+- Step 4 (lines 34-38): "one fresh general-purpose subagent" becomes "one `landspec:reviewer` subagent, with `model` as review.md says". Then: "In the same message, launch a `landspec:checker` with `bash .specify/extensions/landspec/scripts/security-scan.sh --changed`." The next bullet becomes "Read every finding in its REPORT_DIR yourself, fix the real ones, list false positives with the reason." `/security-review` stays in the author's session.
 
-5. extension/commands/issues.md line 33: "one fresh general-purpose subagent" becomes "one `jit-speckit:reviewer` subagent, with `model` as review.md says". Step 1 (plan grounding) stays with the author.
+5. extension/commands/issues.md line 33: "one fresh general-purpose subagent" becomes "one `landspec:reviewer` subagent, with `model` as review.md says". Step 1 (plan grounding) stays with the author.
 
 6. docs/reference.md
 - Configuration table (after the `project` row, about line 114), new row: "| `review_model` | *(empty: `opus`)* | the model of the independent review: `sonnet`, `opus` or `fable`; never `haiku` |".
-- Tools table line 98: add one clause, "the review runs on `jit-speckit:reviewer` (Opus by default); the mechanical checks run on `jit-speckit:checker` (Haiku) and return one line each."
+- Tools table line 98: add one clause, "the review runs on `landspec:reviewer` (Opus by default); the mechanical checks run on `landspec:checker` (Haiku) and return one line each."
 
 7. tests/static.test.sh: add the checks listed below.
 
-8. This repo's own tracked copies (.claude/skills/speckit-jit-{pr,review,issues}/SKILL.md): regenerate them from extension/commands with `specify extension add --dev extension --force` (the step bin/setup.sh:50 runs). Do not hand-edit them. User projects get the new prompts on their next `/jit-speckit:init`.
+8. This repo's own tracked copies (.claude/skills/speckit-landspec-{pr,review,issues}/SKILL.md): regenerate them from extension/commands with `specify extension add --dev extension --force` (the step bin/setup.sh:50 runs). Do not hand-edit them. User projects get the new prompts on their next `/landspec:init`.
 
 No code in bin/setup.sh, level.sh or lib.sh changes. The key is read by the prompt, the same way `level:` is (pr.md:7). An absent key means the default, so no migration is needed.
 
@@ -505,9 +505,9 @@ What must never go to the fast model:
 - issues.md step 1 grounding;
 - the commit, the PR body and `/security-review`.
 
-- **Adjustments from the senior confirmation**: no checker agent (see above); `review.md` launches `jit-speckit:reviewer` and falls back to `general-purpose` with `model: opus` when the scoped id is refused; `review_model:` in `jit-config.yml` accepts only `sonnet`, `opus` or `fable`; the docs say `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` overrides it and the review costs more on a cheap session; the tracked `.claude/skills/speckit-jit-*` copies are regenerated with `specify extension add --dev extension --force`, said in Impact; one sandbox session shows the Agent call with the scoped id and `model: opus` before the task merges.
-- **Checks**: When agents/reviewer.md is read, then it has `name: reviewer`, `model: opus` and `effort: high` — FAILS on main (no agents/ directory).; When agents/checker.md is read, then it has `name: checker`, `model: haiku` and a `disallowedTools:` line containing Edit and Write — FAILS on main.; When agents/reviewer.md exists, then it has no `## Method` heading, so review.md stays the only copy of the method (`[[ -f agents/reviewer.md ]] && ! grep -q '^## Method' agents/reviewer.md`) — FAILS on main because the file is missing.; When review.md, pr.md and issues.md launch the reviewer, then each contains `jit-speckit:reviewer`, and neither pr.md nor issues.md contains `one fresh general-purpose subagent` — FAILS on main (review.md:14, pr.md:36, issues.md:33).; When review.md sets the reviewer model, then it names `review_model:` and contains exactly `jit: review_model must be sonnet, opus or fable` and `Never run the review on \`haiku\`` — FAILS on main.; When pr.md step 2 runs the checks, then it names `jit-speckit:checker` and `tail -n 1`, and agents/checker.md contains `mutants skipped tests failed` — FAILS on main.; When docs/reference.md's Configuration table is read, then it has a row starting `| \`review_model\` |` — FAILS on main.; When the plugin is loaded in a throwaway repo (`claude --plugin-dir <repo> -p '/speckit-jit-review' --output-format stream-json`, sandbox only, not CI), then the transcript has an Agent call with subagent_type `jit-speckit:reviewer` and model `opus` — FAILS on main (general-purpose with no model). That `--plugin-dir` and stream-json expose these fields is unverified.; When jit-config.yml sets `review_model: haiku` (sandbox), then the session prints `jit: review_model must be sonnet, opus or fable` and launches no reviewer — FAILS on main.; When setup runs (tests/setup.test.sh:33), then the speckit-jit-* skills are still registered — PASSES on main and must keep passing (regression guard).
-- **Risks**: Unverified: whether the Agent tool's `subagent_type` accepts the scoped id `jit-speckit:reviewer`. The docs show scoped names only for @-mentions, --agent and hook matchers. Confirm with the sandbox check before merging. If it fails, the fallback clause still gives a general-purpose agent with `model` pinned, so the gate keeps its model.; With CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1, the docs say Claude cannot pass a model on spawn. Whether passing one errors or is silently ignored is unverified. If it errors, review.md needs one more sentence: "if the call refuses `model`, launch without it".; Whether the `opus` and `fable` aliases are available on every plan or provider (Bedrock, Vertex, Pro) is unverified. A user without Opus sets `review_model: sonnet`. A wrong value fails loudly through the `jit: review_model` line instead of downgrading silently.; Cost goes up for users whose session runs on Sonnet or Haiku (an Opus reviewer for up to 3 rounds plus the plan review). This is intended, but the docs row should say so.; Haiku can misreport. Exit codes come from the shell-written `exit=` line in each log, and the author checks it with `tail`. The mutants and security lines are copied from the scripts, so the author reads REPORT_DIR whenever a line is not ok. CI on the PR remains the final gate.; Running the reviewer and security-scan in parallel: the reviewer's Method step 5 breaks a file for a moment while the scanner reads the changed files, so a scan can be flaky (rare). If that matters, run the scan before launching the reviewer.; Projects keep the old prompts (general-purpose, which still works) until they re-run /jit-speckit:init. The plugin's agents only exist where the plugin is installed. Extension-only installs with other integrations use the fallback clause.; Overlap with feature 002 (release 1.8.0), which also edits review.md's Report section and pr.md step 5: implement this after 002 merges to avoid conflicts. The constitution's version bump applies (all three version files).
+- **Adjustments from the senior confirmation**: no checker agent (see above); `review.md` launches `landspec:reviewer` and falls back to `general-purpose` with `model: opus` when the scoped id is refused; `review_model:` in `landspec-config.yml` accepts only `sonnet`, `opus` or `fable`; the docs say `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` overrides it and the review costs more on a cheap session; the tracked `.claude/skills/speckit-landspec-*` copies are regenerated with `specify extension add --dev extension --force`, said in Impact; one sandbox session shows the Agent call with the scoped id and `model: opus` before the task merges.
+- **Checks**: When agents/reviewer.md is read, then it has `name: reviewer`, `model: opus` and `effort: high` — FAILS on main (no agents/ directory).; When agents/checker.md is read, then it has `name: checker`, `model: haiku` and a `disallowedTools:` line containing Edit and Write — FAILS on main.; When agents/reviewer.md exists, then it has no `## Method` heading, so review.md stays the only copy of the method (`[[ -f agents/reviewer.md ]] && ! grep -q '^## Method' agents/reviewer.md`) — FAILS on main because the file is missing.; When review.md, pr.md and issues.md launch the reviewer, then each contains `landspec:reviewer`, and neither pr.md nor issues.md contains `one fresh general-purpose subagent` — FAILS on main (review.md:14, pr.md:36, issues.md:33).; When review.md sets the reviewer model, then it names `review_model:` and contains exactly `landspec: review_model must be sonnet, opus or fable` and `Never run the review on \`haiku\`` — FAILS on main.; When pr.md step 2 runs the checks, then it names `landspec:checker` and `tail -n 1`, and agents/checker.md contains `mutants skipped tests failed` — FAILS on main.; When docs/reference.md's Configuration table is read, then it has a row starting `| \`review_model\` |` — FAILS on main.; When the plugin is loaded in a throwaway repo (`claude --plugin-dir <repo> -p '/speckit-landspec-review' --output-format stream-json`, sandbox only, not CI), then the transcript has an Agent call with subagent_type `landspec:reviewer` and model `opus` — FAILS on main (general-purpose with no model). That `--plugin-dir` and stream-json expose these fields is unverified.; When landspec-config.yml sets `review_model: haiku` (sandbox), then the session prints `landspec: review_model must be sonnet, opus or fable` and launches no reviewer — FAILS on main.; When setup runs (tests/setup.test.sh:33), then the speckit-landspec-* skills are still registered — PASSES on main and must keep passing (regression guard).
+- **Risks**: Unverified: whether the Agent tool's `subagent_type` accepts the scoped id `landspec:reviewer`. The docs show scoped names only for @-mentions, --agent and hook matchers. Confirm with the sandbox check before merging. If it fails, the fallback clause still gives a general-purpose agent with `model` pinned, so the gate keeps its model.; With CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1, the docs say Claude cannot pass a model on spawn. Whether passing one errors or is silently ignored is unverified. If it errors, review.md needs one more sentence: "if the call refuses `model`, launch without it".; Whether the `opus` and `fable` aliases are available on every plan or provider (Bedrock, Vertex, Pro) is unverified. A user without Opus sets `review_model: sonnet`. A wrong value fails loudly through the `landspec: review_model` line instead of downgrading silently.; Cost goes up for users whose session runs on Sonnet or Haiku (an Opus reviewer for up to 3 rounds plus the plan review). This is intended, but the docs row should say so.; Haiku can misreport. Exit codes come from the shell-written `exit=` line in each log, and the author checks it with `tail`. The mutants and security lines are copied from the scripts, so the author reads REPORT_DIR whenever a line is not ok. CI on the PR remains the final gate.; Running the reviewer and security-scan in parallel: the reviewer's Method step 5 breaks a file for a moment while the scanner reads the changed files, so a scan can be flaky (rare). If that matters, run the scan before launching the reviewer.; Projects keep the old prompts (general-purpose, which still works) until they re-run /landspec:init. The plugin's agents only exist where the plugin is installed. Extension-only installs with other integrations use the fallback clause.; Overlap with feature 002 (release 1.8.0), which also edits review.md's Report section and pr.md step 5: implement this after 002 merges to avoid conflicts. The constitution's version bump applies (all three version files).
 
 ## R13 · Parallel tasks from `next` (FR-036)
 
@@ -526,23 +526,23 @@ num="$(feature_key "$fdir")"
 for id in $PAR; do
   [[ "$id" != "$NEXT_ID" ]] || continue
   wt="$(printf %q "$(dirname "$PWD")/$(basename "$PWD")-$num-$(tr '[:upper:]' '[:lower:]' <<<"$id")")"
-  echo "parallel $id (git worktree add --quiet --detach $wt origin/$(base_branch) && cd $wt && bash .specify/extensions/jit/scripts/branch.sh $num $id)"
+  echo "parallel $id (git worktree add --quiet --detach $wt origin/$(base_branch) && cd $wt && bash .specify/extensions/landspec/scripts/branch.sh $num $id)"
 done
 ```
 - Header comment, lines 8-9: add "then a `parallel <Tnnn> (<command>)` line for each other open [P] task".
 - Exact new output for repo /w/app, feature 001, base develop, open [P] task T003:
-  `parallel T003 (git worktree add --quiet --detach /w/app-001-t003 origin/develop && cd /w/app-001-t003 && bash .specify/extensions/jit/scripts/branch.sh 001 T003)`
+  `parallel T003 (git worktree add --quiet --detach /w/app-001-t003 origin/develop && cd /w/app-001-t003 && bash .specify/extensions/landspec/scripts/branch.sh 001 T003)`
 - The `DONE=... NEXT=...` line stays last, so existing `tail -1` parsing keeps working.
 
 2. skills/next/SKILL.md: insert after step 3 (clean tree), before "Run /speckit-implement <NEXT>":
 "If it printed `parallel` lines, those [P] tasks can start now beside NEXT. Ask once: 'Also start <ids> in their own worktrees?' On yes, run each line exactly as printed, one at a time. Each one claims its task on origin before the next one runs. If a line fails, show its message and skip that task. Then list, per task: open a Claude Code session in <the path after --detach> and run `/speckit-implement <feature> <id>`. Never run two of these lines at once."
 Add to step 2's legend: "parallel: an open [P] task that can start in its own worktree."
 
-3. docs/reference.md line 101 (Worktrees row): replace with "`/jit-speckit:next` lists the other [P] tasks that can start now and, on yes, gives each its own worktree beside the repo (`<repo>-<feature>-<task>`) and claims its branch on origin, one after another. Open a Claude Code session in each and run `/speckit-implement <feature> <task>`. Each task keeps its own branch and PR. Blocked tasks and tasks without [P] are never offered. When you're done, remove each worktree with `git worktree remove <path>`." This also drops the claim that "every worktree gets a different task" when sessions run `next` at the same time, which is false (see rationale). The same change fits docs/GUIDELINES.md lines 153-156.
+3. docs/reference.md line 101 (Worktrees row): replace with "`/landspec:next` lists the other [P] tasks that can start now and, on yes, gives each its own worktree beside the repo (`<repo>-<feature>-<task>`) and claims its branch on origin, one after another. Open a Claude Code session in each and run `/speckit-implement <feature> <task>`. Each task keeps its own branch and PR. Blocked tasks and tasks without [P] are never offered. When you're done, remove each worktree with `git worktree remove <path>`." This also drops the claim that "every worktree gets a different task" when sessions run `next` at the same time, which is false (see rationale). The same change fits docs/GUIDELINES.md lines 153-156.
 
 4. tests/next.test.sh: add a "Parallel" block before the T004 block (prototype in /tmp/tmp.RYBIVhVdkq/tests/next.test.sh lines 79-97). It adds `T006 [P] ... (depends on T001) #9` and `T007 [P] ... #10`, then runs the 4 checks listed. The last check runs the printed line with the script path rewritten to $SCRIPTS (the test repo git-ignores .specify). Cleanup uses `|| true` so the file runs to the end even on main.
 
 - **Adjustments from the senior confirmation**: kept as its own task after T005 (the user asked for parallel tasks in the product); after FR-012 a refused claim only warns, so the line "starts" the task, it does not guarantee the claim: the skill says so; `docs/reference.md:101` loses "so every worktree gets a different task".
 - **Checks**: when open [P] tasks exist besides NEXT, then each gets a `parallel` line with the exact worktree and branch.sh command, and the DONE line stays last: FAILS on main (main prints no parallel lines); then a blocked [P] task (depends on an open T001), a task without [P] (T003) and NEXT get no parallel line: PASSES on main, trivially, because main prints no parallel lines; it guards the [P] and blocked filters, and the drop-[P]-filter mutant fails it; when NEXT itself is a [P] task (T001 closed, NEXT=T002), then T002 gets no parallel line while T007 does: FAILS on main (no T007 line); it kills the drop-NEXT-exclusion mutant; when a printed parallel line is run, then the task's branch is on origin (claimed), and the next `next` run shows it as in-progress with no parallel line for it: FAILS on main (there is no line to run); the 21 existing next.test.sh checks still pass with the patch (tail -1 is still DONE=...): PASSES on main and on the patch
-- **Risks**: Two people in separate clones who run `next` at the same moment can still both pick the same NEXT, and branch.sh line 52 then quietly tracks the other clone's origin branch. This change only fixes the case of one session handing out tasks. Fully fixing the cross-clone race needs a claim that can fail (for example, an empty claim commit pushed so that a second push is rejected). That is a separate change and is unverified.; The line runs branch.sh from the new worktree's own tree, so `.specify/extensions/jit/` and jit-config.yml must be committed on the base branch. skills/init/SKILL.md:56-63 commits them, but this is unverified for projects that skipped that commit. There the line fails with 'No such file', and the skill skips the task.; A leftover `<repo>-<feature>-<task>` folder makes `git worktree add` fail. The skill shows the error and skips that task. Worktrees are not cleaned up automatically; the docs tell the user to run `git worktree remove`.; A new worktree has no git-ignored files (.env, node_modules). The user must install dependencies there before the pre-PR checks will pass.; [P] is only as good as the task author's marking. Two [P] tasks that really touch the same file will conflict at merge.; Not verified: shellcheck (not installed here) and a run under real bash 3.2. The prototype ran under bash 5.3. All features used (+=, printf %q, <<<) exist in bash 3.2 per its manual.
+- **Risks**: Two people in separate clones who run `next` at the same moment can still both pick the same NEXT, and branch.sh line 52 then quietly tracks the other clone's origin branch. This change only fixes the case of one session handing out tasks. Fully fixing the cross-clone race needs a claim that can fail (for example, an empty claim commit pushed so that a second push is rejected). That is a separate change and is unverified.; The line runs branch.sh from the new worktree's own tree, so `.specify/extensions/landspec/` and landspec-config.yml must be committed on the base branch. skills/init/SKILL.md:56-63 commits them, but this is unverified for projects that skipped that commit. There the line fails with 'No such file', and the skill skips the task.; A leftover `<repo>-<feature>-<task>` folder makes `git worktree add` fail. The skill shows the error and skips that task. Worktrees are not cleaned up automatically; the docs tell the user to run `git worktree remove`.; A new worktree has no git-ignored files (.env, node_modules). The user must install dependencies there before the pre-PR checks will pass.; [P] is only as good as the task author's marking. Two [P] tasks that really touch the same file will conflict at merge.; Not verified: shellcheck (not installed here) and a run under real bash 3.2. The prototype ran under bash 5.3. All features used (+=, printf %q, <<<) exist in bash 3.2 per its manual.
 

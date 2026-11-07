@@ -1,6 +1,6 @@
 Reviewed at: 172f8c5 (v1.7.2)
 
-# Critical-points review — jit-speckit 1.7.2
+# Critical-points review — landspec 1.7.2
 
 Built from the eight sections under [report/](report/). Each finding's evidence, reproduction and
 output are in its section; this page ranks them, gives one fix per public High and Medium finding,
@@ -23,7 +23,7 @@ or a message (F1.4, F1.5, F2.2, F2.5, F3.2).
 | id | rank | promise | finding | proposed fix | section |
 |---|---|---|---|---|---|
 | F2.1 | High | P06, P07 | reported privately (GHSA-4mx7-h98x-x6hf) | in the advisory | [2](report/2-secrets-guard.md) |
-| F5.2 | High | P20 | `remove` deletes a managed file the user edited, uncommitted edits included | keep marked files that changed since jit wrote them | [5](report/5-levels-files.md) |
+| F5.2 | High | P20 | `remove` deletes a managed file the user edited, uncommitted edits included | keep marked files that changed since landspec wrote them | [5](report/5-levels-files.md) |
 | F5.4 | High | P21, P10 | an older plugin copy downgrades a newer project without a word, and removes the review gate | `setup.sh` refuses to go below the project's version | [5](report/5-levels-files.md) |
 | F1.1 | Medium | P02, P04 | a refused claim push is silent, so the task is not claimed | warn when the claim push fails | [1](report/1-task-chain.md) |
 | F1.2 | Medium | P03, P04 | `next` finds closed issues by title search; a renamed closed issue counts as not done | look each task's issue up by number | [1](report/1-task-chain.md) |
@@ -67,17 +67,17 @@ or a message (F1.4, F1.5, F2.2, F2.5, F3.2).
 | D2 the spec is its own PR into the base | replace | the spec is the feature branch's first commit ([7](report/7-core-model.md)) |
 | D3 three levels | simplify | let the review bar scale with the level; say what lite lacks ([7](report/7-core-model.md)) |
 | own rules | 15 of 28 rows `exception missing` | 6 are findings above; the rest are history before the constitution, tests per script, `.env` ignore, GUARDRAILS sources, scripts outside `lib.sh`, no "seen to fail" line in PRs, and the repository running the previous release ([6](report/6-own-rules-cost.md)) |
-| prompts C01–C11 | 3 follow, 7 depart (2 with reason written), 1 unverified | biggest: `/jit-speckit:new` loads 7,401 words before its first question (C04) ([8](report/8-context-engineering.md)) |
+| prompts C01–C11 | 3 follow, 7 depart (2 with reason written), 1 unverified | biggest: `/landspec:new` loads 7,401 words before its first question (C04) ([8](report/8-context-engineering.md)) |
 
 ## Fixes
 
 One entry per public High and Medium finding. Each check fails today and passes after the fix.
 F2.1's fix is in its private advisory.
 
-### Fix F5.2 · `remove.sh` keeps a marked file that has uncommitted edits or differs from what jit wrote
+### Fix F5.2 · `remove.sh` keeps a marked file that has uncommitted edits or differs from what landspec wrote
 
-- **promise**: P20, `remove` deletes only what still matches what jit wrote.
-- **change**: `put()` records the SHA-256 of every file it writes in `.specify/jit-files.sha256`;
+- **promise**: P20, `remove` deletes only what still matches what landspec wrote.
+- **change**: `put()` records the SHA-256 of every file it writes in `.specify/landspec-files.sha256`;
   `bin/remove.sh` deletes a marked file only when its hash matches that record, or, with no
   record (a project set up before the fix), only when it is tracked and `git diff --quiet HEAD`
   says it is unchanged; otherwise it prints `kept (edited): <file>`.
@@ -87,7 +87,7 @@ F2.1's fix is in its private advisory.
 ### Fix F5.4 · `setup.sh` refuses to downgrade a project without `--downgrade`
 
 - **promise**: P21 (and P10, whose gate a downgrade removes).
-- **change**: `bin/setup.sh` reads `version:` from `.specify/extensions/jit/extension.yml` and
+- **change**: `bin/setup.sh` reads `version:` from `.specify/extensions/landspec/extension.yml` and
   refuses to go below it without `--downgrade`: "this plugin copy is <old>, the project is at
   <new>; run /reload-plugins".
 - **check** (`tests/setup.test.sh`): when the project's extension is at a newer version than the
@@ -96,7 +96,7 @@ F2.1's fix is in its private advisory.
 ### Fix F1.1 · `branch.sh` warns when the claim push is refused
 
 - **promise**: P02, P04, a started task is claimed on origin.
-- **change**: on a failed push at `branch.sh:56`, print `jit: warning: could not claim <branch>
+- **change**: on a failed push at `branch.sh:56`, print `landspec: warning: could not claim <branch>
   on origin: <git's error>; other clones may start this task` to stderr, and still exit 0.
 - **check** (`tests/branch.test.sh`): when origin refuses the claim push, then `branch.sh` exits 0
   and its output contains `could not claim`.
@@ -192,7 +192,7 @@ F2.1's fix is in its private advisory.
 ### Fix F3.4 · `mutants.sh` records its result per diff, and `pr.sh task` requires it
 
 - **promise**: P13, mutation testing runs on the change.
-- **change**: `mutants.sh` writes its result line to `.git/jit-mutants/<diff patch id>`;
+- **change**: `mutants.sh` writes its result line to `.git/landspec-mutants/<diff patch id>`;
   `pr.sh task` refuses when there is none for this diff, or on `survivors` with no `## Evidence`
   line naming them. `missing` stays allowed and goes into the body.
 - **check** (`tests/pr.test.sh`): when the constitution has a `mutate` command and `mutants.sh`
@@ -211,7 +211,7 @@ F2.1's fix is in its private advisory.
 ### Fix F3.6 · `security-scan.sh --changed` records its result per diff, and `pr.sh task` requires it
 
 - **promise**: P26, the scanners run on the changed files before each PR.
-- **change**: `security-scan.sh --changed` writes its result to `.git/jit-security/<diff patch
+- **change**: `security-scan.sh --changed` writes its result to `.git/landspec-security/<diff patch
   id>`, and `pr.sh task` refuses when there is none for this diff.
 - **check** (`tests/pr.test.sh`): when no scan was recorded for this diff, then `pr.sh task`
   refuses and names `security-scan.sh`.
@@ -304,12 +304,12 @@ F2.1's fix is in its private advisory.
 
 - **promise**: P19, P21.
 - **change**: `put` treats a file byte-identical to a hook an earlier release wrote (a list of
-  SHA-256s kept in the extension) as jit's, and names the others it recognizes: `kept (written by jit-speckit <versions>, no marker): <file> — delete it to get
+  SHA-256s kept in the extension) as landspec's, and names the others it recognizes: `kept (written by landspec <versions>, no marker): <file> — delete it to get
   the current one` (and `<versions> or older` for generated files).
 - **check** (`tests/level.test.sh`, with v1.3.0's hook as a committed fixture, since CI's checkout
   has no tags): when `.githooks/pre-commit` is v1.3.0's exact file, then `level.sh` replaces it and it carries the marker; and when
   `close-linked-issues.yml` is v1.3.1's exact file, then it is kept and
-  named in a `kept (written by jit-speckit 1.3.1` line (replacing it would
+  named in a `kept (written by landspec 1.3.1` line (replacing it would
   undo a take-over, since 1.4.0+'s copy without its marker has the same bytes).
 
 ### Fix F5.6 · the macOS job runs on PRs that touch scripts, and on tags
@@ -338,5 +338,5 @@ need nothing; the others carry a one-line note in their section that a later tas
 | the generated trivy job | [4](report/4-ci-supply-chain.md) | its checksum pin was checked; generate it in a repo with a Dockerfile and read the job |
 | DORA's 2025 model lists small batches among its capabilities (`docs/design.md`) | [7](report/7-core-model.md) | open the capabilities PDF on cloud.google.com |
 | `Closes #N` in task PRs reaches the default branch through merge or squash commit messages | [7](report/7-core-model.md) | on the sandbox, set both commit messages to the PR's description, merge a feature branch, see whether the task issues close |
-| review round times per task and for the plan review | [6](report/6-own-rules-cost.md) | the reports are in this clone's `.git/jit-review/` only; they cannot be re-checked from GitHub |
+| review round times per task and for the plan review | [6](report/6-own-rules-cost.md) | the reports are in this clone's `.git/landspec-review/` only; they cannot be re-checked from GitHub |
 | skill sizes against `/doctor` (C11) | [8](report/8-context-engineering.md) | run `/doctor` with the plugin loaded and paste its output |

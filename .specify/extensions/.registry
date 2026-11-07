@@ -1,23 +1,23 @@
 {
   "schema_version": "1.0",
   "extensions": {
-    "jit": {
-      "version": "1.7.2",
+    "landspec": {
+      "version": "2.0.0",
       "source": "local",
-      "manifest_hash": "sha256:a690c409213b86bd6a6503da780ce5ebc7680e4faaa9021d57cee93d4f6ff2fe",
+      "manifest_hash": "sha256:6e774a5ebba09b079b04524febfaf3f15fa6af1ac1fea5946769ddc4af3dfcf1",
       "enabled": true,
       "priority": 10,
       "registered_commands": {
         "claude": [
-          "speckit.jit.issues",
-          "speckit.jit.analyzed",
-          "speckit.jit.branch",
-          "speckit.jit.pr",
-          "speckit.jit.review"
+          "speckit.landspec.issues",
+          "speckit.landspec.analyzed",
+          "speckit.landspec.branch",
+          "speckit.landspec.pr",
+          "speckit.landspec.review"
         ]
       },
       "registered_skills": [],
-      "installed_at": "2026-11-07T03:35:45.062522+00:00"
+      "installed_at": "2026-11-07T19:29:31.247098+00:00"
     }
   }
 }

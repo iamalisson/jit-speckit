@@ -15,19 +15,19 @@ for a in "$@"; do
   esac
 done
 [[ "$task" =~ ^T[0-9]{3,}$ ]] || die "usage: branch.sh [feature] T001 (exactly one task ID)"
-jit_cd_root
+landspec_cd_root
 
 if [[ -n "$feature" ]]; then fdir="$(resolve_feature "$feature")"; else fdir="$(feature_dir)"; fi
 line="$(task_line "$fdir" "$task")"
 [[ -n "$line" ]] || die "$task not found in $fdir/tasks.md"
 issue="$(task_issue "$line")"
-[[ -n "$issue" ]] || die "$task has no issue yet (every task needs one); run /speckit-jit-issues"
+[[ -n "$issue" ]] || die "$task has no issue yet (every task needs one); run /speckit-landspec-issues"
 
 base="$(base_branch)"
 git fetch --quiet origin 2>/dev/null || true
 if git show-ref --verify --quiet "refs/remotes/origin/$base"; then from="origin/$base"
 elif git show-ref --verify --quiet "refs/heads/$base"; then from="$base"
-else die "base branch '$base' does not exist; run /jit-speckit:level to set up the branch flow"
+else die "base branch '$base' does not exist; run /landspec:level to set up the branch flow"
 fi
 
 # Task branches start from the base, so the spec, with this task's line, has to be merged there first.
@@ -36,8 +36,8 @@ on_base="$(git show "$from:$fdir/tasks.md" 2>/dev/null)" \
 grep -qE "^- \[.\] $task " <<<"$on_base" \
   || die "$task is not in $fdir/tasks.md on '$base' yet; merge the spec PR first"
 
-if [[ "$(jit_level)" == full ]]; then
-  marker="$(git rev-parse --git-common-dir)/jit-analyzed/$(basename "$fdir")"
+if [[ "$(landspec_level)" == full ]]; then
+  marker="$(git rev-parse --git-common-dir)/landspec-analyzed/$(basename "$fdir")"
   want="$(git show "$from:$fdir/tasks.md" | sha256)"
   [[ -f "$marker" && "$(cat "$marker")" == "$want" ]] \
     || die "level 'full' requires /speckit-analyze on the current tasks.md before implementing"
@@ -56,13 +56,13 @@ if [[ "$(git branch --show-current)" != "$branch" ]]; then
     git switch --quiet --no-track -c "$branch" "$from"
     # The claim: an empty branch on origin tells every other clone's `next` this task is taken.
     if err="$(git push --quiet -u origin "$branch" 2>&1)"; then echo "claim: $branch pushed to origin" >&2
-    else echo "jit: warning: could not claim $branch on origin: $(tr '\n' ' ' <<<"${err:-unknown error}" | sed 's/ *$//'); other clones may start this task" >&2
+    else echo "landspec: warning: could not claim $branch on origin: $(tr '\n' ' ' <<<"${err:-unknown error}" | sed 's/ *$//'); other clones may start this task" >&2
     fi
   fi
 fi
 
 # spec-kit's own /speckit-implement reads only this file (git-ignored, so a new worktree has none):
-# point it at the task's feature, so jit and spec-kit always work on the same one.
+# point it at the task's feature, so landspec and spec-kit always work on the same one.
 mkdir -p .specify
 printf '{ "feature_directory": "%s" }\n' "$fdir" > .specify/feature.json
 

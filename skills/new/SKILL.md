@@ -1,6 +1,6 @@
 ---
 name: new
-description: "Start a new project with jit-speckit: talk through the stack, architecture and infrastructure with the user, catch missing or risky choices (tests, logging, errors, secrets, backups, over-engineering), then set up the project's tooling for any stack (current versions, linters, tests, lockfile, CI, containers) from primary sources, with no application code, prove it runs green, set up jit-speckit, and suggest a foundation spec. Use for /jit-speckit:new or when the user wants to start a project."
+description: "Start a new project with landspec: talk through the stack, architecture and infrastructure with the user, catch missing or risky choices (tests, logging, errors, secrets, backups, over-engineering), then set up the project's tooling for any stack (current versions, linters, tests, lockfile, CI, containers) from primary sources, with no application code, prove it runs green, set up landspec, and suggest a foundation spec. Use for /landspec:new or when the user wants to start a project."
 argument-hint: "[stack or idea]"
 disable-model-invocation: true
 ---
@@ -21,9 +21,9 @@ health) arrive through a spec, so they are reviewed like any feature. Versions a
 today's, not the ones you remember: look them up.
 
 1. **Where.** The current directory must be empty, or a fresh git repo with no source code. If
-   it has code, stop and suggest `/jit-speckit:init`, which adopts existing code.
+   it has code, stop and suggest `/landspec:init`, which adopts existing code.
 2. **Understand the project.** Ask the `GUARDRAILS.md` section 1 questions the user hasn't
-   already answered, a few at a time, in plain words. Then say which jit-speckit level fits and
+   already answered, a few at a time, in plain words. Then say which landspec level fits and
    why.
 3. **Decide together.** For each choice, recommend one option with a one-line reason, and let
    the user push back. If they propose their own setup, check it against `GUARDRAILS.md`:
@@ -63,7 +63,7 @@ today's, not the ones you remember: look them up.
    installed and configured (with no code yet, it has nothing to mutate). If the stack has no
    entry in `references.yaml`, find its current tools in the official docs and say which you
    chose.
-7. **Set up jit-speckit.** These are user-only commands, so do their work directly instead of
+7. **Set up landspec.** These are user-only commands, so do their work directly instead of
    invoking them. If there is no git repo, run `git init`. If `gh repo view` fails, there is no
    GitHub repository yet, and issues and PRs need one: ask its name and visibility and offer
    `gh repo create <name> --private --source . --remote origin` (`--public` for a public one). On
@@ -79,7 +79,7 @@ today's, not the ones you remember: look them up.
 8. **Finish** in five lines: the decisions, any accepted risks, what was set up, the checks that
    passed, and the next step: review and commit the setup, `git push -u origin <default branch>`
    (the first push to an empty repository is the one allowed straight to it), and
-   `/jit-speckit:level <level>`, which creates `develop` (and `staging`) now that there is a
+   `/landspec:level <level>`, which creates `develop` (and `staging`) now that there is a
    commit. Then start with the foundation spec, giving them the exact command to paste:
    `/speckit-specify "Foundation: <the Foundation spec items that apply, in one sentence each>"`.
    Nothing is committed for them.

@@ -105,18 +105,21 @@ check "when Claude pushes with no refspec while on main, then it is blocked" 'bl
 check "when pushing HEAD or @ while on main, then it is blocked" 'blocked "git push origin HEAD" && blocked "git push origin @"'
 check "when the command is not git, then it is allowed" '"$g" "ls -la && echo done"'
 
-# The plugin hook shim: JSON in, guard decision out; silent outside jit projects.
+# The plugin hook shim: JSON in, guard decision out; silent outside landspec projects.
 shim="$ROOT/hooks/guard-git.sh"
 json() { printf '{"tool_name":"Bash","cwd":"%s","tool_input":{"command":"%s"}}' "$1" "$2"; }
-check "when the hook gets a blocked command inside a jit project, then it exits 2" \
+check "when the hook gets a blocked command inside a landspec project, then it exits 2" \
   'rc=0; json "$PWD" "git push origin develop" | bash "$shim" 2>/dev/null || rc=$?; [[ $rc == 2 ]]'
+mkdir -p "$TMP/oldname/.specify/extensions/jit" && git -C "$TMP/oldname" init --quiet
+check "when a project still has the old jit folder, then the hook still guards it" \
+  'rc=0; json "$TMP/oldname" "git add -A" | bash "$shim" 2>/dev/null || rc=$?; [[ $rc == 2 ]]'
 mkdir -p "$TMP/plain" && git -C "$TMP/plain" init --quiet
-check "when the project does not use jit-speckit, then the hook allows everything" \
+check "when the project does not use landspec, then the hook allows everything" \
   'json "$TMP/plain" "git push origin main" | bash "$shim"'
 
 
-mkdir -p "$TMP/plain/.specify/extensions/jit/scripts"; echo 'exit 0' > "$TMP/plain/.specify/extensions/jit/scripts/guard.sh"
-printf 'level: lite\n' > "$TMP/plain/.specify/extensions/jit/jit-config.yml"
+mkdir -p "$TMP/plain/.specify/extensions/landspec/scripts"; echo 'exit 0' > "$TMP/plain/.specify/extensions/landspec/scripts/guard.sh"
+printf 'level: lite\n' > "$TMP/plain/.specify/extensions/landspec/landspec-config.yml"
 check "when the repo ships its own guard (stale or tampered), then the plugin's copy decides, not the repo's" \
   'rc=0; json "$TMP/plain" "git add -A" | bash "$shim" 2>/dev/null || rc=$?; [[ $rc == 2 ]]'
 mkdir -p "$TMP/plain/sub/.specify"

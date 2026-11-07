@@ -20,7 +20,7 @@ All entities live as Markdown in `report.md` and `report/*.md`; there is no stor
 | verdict | `holds`, `limit` (holds with a documented limit), `broken`, `unverified` when it could not be reproduced (`unverified (advisory pending)` when filing its advisory failed), or `reported privately (Fn.m, GHSA id)` for an exploitable one |
 | rank | `High`, `Medium` or `Low` per FR-009; required for `broken` and for `limit` when the docs mislead; a `limit` the docs describe honestly is always `Low` |
 | evidence | `file:line`, a test name, or a command and its output |
-| reproduction | required for `broken` and `limit`: steps on a throwaway repo; for an exploitable finding, only in its private advisory (FR-013); for a public bypass of a protection, the script lives in `.git/jit-repro/`, the report gives class, output and `file:line` |
+| reproduction | required for `broken` and `limit`: steps on a throwaway repo; for an exploitable finding, only in its private advisory (FR-013); for a public bypass of a protection, the script lives in `.git/landspec-repro/`, the report gives class, output and `file:line` |
 | exposure | `public` or `private` (exploitable, FR-013); a private finding's committed text is only its promise row with `reported privately (Fn.m, GHSA id)` |
 | fix | required for High and Medium: one change, the promise it restores, and a check "when …, then …" that fails now and passes after (FR-010) |
 

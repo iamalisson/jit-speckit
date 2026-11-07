@@ -82,7 +82,7 @@ and the guard is "best effort", with "CI and branch protection" as the boundary.
     is let through. This is the other side of F2.2's second case.
 
   Output of the probe (the script, with the exact commands, is kept outside the repository in
-  `$(git rev-parse --git-common-dir)/jit-repro/t002-private.sh`, never committed):
+  `$(git rev-parse --git-common-dir)/landspec-repro/t002-private.sh`, never committed):
   `PASSES  abbreviated long option` and `PASSES  switch then commit on base`, plus a check that
   git itself takes that abbreviation as the full option (git 2.56.0).
 
@@ -107,7 +107,7 @@ and the guard is "best effort", with "CI and branch protection" as the boundary.
 - **verdict**: limit (the docs mislead)
 - **evidence**: `hooks/hooks.json` relies on `onFailure: "block"`, which the hooks reference
   says requires v2.1.295 or later. On older versions a timeout, a crash or exit 1 is a
-  non-blocking error and the command runs. Nothing in jit checks the Claude Code version. The
+  non-blocking error and the command runs. Nothing in landspec checks the Claude Code version. The
   only versions the docs give are lower: the constitution's "Stack" says "the plugin needs Claude
   Code 2.1.275 or newer" (`.specify/memory/constitution.md:19`), and `README.md:44` says of the
   one-line install command "Needs Claude Code 2.1.275 or newer; on older versions use two
@@ -150,7 +150,7 @@ and the guard is "best effort", with "CI and branch protection" as the boundary.
 # T002 reproductions (public part), run as: bash t002-repro.sh <v1.7.2 worktree>
 source "$1/tests/helpers.sh"
 fake_gh; new_repo standard
-[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/jit-speckit ] || exit 1
+[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/landspec ] || exit 1
 s="$SCRIPTS/secrets.sh"; g="$SCRIPTS/guard.sh"
 git switch -q -c feat/001-t001-x
 # Fake secrets are assembled here at run time, so no token-shaped string sits in this file.
@@ -193,7 +193,7 @@ for c in 'git commit --no-verify -m x' 'git commit -nm x' 'git -c core.hooksPath
 
 ```text
 == A. commit check: secret-bearing files and provider tokens
-jit: refusing: possible secrets
+landspec: refusing: possible secrets
   .env: secret-bearing file
   certs/server.pem: secret-bearing file
   config/.env.production: secret-bearing file
@@ -202,37 +202,37 @@ jit: refusing: possible secrets
   app.py:2: possible AWS access key
   Remove them (and rotate any real credential that was ever committed or pushed).
   Load secrets from the environment and keep a .env.example with the keys only.
-  A false positive can be allowed on that line with a comment containing: jit:allow-secret
+  A false positive can be allowed on that line with a comment containing: landspec:allow-secret
 rc=1
 == B. the finding never prints the secret
 secret not in the output
 == C. time on a large diff (20,000 added lines, 1 secret)
 rc=1 in 66 ms
 == D. push check: a --no-verify commit is caught at push; deleting a branch is not scanned
-jit: refusing: possible secrets
+landspec: refusing: possible secrets
   leak.py:1: possible GitHub token
   Remove them (and rotate any real credential that was ever committed or pushed).
   Load secrets from the environment and keep a .env.example with the keys only.
-  A false positive can be allowed on that line with a comment containing: jit:allow-secret
+  A false positive can be allowed on that line with a comment containing: landspec:allow-secret
 rc=1
 delete rc=0
 == E. push straight to develop (standard) is refused
-jit: refusing to push straight to 'develop'; open a pull request instead
+landspec: refusing to push straight to 'develop'; open a pull request instead
 == F. guard: valid commands it refuses (false positives)
-jit-speckit guard: switching git hooks off skips the secret checks
+landspec guard: switching git hooks off skips the secret checks
 rc=2   <- a read of the setting
-jit-speckit guard: committing on 'main' is not allowed; start a task with /speckit-implement Tnnn (or /jit-speckit:next)
+landspec guard: committing on 'main' is not allowed; start a task with /speckit-implement Tnnn (or /landspec:next)
 rc=2   <- judged by the branch the chain starts on
-jit-speckit guard: stage files by name (git add path/to/file), not everything at once
+landspec guard: stage files by name (git add path/to/file), not everything at once
 rc=2   <- a command in another repository
 == G. guard: what it refuses as documented
-git commit --no-verify -m x  ->  jit-speckit guard: --no-verify skips the secret checks; fix what the hook reports instead
-git commit -nm x  ->  jit-speckit guard: commit -n is --no-verify, which skips the secret checks
-git -c core.hooksPath=/dev/null commit -m x  ->  jit-speckit guard: switching git hooks off skips the secret checks
-git add -A  ->  jit-speckit guard: stage files by name (git add path/to/file), not everything at once
-git push origin develop  ->  jit-speckit guard: pushing to 'develop' is not allowed; it only changes through pull requests
-env FOO=1 git push --no-verify  ->  jit-speckit guard: --no-verify skips the pre-push secret scan
-sh -c 'git add --all'  ->  jit-speckit guard: stage files by name (git add path/to/file), not everything at once
+git commit --no-verify -m x  ->  landspec guard: --no-verify skips the secret checks; fix what the hook reports instead
+git commit -nm x  ->  landspec guard: commit -n is --no-verify, which skips the secret checks
+git -c core.hooksPath=/dev/null commit -m x  ->  landspec guard: switching git hooks off skips the secret checks
+git add -A  ->  landspec guard: stage files by name (git add path/to/file), not everything at once
+git push origin develop  ->  landspec guard: pushing to 'develop' is not allowed; it only changes through pull requests
+env FOO=1 git push --no-verify  ->  landspec guard: --no-verify skips the pre-push secret scan
+sh -c 'git add --all'  ->  landspec guard: stage files by name (git add path/to/file), not everything at once
 ```
 
 </details>

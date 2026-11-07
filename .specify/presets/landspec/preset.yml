@@ -1,0 +1,33 @@
+schema_version: "1.0"
+
+preset:
+  id: landspec
+  name: "landspec"
+  version: "2.0.0"
+  description: "Constitution with level-sized defaults, and tasks sized as one issue and one PR each"
+  author: iamalisson
+  repository: https://github.com/iamalisson/landspec
+  license: MIT
+
+requires:
+  speckit_version: ">=1.2.0"
+
+provides:
+  templates:
+    - type: template
+      name: constitution-template
+      file: templates/constitution-template.md
+      description: "Constitution with a generated defaults block per complexity level"
+      replaces: constitution-template
+    - type: template
+      name: tasks-template
+      file: templates/tasks-template.md
+      description: "Tasks sized as one issue and one PR, with Comes from / Completed when"
+      replaces: tasks-template
+    - type: command
+      name: speckit.implement
+      file: commands/speckit.implement.md
+      description: "Appended to implement: one task per run, no [X] ticks (the issue closing is done)"
+      strategy: append
+
+tags: ["best-practices", "github", "workflow"]

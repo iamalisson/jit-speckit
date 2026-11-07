@@ -1,4 +1,4 @@
-<!-- Issue #21, created by /speckit-tasks (issues.sh). Assignee: you. Milestone and project: only if set in jit-config.yml. -->
+<!-- Issue #21, created by /speckit-tasks (issues.sh). Assignee: you. Milestone and project: only if set in landspec-config.yml. -->
 **[001] T001: Add the price query and its index**
 
 **Feature:** `001-price-search` · **Task:** T001 in [`tasks.md`](../specs/001-price-search/tasks.md)

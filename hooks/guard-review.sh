@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Claude Code PreToolUse hook (Agent, and Task on older clients). A review launch, jit-speckit:reviewer
+# Claude Code PreToolUse hook (Agent, and Task on older clients). A review launch, landspec:reviewer
 # or any agent whose prompt holds the reviewer sentinel, must run on sonnet, opus or fable, passed as
 # the call's model (never the session's, which may be cheap), and in a fresh agent: a fork inherits
 # the author's context, so it is not independent. Every other launch passes untouched.
@@ -17,9 +17,9 @@ type="$(field subagent_type)"
 # The sentinel has no character JSON escapes, so it reads the same with either parser. The prompt is
 # matched in a variable: a pipe into grep -q fails under pipefail on a prompt bigger than the pipe buffer.
 prompt="$(field prompt)"
-if [[ "$type" != jit-speckit:reviewer && "$prompt" != *"jit-speckit review: independent reviewer"* ]]; then exit 0; fi
+if [[ "$type" != landspec:reviewer && "$prompt" != *"landspec review: independent reviewer"* ]]; then exit 0; fi
 if [[ "$type" == fork ]]; then
-  echo "jit: the review must run in a fresh agent, not a fork of this session" >&2; exit 2
+  echo "landspec: the review must run in a fresh agent, not a fork of this session" >&2; exit 2
 fi
 model="$(field model)"
 case "$model" in
@@ -28,4 +28,4 @@ case "$model" in
       if [[ -n "${CLAUDE_CODE_SUBAGENT_MODEL_FORCE:-}" ]]; then exit 0; fi
       model="the session's model" ;;
 esac
-echo "jit: the review must run on sonnet, opus or fable (review_model:), not $model" >&2; exit 2
+echo "landspec: the review must run on sonnet, opus or fable (review_model:), not $model" >&2; exit 2

@@ -31,7 +31,7 @@
 
 ## Notes
 
-- jit-speckit is a developer tool: its commands, its output lines, `tests/*.test.sh`, the PR body
+- landspec is a developer tool: its commands, its output lines, `tests/*.test.sh`, the PR body
   and the docs are what its users see and use, so naming them is describing the product, not its
   implementation. How each fix is built (which function, which regex) is left to feature 001's fix
   entries and to `/speckit-plan`.

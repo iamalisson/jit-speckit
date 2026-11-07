@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# Remove jit-speckit from one project (the reverse of setup.sh). Spec-kit, your specs and your edits stay.
+# Remove landspec from one project (the reverse of setup.sh). Spec-kit, your specs and your edits stay.
 # Usage: remove.sh [project-dir] [--with-speckit]
 #   --with-speckit  also delete spec-kit's own files (.specify/, the constitution with it, .claude/skills/speckit-*) for a reinstall from zero; specs/ is never touched
-# Deletes only what jit-speckit created: files that still carry its "managed file" marker and are
-# unchanged since it wrote them (.specify/jit-files.sha256), files identical to its scaffold, its
+# Deletes only what landspec created: files that still carry its "managed file" marker and are
+# unchanged since it wrote them (.specify/landspec-files.sha256), files identical to its scaffold, its
 # lines in hook configs, and its block in the constitution. Safe to re-run: what it keeps stays in
-# .specify/jit-files.sha256. Two limits: --with-speckit deletes that record with .specify, and with
-# no record (set up before 1.8.0) an edit committed between two runs looks like jit's own file.
+# .specify/landspec-files.sha256. Two limits: --with-speckit deletes that record with .specify, and with
+# no record (set up before 1.8.0) an edit committed between two runs looks like landspec's own file.
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=../extension/scripts/lib.sh
 source "$here/extension/scripts/lib.sh" # sha256
-die(){ echo "jit: $*" >&2; exit 1; }
+die(){ echo "landspec: $*" >&2; exit 1; }
 usage() { sed -n '3p' "$0" | sed 's/^# Usage/Usage/' >&2; exit 2; }
 
 dir="."; speckit=false
@@ -20,7 +20,7 @@ while (($#)); do
   case "$1" in
     --with-speckit) speckit=true; shift ;;
     -h|--help) usage ;;
-    -*) echo "jit: unknown option $1" >&2; usage ;;
+    -*) echo "landspec: unknown option $1" >&2; usage ;;
     *) dir="$1"; shift ;;
   esac
 done
@@ -28,31 +28,32 @@ cd "$dir" 2>/dev/null || die "no such directory: $dir"
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "not a git repository: $dir"
 cd "$(git rev-parse --show-toplevel)"
 gone() { echo "removed: $1"; }
+[[ ! -d .specify/extensions/jit ]] || die "this project still uses the name jit-speckit; run /landspec:init once, then remove it"
 const=.specify/memory/constitution.md
 constitution_markers "$const" # before anything is deleted
 
 # ── spec-kit registrations: extension, preset, hook skills ───────────────────
-if [[ -d .specify/extensions/jit || -d .specify/presets/jit ]]; then
-  command -v specify >/dev/null || die "spec-kit (specify) is required to unregister the extension; install it as /jit-speckit:init says"
+if [[ -d .specify/extensions/landspec || -d .specify/presets/landspec ]]; then
+  command -v specify >/dev/null || die "spec-kit (specify) is required to unregister the extension; install it as /landspec:init says"
   # specify refuses what its registry doesn't know; a half-installed copy is then deleted by hand.
-  specify preset remove jit >/dev/null 2>&1 || rm -rf .specify/presets/jit
-  specify extension remove jit --force >/dev/null 2>&1 || rm -rf .specify/extensions/jit
-  rm -rf .specify/extensions/.backup/jit
-  gone "spec-kit extension and preset 'jit' (templates and the implement command restored)"
+  specify preset remove landspec >/dev/null 2>&1 || rm -rf .specify/presets/landspec
+  specify extension remove landspec --force >/dev/null 2>&1 || rm -rf .specify/extensions/landspec
+  rm -rf .specify/extensions/.backup/landspec
+  gone "spec-kit extension and preset 'landspec' (templates and the implement command restored)"
 fi
-rm -rf .claude/skills/speckit-jit-*
+rm -rf .claude/skills/speckit-landspec-*
 
 # ── Files added to the repo ──────────────────────────────────────────────────
-record=.specify/jit-files.sha256 # "<sha256> <path>" for each file level.sh wrote
-ours() { # ours <file>: created by jit-speckit and not taken over by the user
+record=.specify/landspec-files.sha256 # "<sha256> <path>" for each file level.sh wrote
+ours() { # ours <file>: created by landspec and not taken over by the user
   [[ -f "$1" ]] || return 1
   local want; want="$(awk -v p="$1" '$2 == p { print $1 }' "$record" 2>/dev/null || true)"
   if [[ -n "$want" ]]; then
     if [[ "$(sha256 < "$1")" == "$want" ]]; then return 0; fi
     echo "kept (edited): $1"; return 1
   fi
-  # No record (set up before 1.8.0): only a committed, unchanged marked file is known to be jit's.
-  if head -2 "$1" | grep -q '^# jit-speckit: managed file'; then
+  # No record (set up before 1.8.0): only a committed, unchanged marked file is known to be landspec's.
+  if head -2 "$1" | grep -q '^# landspec: managed file'; then
     if git ls-files --error-unmatch "$1" >/dev/null 2>&1 && git diff --quiet HEAD -- "$1" 2>/dev/null; then return 0; fi
     echo "kept (edited): $1"; return 1
   fi
@@ -88,18 +89,18 @@ rmdir -p .githooks .github/workflows 2>/dev/null || true
 # ── Git hooks ────────────────────────────────────────────────────────────────
 if [[ "$(git config --get core.hooksPath || true)" == .githooks && ! -e .githooks ]]; then
   git config --unset core.hooksPath; echo "git hooks: core.hooksPath unset"
-elif [[ "$(git config --get core.hooksPath || true)" == .githooks ]] && grep -qs '\.specify/extensions/jit/scripts/' .githooks/pre-commit .githooks/pre-push; then
-  echo "kept: .githooks still calls jit's scripts, which are gone; edit those lines out, or: git config --unset core.hooksPath"
+elif [[ "$(git config --get core.hooksPath || true)" == .githooks ]] && grep -qs '\.specify/extensions/landspec/scripts/' .githooks/pre-commit .githooks/pre-push; then
+  echo "kept: .githooks still calls landspec's scripts, which are gone; edit those lines out, or: git config --unset core.hooksPath"
 fi
 pc=.pre-commit-config.yaml
-if [[ -f "$pc" ]] && grep -qE '^ *- +id: jit-(secrets|prepush) *$' "$pc"; then
+if [[ -f "$pc" ]] && grep -qE '^ *- +id: landspec-(secrets|prepush) *$' "$pc"; then
   awk '
     function ind(s) { match(s, /^ */); return RLENGTH }
     { L[NR] = $0 }
     END {
       n = 0
-      for (i = 1; i <= NR; i++) { # the jit hook items: the "- id:" line and every line indented deeper
-        if (L[i] ~ /^ *- +id: jit-(secrets|prepush) *$/) {
+      for (i = 1; i <= NR; i++) { # the landspec hook items: the "- id:" line and every line indented deeper
+        if (L[i] ~ /^ *- +id: landspec-(secrets|prepush) *$/) {
           d = ind(L[i]); while (i < NR && (L[i+1] ~ /^ *$/ || ind(L[i+1]) > d)) i++
           continue
         }
@@ -110,22 +111,22 @@ if [[ -f "$pc" ]] && grep -qE '^ *- +id: jit-(secrets|prepush) *$' "$pc"; then
         print M[i]
       }
     }' "$pc" > "$pc.tmp" && mv "$pc.tmp" "$pc"
-  echo "git hooks: jit hooks removed from $pc"
+  echo "git hooks: landspec hooks removed from $pc"
 fi
 for h in .husky/pre-commit .husky/pre-push; do
-  if grep -qs '\.specify/extensions/jit/scripts/' "$h"; then
-    sed -i.bak '/\.specify\/extensions\/jit\/scripts\//d' "$h" && rm -f "$h.bak"; echo "git hooks: jit line removed from $h"
+  if grep -qs '\.specify/extensions/landspec/scripts/' "$h"; then
+    sed -i.bak '/\.specify\/extensions\/landspec\/scripts\//d' "$h" && rm -f "$h.bak"; echo "git hooks: landspec line removed from $h"
   fi
 done
 
 # ── Constitution ─────────────────────────────────────────────────────────────
-strip_block() { awk '/^<!-- jit:start/ { skip = 1 } !skip { print } /^<!-- jit:end -->/ { skip = 0 }' "$1"; }
-if [[ -f "$const" ]] && ! $speckit && grep -q '^<!-- jit:start' "$const"; then
+strip_block() { awk '/^<!-- landspec:start/ { skip = 1 } !skip { print } /^<!-- landspec:end -->/ { skip = 0 }' "$1"; }
+if [[ -f "$const" ]] && ! $speckit && grep -q '^<!-- landspec:start' "$const"; then
   if [[ "$(strip_block "$const")" == "$(strip_block "$here/preset/templates/constitution-template.md")" ]]; then
-    rm "$const"; gone "$const (jit's template, never filled in)"
+    rm "$const"; gone "$const (landspec's template, never filled in)"
   else
     strip_block "$const" > "$const.tmp" && mv "$const.tmp" "$const"
-    echo "constitution: jit block removed from $const (your text kept)"
+    echo "constitution: landspec block removed from $const (your text kept)"
   fi
 fi
 
@@ -142,5 +143,5 @@ cat <<EOT
 Done. Kept on purpose: specs/, your commits, $edited, and:
   branches develop/staging, if created:   git push origin --delete develop staging
   GitHub protections set at init:         repository Settings → Branches, Code security
-Reinstall: /jit-speckit:init
+Reinstall: /landspec:init
 EOT

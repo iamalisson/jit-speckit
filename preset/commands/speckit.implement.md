@@ -1,11 +1,11 @@
 ---
-description: "Implement one task from tasks.md, on its own branch and PR (jit-speckit: one task per run)"
+description: "Implement one task from tasks.md, on its own branch and PR (landspec: one task per run)"
 strategy: append
 ---
 
-## jit-speckit: one task per run
+## landspec: one task per run
 
-This project uses jit-speckit (one task = one issue = one branch = one PR). It **overrides** the
+This project uses landspec (one task = one issue = one branch = one PR). It **overrides** the
 instructions above where they differ:
 
 - Implement **only the task given** in the arguments (for example `T003`), never the others,

@@ -4,25 +4,25 @@
 source "$(dirname "$0")/helpers.sh"
 fake_gh
 l="$SCRIPTS/level.sh"
-blocks() { grep -c '^<!-- jit:start' .specify/memory/constitution.md; }
+blocks() { grep -c '^<!-- landspec:start' .specify/memory/constitution.md; }
 
 new_repo lite
 cp "$ROOT/preset/templates/constitution-template.md" .specify/memory/constitution.md 2>/dev/null \
   || { mkdir -p .specify/memory; cp "$ROOT/preset/templates/constitution-template.md" .specify/memory/constitution.md; }
 printf '[workspace]\n' > Cargo.toml; printf '{"packageManager":"pnpm@9.0.0","scripts":{"lint":"x","test":"y"}}\n' > package.json
 # An install from before these keys existed: level.sh must add them.
-sed -i.bak '/^milestone:/d; /^project:/d' .specify/extensions/jit/jit-config.yml
+sed -i.bak '/^milestone:/d; /^project:/d' .specify/extensions/landspec/landspec-config.yml
 
 "$l" lite >/dev/null
 check "when set to lite, then only the PR template is scaffolded" \
   '[[ -f .github/pull_request_template.md && -f .github/copilot-instructions.md && ! -f .github/workflows/ci.yml && ! -f .github/dependabot.yml ]]'
-check "then the constitution has one jit block for lite" '[[ "$(blocks)" == 1 ]] && grep -q "level: lite" .specify/memory/constitution.md'
+check "then the constitution has one landspec block for lite" '[[ "$(blocks)" == 1 ]] && grep -q "level: lite" .specify/memory/constitution.md'
 check "then the branch flow targets main" 'grep -qF "feat/* → main" .specify/memory/constitution.md'
 check "then an older config gains empty milestone and project keys (nothing is guessed)" \
-  'grep -qx "milestone: \"\"" .specify/extensions/jit/jit-config.yml && grep -qx "project: \"\"" .specify/extensions/jit/jit-config.yml'
+  'grep -qx "milestone: \"\"" .specify/extensions/landspec/landspec-config.yml && grep -qx "project: \"\"" .specify/extensions/landspec/landspec-config.yml'
 check "then Claude settings drop AI attribution from commits and PRs" 'grep -q "\"attribution\"" .claude/settings.json'
 check "then every file it wrote is recorded with its SHA-256 (what remove.sh compares against)" \
-  'h="$(sha256sum < .githooks/pre-commit 2>/dev/null || shasum -a 256 < .githooks/pre-commit)"; grep -qxF "${h%% *} .githooks/pre-commit" .specify/jit-files.sha256 && [[ "$(grep -c " .githooks/pre-commit$" .specify/jit-files.sha256)" == 1 ]] && "$l" lite >/dev/null && [[ "$(grep -c " .githooks/pre-commit$" .specify/jit-files.sha256)" == 1 ]]'
+  'h="$(sha256sum < .githooks/pre-commit 2>/dev/null || shasum -a 256 < .githooks/pre-commit)"; grep -qxF "${h%% *} .githooks/pre-commit" .specify/landspec-files.sha256 && [[ "$(grep -c " .githooks/pre-commit$" .specify/landspec-files.sha256)" == 1 ]] && "$l" lite >/dev/null && [[ "$(grep -c " .githooks/pre-commit$" .specify/landspec-files.sha256)" == 1 ]]'
 
 mkdir -p .github/workflows; echo "# mine" > .github/workflows/ci.yml
 echo '{}' > .claude/settings.json
@@ -67,32 +67,32 @@ rm -rf Dockerfile services terraform
 check "when going up to full, then staging is created on origin" 'git ls-remote --exit-code origin staging'
 check "then SECURITY.md, CODEOWNERS and the release workflow exist" '[[ -f SECURITY.md && -f .github/CODEOWNERS && -f .github/workflows/release.yml ]]'
 
-cp .specify/memory/constitution.md "$TMP/const.bak"; JIT_CFG=.specify/extensions/jit/jit-config.yml
-sed -i.bak '/<!-- jit:end -->/d' .specify/memory/constitution.md; echo "my own principle" >> .specify/memory/constitution.md
-check "when the jit:end marker is missing, then it refuses and keeps the user's text" \
-  'fails_with "no '"'"'<!-- jit:end -->'"'"'" "$l" lite && grep -q "my own principle" .specify/memory/constitution.md'
+cp .specify/memory/constitution.md "$TMP/const.bak"; LANDSPEC_CFG=.specify/extensions/landspec/landspec-config.yml
+sed -i.bak '/<!-- landspec:end -->/d' .specify/memory/constitution.md; echo "my own principle" >> .specify/memory/constitution.md
+check "when the landspec:end marker is missing, then it refuses and keeps the user's text" \
+  'fails_with "no '"'"'<!-- landspec:end -->'"'"'" "$l" lite && grep -q "my own principle" .specify/memory/constitution.md'
 cp "$TMP/const.bak" .specify/memory/constitution.md
 
-awk '/^<!-- jit:end -->/ { next } /^<!-- jit:start/ { print "<!-- jit:end -->" } { print }' .specify/memory/constitution.md > "$TMP/const.rev"
-echo 'my text after' >> "$TMP/const.rev"; cp "$TMP/const.rev" .specify/memory/constitution.md; cp "$JIT_CFG" "$TMP/cfg.bak"
+awk '/^<!-- landspec:end -->/ { next } /^<!-- landspec:start/ { print "<!-- landspec:end -->" } { print }' .specify/memory/constitution.md > "$TMP/const.rev"
+echo 'my text after' >> "$TMP/const.rev"; cp "$TMP/const.rev" .specify/memory/constitution.md; cp "$LANDSPEC_CFG" "$TMP/cfg.bak"
 check "when the markers are reversed, then it refuses before anything changes, the level included" \
-  'fails_with "damaged" "$l" lite && cmp -s "$TMP/const.rev" .specify/memory/constitution.md && cmp -s "$TMP/cfg.bak" "$JIT_CFG"'
-{ cat "$TMP/const.bak"; echo '<!-- jit:start (managed) -->'; } > .specify/memory/constitution.md; cp .specify/memory/constitution.md "$TMP/const.two"
+  'fails_with "damaged" "$l" lite && cmp -s "$TMP/const.rev" .specify/memory/constitution.md && cmp -s "$TMP/cfg.bak" "$LANDSPEC_CFG"'
+{ cat "$TMP/const.bak"; echo '<!-- landspec:start (managed) -->'; } > .specify/memory/constitution.md; cp .specify/memory/constitution.md "$TMP/const.two"
 check "when a second start marker follows the block, then it refuses before anything changes" \
-  'fails_with "damaged" "$l" lite && cmp -s "$TMP/const.two" .specify/memory/constitution.md && cmp -s "$TMP/cfg.bak" "$JIT_CFG"'
-{ cat "$TMP/const.bak"; echo '<!-- jit:end -->'; } > .specify/memory/constitution.md; cp .specify/memory/constitution.md "$TMP/const.two"
+  'fails_with "damaged" "$l" lite && cmp -s "$TMP/const.two" .specify/memory/constitution.md && cmp -s "$TMP/cfg.bak" "$LANDSPEC_CFG"'
+{ cat "$TMP/const.bak"; echo '<!-- landspec:end -->'; } > .specify/memory/constitution.md; cp .specify/memory/constitution.md "$TMP/const.two"
 check "when a second end marker follows the block, then it refuses before anything changes" \
-  'fails_with "damaged" "$l" lite && cmp -s "$TMP/const.two" .specify/memory/constitution.md && cmp -s "$TMP/cfg.bak" "$JIT_CFG"'
-sed '/^<!-- jit:start/d' "$TMP/const.bak" > .specify/memory/constitution.md; cp .specify/memory/constitution.md "$TMP/const.two"
+  'fails_with "damaged" "$l" lite && cmp -s "$TMP/const.two" .specify/memory/constitution.md && cmp -s "$TMP/cfg.bak" "$LANDSPEC_CFG"'
+sed '/^<!-- landspec:start/d' "$TMP/const.bak" > .specify/memory/constitution.md; cp .specify/memory/constitution.md "$TMP/const.two"
 check "when only an end marker is left, then it refuses before anything changes" \
-  'fails_with "damaged" "$l" lite && cmp -s "$TMP/const.two" .specify/memory/constitution.md && cmp -s "$TMP/cfg.bak" "$JIT_CFG"'
+  'fails_with "damaged" "$l" lite && cmp -s "$TMP/const.two" .specify/memory/constitution.md && cmp -s "$TMP/cfg.bak" "$LANDSPEC_CFG"'
 cp "$TMP/const.bak" .specify/memory/constitution.md
-printf 'The marker is written <!-- jit:start like this.\nThe end is <!-- jit:end --> in prose.\nkeep me\n' >> .specify/memory/constitution.md
+printf 'The marker is written <!-- landspec:start like this.\nThe end is <!-- landspec:end --> in prose.\nkeep me\n' >> .specify/memory/constitution.md
 check "when mid-line markers follow the block, then they are plain text and stay" \
-  '"$l" full >/dev/null && grep -q "keep me" .specify/memory/constitution.md && grep -q "written <!-- jit:start" .specify/memory/constitution.md && grep -q "end is <!-- jit:end" .specify/memory/constitution.md'
+  '"$l" full >/dev/null && grep -q "keep me" .specify/memory/constitution.md && grep -q "written <!-- landspec:start" .specify/memory/constitution.md && grep -q "end is <!-- landspec:end" .specify/memory/constitution.md'
 cp "$TMP/const.bak" .specify/memory/constitution.md
-sed -i.bak '/^<!-- jit:start/a\
-The end is <!-- jit:end --> in prose.\
+sed -i.bak '/^<!-- landspec:start/a\
+The end is <!-- landspec:end --> in prose.\
 stale block line
 ' .specify/memory/constitution.md; rm -f .specify/memory/constitution.md.bak
 check "when a mid-line end marker sits inside the block, then the whole block is replaced" \
@@ -102,13 +102,13 @@ cp "$TMP/const.bak" .specify/memory/constitution.md
 out="$("$l" lite)"
 check "when going back down to lite, then no file is deleted and it says so" \
   '[[ -f SECURITY.md && -f .github/workflows/ci.yml && "$out" == *"were kept"* ]] && grep -q "level: lite" .specify/memory/constitution.md'
-check "then the level is stored in the config" 'grep -qx "level: lite" .specify/extensions/jit/jit-config.yml'
+check "then the level is stored in the config" 'grep -qx "level: lite" .specify/extensions/landspec/landspec-config.yml'
 check "when given an unknown level, then it refuses" '! "$l" huge'
 
 printf '# Custom constitution\n\n## Governance\n\nRules.\n' > .specify/memory/constitution.md
 "$l" standard --no-branches >/dev/null
-check "when the constitution has no jit block, then it is inserted before Governance and the rest is kept" \
-  '[[ "$(blocks)" == 1 ]] && grep -q "^# Custom constitution" .specify/memory/constitution.md && awk "/jit:end/{e=NR} /^## Governance/{g=NR} END{exit !(e<g)}" .specify/memory/constitution.md'
+check "when the constitution has no landspec block, then it is inserted before Governance and the rest is kept" \
+  '[[ "$(blocks)" == 1 ]] && grep -q "^# Custom constitution" .specify/memory/constitution.md && awk "/landspec:end/{e=NR} /^## Governance/{g=NR} END{exit !(e<g)}" .specify/memory/constitution.md'
 
 rm Cargo.toml package.json .github/workflows/ci.yml
 "$l" standard --no-branches >/dev/null
@@ -148,14 +148,14 @@ check "when the repo already uses its own hooks (husky), then they are not repla
 # `gh repo create --clone`: an origin, but no commits yet.
 git init --quiet --bare "$TMP/empty-origin.git"; git clone --quiet "$TMP/empty-origin.git" "$TMP/empty" 2>/dev/null
 cd "$TMP/empty"; git config user.email t@t; git config user.name t
-mkdir -p .specify/extensions/jit && ln -s "$ROOT/extension/scripts" .specify/extensions/jit/scripts
+mkdir -p .specify/extensions/landspec && ln -s "$ROOT/extension/scripts" .specify/extensions/landspec/scripts
 check "when the repo has an origin but no commits yet, then setup succeeds and says the branches come later" \
   'out="$("$l" standard 2>&1)" && grep -q "develop not created yet (no commits)" <<<"$out" && [[ -f .specify/memory/constitution.md ]]'
 
 # Committed locally, nothing pushed yet: setup must not push local (unscanned) commits anywhere.
 git init --quiet --bare "$TMP/unpushed-origin.git"; git clone --quiet "$TMP/unpushed-origin.git" "$TMP/unpushed" 2>/dev/null
 cd "$TMP/unpushed"; git config user.email t@t; git config user.name t
-mkdir -p .specify/extensions/jit && ln -s "$ROOT/extension/scripts" .specify/extensions/jit/scripts
+mkdir -p .specify/extensions/landspec && ln -s "$ROOT/extension/scripts" .specify/extensions/landspec/scripts
 echo x > a.txt; git add a.txt; git commit --quiet --no-verify -m local
 check "when the default branch isn't on origin yet, then setup pushes nothing and says to push it first" \
   'out="$("$l" standard 2>&1)" && grep -q "origin/develop not created yet" <<<"$out" && [[ -z "$(git ls-remote --heads origin)" ]]'
@@ -241,43 +241,43 @@ rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"
 new_repo lite
 printf 'repos:\n  - repo: https://github.com/x/y\n    rev: v1\n    hooks:\n      - id: a\n' > .pre-commit-config.yaml
 out="$("$l" lite --no-branches)"
-check "when the repo uses the pre-commit framework, then both jit hooks are appended with the file's own indentation" \
-  'grep -q "^  - repo: local$" .pre-commit-config.yaml && grep -q "^      - id: jit-secrets$" .pre-commit-config.yaml && grep -q "^        stages: \[pre-push\]$" .pre-commit-config.yaml && [[ -z "$(git config core.hooksPath)" ]]'
+check "when the repo uses the pre-commit framework, then both landspec hooks are appended with the file's own indentation" \
+  'grep -q "^  - repo: local$" .pre-commit-config.yaml && grep -q "^      - id: landspec-secrets$" .pre-commit-config.yaml && grep -q "^        stages: \[pre-push\]$" .pre-commit-config.yaml && [[ -z "$(git config core.hooksPath)" ]]'
 check "then it says the hooks are not active in this clone until pre-commit install runs" \
   'grep -q "pre-commit install --hook-type pre-commit --hook-type pre-push" <<<"$out"'
-check "when run again, then nothing is appended twice" '"$l" lite --no-branches >/dev/null; [[ "$(grep -c "id: jit-secrets" .pre-commit-config.yaml)" == 1 ]]'
+check "when run again, then nothing is appended twice" '"$l" lite --no-branches >/dev/null; [[ "$(grep -c "id: landspec-secrets" .pre-commit-config.yaml)" == 1 ]]'
 if python3 -c "import yaml" 2>/dev/null; then
   check "then the config is still valid YAML with one local repo holding the two hooks" \
-    'python3 -c "import yaml,sys; r=[x for x in yaml.safe_load(open(\".pre-commit-config.yaml\"))[\"repos\"] if x[\"repo\"]==\"local\"]; sys.exit(0 if len(r)==1 and [h[\"id\"] for h in r[0][\"hooks\"]]==[\"jit-secrets\",\"jit-prepush\"] else 1)"'
+    'python3 -c "import yaml,sys; r=[x for x in yaml.safe_load(open(\".pre-commit-config.yaml\"))[\"repos\"] if x[\"repo\"]==\"local\"]; sys.exit(0 if len(r)==1 and [h[\"id\"] for h in r[0][\"hooks\"]]==[\"landspec-secrets\",\"landspec-prepush\"] else 1)"'
 else
   echo "skip - pre-commit config YAML check (python3 with PyYAML not available here)"
 fi
-printf 'repos:\n-   repo: local\n    hooks:\n    -   id: jit-secrets\n        name: secrets\n        entry: bash .specify/extensions/jit/scripts/secrets.sh staged\n        language: system\n' > .pre-commit-config.yaml
+printf 'repos:\n-   repo: local\n    hooks:\n    -   id: landspec-secrets\n        name: secrets\n        entry: bash .specify/extensions/landspec/scripts/secrets.sh staged\n        language: system\n' > .pre-commit-config.yaml
 "$l" lite --no-branches >/dev/null
 check "when only the commit hook was added by hand (4-space style), then only the push hook is appended, in that style" \
-  '[[ "$(grep -c "scripts/secrets.sh" .pre-commit-config.yaml)" == 1 ]] && grep -q "^    -   id: jit-prepush$" .pre-commit-config.yaml && grep -q "^        entry: bash .specify/extensions/jit/scripts/prepush.sh$" .pre-commit-config.yaml'
+  '[[ "$(grep -c "scripts/secrets.sh" .pre-commit-config.yaml)" == 1 ]] && grep -q "^    -   id: landspec-prepush$" .pre-commit-config.yaml && grep -q "^        entry: bash .specify/extensions/landspec/scripts/prepush.sh$" .pre-commit-config.yaml'
 rm .pre-commit-config.yaml; mkdir -p .husky; echo "npm test" > .husky/pre-commit
 "$l" lite --no-branches >/dev/null
 check "when the repo uses husky, then the checks are appended to its hook files and the existing line is kept" \
   '[[ "$(head -1 .husky/pre-commit)" == "npm test" ]] && grep -q "secrets.sh staged" .husky/pre-commit && grep -qF "prepush.sh \"\$@\"" .husky/pre-push && [[ -z "$(git config core.hooksPath)" ]]'
 
-# A top-level key after repos: must stay after jit's item, or the file stops parsing.
-pc_valid() { # the repos list has the two jit hooks, and every key the file had is still at the top level
+# A top-level key after repos: must stay after landspec's item, or the file stops parsing.
+pc_valid() { # the repos list has the two landspec hooks, and every key the file had is still at the top level
   ! python3 -c "import yaml" 2>/dev/null || python3 -c "
 import yaml,sys
 d=yaml.safe_load(open('.pre-commit-config.yaml'))
 ids=[h['id'] for r in d['repos'] if r['repo']=='local' for h in r['hooks']]
-sys.exit(0 if ids==['jit-secrets','jit-prepush'] and set(d)>=set(sys.argv[1:]) else 1)" "$@"
+sys.exit(0 if ids==['landspec-secrets','landspec-prepush'] and set(d)>=set(sys.argv[1:]) else 1)" "$@"
 }
 before_key() { awk -v k="$1" '/repo: local$/ { r = NR } index($0, k) == 1 { c = NR } END { exit !(r && c && r < c) }' .pre-commit-config.yaml; }
 pc_repo() { rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"; new_repo lite; printf "$1" > .pre-commit-config.yaml; }
 pc_repo 'repos:\n  - repo: https://github.com/x/y\n    rev: v1\n    hooks:\n      - id: a\n\n# pre-commit.ci\nci:\n  autofix_prs: false\n'
 "$l" lite --no-branches >/dev/null
-check "when a top-level key follows repos:, then jit's item goes in the list, before that key and its comment" \
+check "when a top-level key follows repos:, then landspec's item goes in the list, before that key and its comment" \
   'before_key "ci:" && before_key "# pre-commit.ci" && pc_valid ci repos'
 pc_repo 'default_stages: [pre-commit]\nrepos:\n- repo: https://github.com/x/y\n  rev: v1\n  hooks:\n  - id: a\nexclude: ^vendor/\nfail_fast: true\n'
 "$l" lite --no-branches >/dev/null
-check "when the list items sit at column 0, then they stay in the list and jit's item joins them before the next key" \
+check "when the list items sit at column 0, then they stay in the list and landspec's item joins them before the next key" \
   'before_key "exclude:" && [[ "$(grep "^- repo:" .pre-commit-config.yaml | tail -1)" == "- repo: local" ]] && pc_valid default_stages exclude fail_fast repos'
 pc_repo 'repos:\n  - repo: https://github.com/x/y\n    rev: v1\n    hooks:\n      - id: a'
 "$l" lite --no-branches >/dev/null
@@ -285,12 +285,12 @@ check "when the file has no newline at its end, then the last line stays whole" 
   'grep -qx "      - id: a" .pre-commit-config.yaml && grep -q "^  - repo: local$" .pre-commit-config.yaml && pc_valid repos'
 pc_repo 'exclude: ^vendor/'
 "$l" lite --no-branches >/dev/null
-check "when the file has no repos: key, then it gains one holding jit's item" 'grep -qx "repos:" .pre-commit-config.yaml && pc_valid exclude repos'
+check "when the file has no repos: key, then it gains one holding landspec's item" 'grep -qx "repos:" .pre-commit-config.yaml && pc_valid exclude repos'
 pc_repo 'repos:\n  - repo: https://github.com/x/y\n    rev: v1\n    hooks:\n      - id: a\n'; cp .pre-commit-config.yaml "$TMP/pc.orig"
 mkdir -p "$TMP/pc-bad"; printf '#!/bin/sh\nexit 1\n' > "$TMP/pc-bad/pre-commit"; chmod +x "$TMP/pc-bad/pre-commit"
 out="$(PATH="$TMP/pc-bad:$PATH" "$l" lite --no-branches)"
 check "when pre-commit refuses the result, then the file stays as it was and it gives the lines to add, not a success" \
-  'cmp -s "$TMP/pc.orig" .pre-commit-config.yaml && [[ ! -e .pre-commit-config.yaml.tmp ]] && grep -qF "add these lines to it" <<<"$out" && grep -qF "id: jit-secrets" <<<"$out" && ! grep -q "added to .pre-commit-config" <<<"$out"'
+  'cmp -s "$TMP/pc.orig" .pre-commit-config.yaml && [[ ! -e .pre-commit-config.yaml.tmp ]] && grep -qF "add these lines to it" <<<"$out" && grep -qF "id: landspec-secrets" <<<"$out" && ! grep -q "added to .pre-commit-config" <<<"$out"'
 pc_repo 'repos: []\n'; cp .pre-commit-config.yaml "$TMP/pc.orig"
 printf '#!/bin/sh\nexit 0\n' > "$TMP/pc-bad/pre-commit"
 out="$(PATH="$TMP/pc-bad:$PATH" "$l" lite --no-branches)"
@@ -324,8 +324,8 @@ printf '#!/bin/sh\necho mine\n' > .git/hooks/pre-commit; chmod +x .git/hooks/pre
 out="$("$l" lite --no-branches)"
 check "when .git/hooks already has hooks, then core.hooksPath is not set and the message names .git/hooks, not enabled" \
   '[[ -z "$(git config core.hooksPath)" ]] && grep -q "(.git/hooks); $add_lines" <<<"$out" && ! grep -q "enabled" <<<"$out"'
-printf '#!/bin/sh\nbash .specify/extensions/jit/scripts/secrets.sh staged\n' > .git/hooks/pre-commit
-printf '#!/bin/sh\nbash .specify/extensions/jit/scripts/prepush.sh "$@"\n' > .git/hooks/pre-push
+printf '#!/bin/sh\nbash .specify/extensions/landspec/scripts/secrets.sh staged\n' > .git/hooks/pre-commit
+printf '#!/bin/sh\nbash .specify/extensions/landspec/scripts/prepush.sh "$@"\n' > .git/hooks/pre-push
 out="$("$l" lite --no-branches)"
 check "when a .git/hooks file calling the check is not executable, then it is not called enabled" \
   'grep -q "(.git/hooks); $add_lines" <<<"$out" && ! grep -q "enabled" <<<"$out"'
@@ -348,7 +348,7 @@ hook_repo
 mkdir .husky; printf 'true' > .husky/pre-commit
 out="$("$l" lite --no-branches)"
 check "when a husky file ends without a newline, then the check starts on its own line" \
-  '[[ "$(sed -n 1p .husky/pre-commit)" == true && "$(sed -n 2p .husky/pre-commit)" == "bash .specify/extensions/jit/scripts/secrets.sh staged" ]]'
+  '[[ "$(sed -n 1p .husky/pre-commit)" == true && "$(sed -n 2p .husky/pre-commit)" == "bash .specify/extensions/landspec/scripts/secrets.sh staged" ]]'
 check "then both husky files are executable" '[[ -x .husky/pre-commit && -x .husky/pre-push ]]'
 check "when core.hooksPath does not reach .husky, then it prints not active in this clone yet and not enabled" \
   'grep -q "not active in this clone yet" <<<"$out" && ! grep -q "enabled" <<<"$out"'
@@ -383,12 +383,12 @@ mkdir -p .specify/memory; cp "$ROOT/preset/templates/constitution-template.md" .
 printf '[project]\nname="x"\n' > pyproject.toml; touch uv.lock
 "$l" standard --no-branches >/dev/null
 check "when the constitution's Commands are placeholders, then CI uses the stack defaults and carries the managed-file line" \
-  'grep -q "uv run pytest" .github/workflows/ci.yml && [[ "$(head -1 .github/workflows/ci.yml)" == "# jit-speckit: managed file"* ]]'
+  'grep -q "uv run pytest" .github/workflows/ci.yml && [[ "$(head -1 .github/workflows/ci.yml)" == "# landspec: managed file"* ]]'
 sed -i.bak 's/^\*\*Commands\*\*.*/**Commands**: build `uv build` · test `uv run pytest -q tests` · lint `uv run ruff check src \&\& uv run mypy src`/' .specify/memory/constitution.md
 "$l" standard --no-branches >/dev/null
 check "when adopt filled the Commands line, then the managed CI is re-created with those commands: lint, test, build" \
   '[[ "$(grep -o -- "- run: uv run ruff check src && uv run mypy src\|- run: uv run pytest -q tests\|- run: uv build" .github/workflows/ci.yml | tr "\n" "|")" == "- run: uv run ruff check src && uv run mypy src|- run: uv run pytest -q tests|- run: uv build|" ]] && ! grep -q "ruff check \.$" .github/workflows/ci.yml'
-check "then the constitution's jit block runs the suite with that test command" 'grep -qF "\`uv run pytest -q tests\`" .specify/memory/constitution.md'
+check "then the constitution's landspec block runs the suite with that test command" 'grep -qF "\`uv run pytest -q tests\`" .specify/memory/constitution.md'
 sed -i.bak '1d' .github/workflows/ci.yml; echo "# edited by hand" >> .github/workflows/ci.yml
 "$l" standard --no-branches >/dev/null
 check "when the managed-file line is removed, then the file is the user's and is kept" 'grep -q "# edited by hand" .github/workflows/ci.yml'
@@ -424,12 +424,19 @@ printf 'version: 2\nupdates: []\n' > .github/dependabot.yml
 echo "my own hook" > .githooks/pre-push
 out="$("$l" standard --no-branches)"
 check "when .githooks/pre-commit is v1.3.0's exact file, then level.sh replaces it and it carries the marker" \
-  'head -2 .githooks/pre-commit | grep -q "^# jit-speckit: managed file" && grep -qxF "updated: .githooks/pre-commit" <<<"$out"'
+  'head -2 .githooks/pre-commit | grep -q "^# landspec: managed file" && grep -qxF "updated: .githooks/pre-commit" <<<"$out"'
 check "when close-linked-issues.yml is v1.3.1's, then it is kept and named with its versions" \
-  'cmp -s "$ROOT/tests/fixtures/v1.3.1-close-linked-issues.yml" .github/workflows/close-linked-issues.yml && grep -qF "kept (written by jit-speckit 1.0.0,1.2.0,1.3.0,1.3.1, no marker): .github/workflows/close-linked-issues.yml — delete it to get the current one" <<<"$out"'
+  'cmp -s "$ROOT/tests/fixtures/v1.3.1-close-linked-issues.yml" .github/workflows/close-linked-issues.yml && grep -qF "kept (written by landspec 1.0.0,1.2.0,1.3.0,1.3.1, no marker): .github/workflows/close-linked-issues.yml — delete it to get the current one" <<<"$out"'
 check "when an old hook matched, then a generated file without the marker is named as possibly an old release's" \
-  'grep -qF "kept (written by jit-speckit 1.2.0,1.3.0,1.3.1 or older, no marker): .github/dependabot.yml — delete it to get the current one" <<<"$out"'
+  'grep -qF "kept (written by landspec 1.2.0,1.3.0,1.3.1 or older, no marker): .github/dependabot.yml — delete it to get the current one" <<<"$out"'
 check "then a user's own unmarked file is still kept: as before" \
   '[[ "$(cat .githooks/pre-push)" == "my own hook" ]] && grep -qxF "kept:    .githooks/pre-push" <<<"$out"'
+
+rm -f .github/dependabot.yml
+"$l" standard --no-branches >/dev/null
+sed -i.bak -e 's#^\# landspec: managed file. /landspec:level#\# jit-speckit: managed file. /jit-speckit:level#' .github/dependabot.yml; rm -f .github/dependabot.yml.bak
+echo "# stale" >> .github/dependabot.yml
+check "when a generated file has the marker from before 2.0.0, then it is re-created under the new one" \
+  'grep -q "^# jit-speckit: managed file" .github/dependabot.yml && "$l" standard --no-branches >/dev/null && grep -q "^# landspec: managed file" .github/dependabot.yml && ! grep -q "stale" .github/dependabot.yml'
 
 exit "$FAIL"

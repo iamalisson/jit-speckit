@@ -1,6 +1,6 @@
 # Project guidelines
 
-How `/jit-speckit:new` sets a project up, and what its first spec should cover. `/jit-speckit:new`
+How `/landspec:new` sets a project up, and what its first spec should cover. `/landspec:new`
 reads this file. On later features the agent follows the project's constitution, so `new` and
 `adopt` copy the rules that matter for this project into its "Project principles". They are short on purpose. If a rule doesn't help, drop it. The
 mistakes to catch are in `GUARDRAILS.md`. Before deciding anything on a listed topic, check its
@@ -68,7 +68,7 @@ that need down.**
 
 - Validate every input at the boundary: type, range, length, format. Reject; don't "fix".
 - Parameterized queries only. Never build SQL, shell commands or paths from user input.
-- Secrets come from the environment or a secret manager, never from code or git. jit-speckit's
+- Secrets come from the environment or a secret manager, never from code or git. landspec's
   hooks refuse them at commit and push.
 - Least privilege everywhere: IAM roles allow only what the code calls, security groups open
   only the ports needed, containers run as non-root on minimal images.
@@ -137,7 +137,7 @@ none: it makes people trust the code.
   list from the code under test moves with the bug and can never catch it.
 - **Never weaken a test to get green.** No loosened assertion, no "200 or 405", no retry or
   skip. Fix the code, or change the spec first. A changed test needs a written reason in the PR
-  (jit-speckit refuses the PR without a `## Test changes` section).
+  (landspec refuses the PR without a `## Test changes` section).
 - **Fast and deterministic:** no fixed sleeps (poll with a deadline), no real network, no shared
   state. Time-based code is tested with a paused or injected clock.
 - **Three layers, mostly the first:** unit tests for logic; integration tests through the real
@@ -152,7 +152,7 @@ none: it makes people trust the code.
 
 - **One task per branch, one branch per worktree.** Tasks marked `[P]` don't touch the same
   files, so they can be built at the same time: `claude --worktree`, then
-  `/speckit-implement T00X` in each. Each gets its own branch and PR. jit-speckit's analysis and
+  `/speckit-implement T00X` in each. Each gets its own branch and PR. landspec's analysis and
   security reports live in the shared git directory, so every worktree sees them.
 - **Develop in a container when the team is more than one person:** a `.devcontainer/` gives
   everyone the same toolchain, and `compose.yaml` runs the production image with production's
@@ -167,10 +167,10 @@ none: it makes people trust the code.
 
 ## Starter checklist
 
-`/jit-speckit:new` writes **no application code**. Every line of behavior arrives through a spec,
+`/landspec:new` writes **no application code**. Every line of behavior arrives through a spec,
 like any feature. It does two things:
 
-### 1. Project setup (what `/jit-speckit:new` does)
+### 1. Project setup (what `/landspec:new` does)
 
 The tooling, so the first spec starts on a green, safe base:
 - **the stack's own project tool** (`cargo init`, `uv init --app --package`, `pnpm init`, `go mod

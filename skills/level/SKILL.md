@@ -1,6 +1,6 @@
 ---
 name: level
-description: "Change a jit-speckit project's complexity level (lite, standard, full): updates the branch flow, the constitution defaults block, the CI and security scaffolding and the git hooks."
+description: "Change a landspec project's complexity level (lite, standard, full): updates the branch flow, the constitution defaults block, the CI and security scaffolding and the git hooks."
 argument-hint: "<lite|standard|full>"
 disable-model-invocation: true
 ---
@@ -8,13 +8,13 @@ disable-model-invocation: true
 # Change the complexity level
 
 1. The level is the argument. If it is missing or not `lite`/`standard`/`full`, show the current
-   one (`level:` in `.specify/extensions/jit/jit-config.yml`) and the three options with one line
+   one (`level:` in `.specify/extensions/landspec/landspec-config.yml`) and the three options with one line
    each, then ask.
-2. Run `bash .specify/extensions/jit/scripts/level.sh <level>`. Add `--no-branches` if the user
+2. Run `bash .specify/extensions/landspec/scripts/level.sh <level>`. Add `--no-branches` if the user
    doesn't want `develop`/`staging` created on `origin`.
 3. Bump the constitution's version line (MINOR going up a level, PATCH going down) and set
    *Last Amended* to today.
-4. Going **up** to standard or full: offer the branch protection from `/jit-speckit:init`
+4. Going **up** to standard or full: offer the branch protection from `/landspec:init`
    step 5. Going up from lite, also offer merge commits back on, which the promotion PRs need:
    `gh api -X PATCH repos/{owner}/{repo} -F allow_merge_commit=true`. Going **down** to lite, offer
    squash-only: `gh api -X PATCH repos/{owner}/{repo} -F allow_merge_commit=false -F allow_squash_merge=true -f squash_merge_commit_title=PR_TITLE -f squash_merge_commit_message=PR_BODY`.

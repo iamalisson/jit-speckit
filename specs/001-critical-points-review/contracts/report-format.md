@@ -4,7 +4,7 @@
 
 ```text
 report.md                     # written last, from sections 1–8
-  # Critical-points review — jit-speckit 1.7.2
+  # Critical-points review — landspec 1.7.2
   ## Summary      ranked table: id · rank · promise · one line · proposed fix; links to sections
   ## Fixes        one entry per High/Medium finding: the change, the promise, the failing check
   ## Unverified   every claim that could not be checked, and what would check it
@@ -42,7 +42,7 @@ Each gate in sections 2–3 also gets the two-column table from research R4: *sc
 | P01 | Every task gets exactly one GitHub issue; an interrupted run never makes duplicates | README "The loop"; `issues.sh` | 1 |
 | P02 | Every task gets its own branch from the base, refused without one task, an issue, the merged spec and a clean tree; pushed at once as a claim | reference "What happens automatically" | 1 |
 | P03 | Every task gets one PR with `Closes #N`; a task is done when its issue closes | README; constitution | 1 |
-| P04 | `/jit-speckit:next` is resumable, never offers a task in progress twice (worktrees too), holds a task until its dependencies close | README; reference "Using Claude Code well" | 1 |
+| P04 | `/landspec:next` is resumable, never offers a task in progress twice (worktrees too), holds a task until its dependencies close | README; reference "Using Claude Code well" | 1 |
 | P05 | The spec is its own PR; the spec folder is never lost while switching branches | README; design "The spec is its own PR" | 1 |
 | P06 | Every commit refuses `.env`, keys, credential files and token- or password-like lines, in under a second | README "Security, built in"; security "The layers" | 2 |
 | P07 | Every push re-checks every outgoing commit, including `--no-verify` ones; base branches are PR-only on standard and full | README; security | 2 |
@@ -58,12 +58,12 @@ Each gate in sections 2–3 also gets the two-column table from research R4: *sc
 | P17 | Every action pin is in one place; Dependabot proposes updates; generated workflows use `persist-credentials: false` and read-only permissions | security "Supply chain hygiene" | 4 |
 | P18 | Levels size the flow, the constitution and the CI; changeable any time; going down never deletes files | README "Levels" | 5 |
 | P19 | Nothing of the user's is overwritten: managed files carry a marker, unmarked ones are written only when missing | design "Nothing of yours is overwritten" | 5 |
-| P20 | `remove` deletes only what still matches what jit wrote | design; reference "Uninstall" | 5 |
+| P20 | `remove` deletes only what still matches what landspec wrote | design; reference "Uninstall" | 5 |
 | P21 | `init` refreshes the project's extension copy, keeps the level, changes no code and commits nothing | README "Update", "Start" | 5 |
 | P22 | No AI attribution lines in commits or PRs by default | README "Levels"; reference "AI attribution" | 5 |
 | P23 | Never commits or pushes for the user outside the documented flows | constitution "Project" | 1 |
 | P24 | Runs on Linux and macOS (bash 3.2, BSD tools) | README badge; constitution "Stack" | 5 |
 | P25 | Security findings are never put in a public place | constitution "Project"; `skills/security/SKILL.md` | 4 |
 | P26 | Before each PR, the scanners run on the changed files and `/security-review` runs | README "Security, built in" (before each PR); security "The layers" | 3 |
-| P27 | Before a release, `/jit-speckit:security` runs the full audit | README "Security, built in" (before a release); security "The audit" | 4 |
-| P28 | `/jit-speckit:init` offers secret scanning with push protection and branch protection requiring CI | security "The layers" (On GitHub) | 4 |
+| P27 | Before a release, `/landspec:security` runs the full audit | README "Security, built in" (before a release); security "The audit" | 4 |
+| P28 | `/landspec:init` offers secret scanning with push protection and branch protection requiring CI | security "The layers" (On GitHub) | 4 |

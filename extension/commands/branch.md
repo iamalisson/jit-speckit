@@ -12,7 +12,7 @@ any code is touched.
      exactly one task, e.g. `/speckit-implement T003`. Do not implement anything.
    - A feature number or folder in the arguments (`002`, `002-reports`) names the feature; without
      it, the active one is used. `/speckit-implement 002 T001` is T001 of feature 002.
-2. Run `bash .specify/extensions/jit/scripts/branch.sh [<FEATURE>] <TASK_ID>`. It also pushes a
+2. Run `bash .specify/extensions/landspec/scripts/branch.sh [<FEATURE>] <TASK_ID>`. It also pushes a
    new branch to origin at once, so the task shows as in progress to every clone and worktree.
    - On failure, stop the implement run and show the script's message as is. It explains what is
      missing: the issue, the spec PR, the analysis, or a clean working tree. Never work around

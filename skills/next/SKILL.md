@@ -6,12 +6,12 @@ argument-hint: "[feature]"
 
 # Next task
 
-1. Run `bash .specify/extensions/jit/scripts/next.sh [feature]`, with the argument when the user
+1. Run `bash .specify/extensions/landspec/scripts/next.sh [feature]`, with the argument when the user
    named a feature (`002` or `002-reports`); it becomes the active feature. With no argument on
    a task branch, it serves that branch's feature.
    - If it stops with `cannot read the state of feature …`, show gh's error above it (it names the
      issue number) and stop: the task line links an issue that is missing or not an issue.
-   - If `.specify/extensions/jit/` does not exist, tell the user to run `/jit-speckit:init`
+   - If `.specify/extensions/landspec/` does not exist, tell the user to run `/landspec:init`
      first, and stop.
    - If it prints `CHOOSE=...`, more than one feature has tasks to start: show the `feature` lines
      with their counts, ask which one, and run it again with that feature.
@@ -24,14 +24,14 @@ argument-hint: "[feature]"
      open PR) and are never picked; they finish when their PR merges.
    - **parallel**: an open `[P]` task that can start now in its own worktree, beside NEXT. A task
      of an unmerged spec PR has no such line, and starting it refuses until that PR merges.
-   - If tasks have **no issue**, say so, run `bash .specify/extensions/jit/scripts/next.sh <FEATURE>` first
-     (`issues.sh` takes no feature, so this makes it the active one), and suggest `/speckit-jit-issues`.
+   - If tasks have **no issue**, say so, run `bash .specify/extensions/landspec/scripts/next.sh <FEATURE>` first
+     (`issues.sh` takes no feature, so this makes it the active one), and suggest `/speckit-landspec-issues`.
    - If `NEXT` is empty and `IN_PROGRESS` is not 0, nothing is left to start: list the open PRs
      to merge, and stop.
    - If `NEXT` is empty and `IN_PROGRESS=0`, every task's issue is closed. Before calling the feature done, suggest
      `/speckit-converge`: it compares the merged code with the spec and adds any unbuilt work as
      new tasks, which then get their own issues. If it finds nothing, the feature is complete:
-     suggest `/jit-speckit:security` before the next release, and `/speckit-specify` for the
+     suggest `/landspec:security` before the next release, and `/speckit-specify` for the
      next feature. Stop.
 3. Make sure the working tree is clean. If it isn't, stop and say so; never stash or discard.
 4. If it printed `parallel` lines, those `[P]` tasks can start now beside NEXT. Ask once: "Also
@@ -39,7 +39,7 @@ argument-hint: "[feature]"
    never two at once: each makes a worktree beside the repository (`<repo>-<feature>-<task>`) and
    claims its task on origin before the next one runs. If a line fails (a leftover folder, a
    parent folder that is not writable, scripts not committed on the base branch), show its message
-   as is and skip that task. A refused claim (`jit: warning: could not claim …`) only warns: the
+   as is and skip that task. A refused claim (`landspec: warning: could not claim …`) only warns: the
    task started, but other clones may start it too; say so. Then list, per started task: open a
    Claude Code session in the path after `--detach` and run `/speckit-implement <feature> <id>`
    (install dependencies there first: a new worktree has no git-ignored files).

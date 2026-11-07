@@ -20,16 +20,16 @@ the patch id of `git diff <merge-base with the base> HEAD` (`diff_id()` in `lib.
 
 | Kind | Written by | Content | Read by |
 |---|---|---|---|
-| `jit-review` | `review.sh record` (today) | state, assessment, blank line, report | `review.sh check`, `review.sh report` (new) |
-| `jit-mutants` | `mutants.sh` (new) | its result line: `mutants <ok\|survivors\|unavailable\|missing\|skipped> <detail>` | `pr.sh task`, only when a mutate command is set |
-| `jit-security` | `security-scan.sh --changed` (new) | its summary lines, one per scanner | `pr.sh task`, always |
+| `landspec-review` | `review.sh record` (today) | state, assessment, blank line, report | `review.sh check`, `review.sh report` (new) |
+| `landspec-mutants` | `mutants.sh` (new) | its result line: `mutants <ok\|survivors\|unavailable\|missing\|skipped> <detail>` | `pr.sh task`, only when a mutate command is set |
+| `landspec-security` | `security-scan.sh --changed` (new) | its summary lines, one per scanner | `pr.sh task`, always |
 
 Transitions: any commit changes the diff id, so every record goes stale at once and the next PR
 needs fresh ones. A merge of the base keeps the id (the patch id ignores it), as reviews do today.
 
 ## Written-file record (new: F5.2)
 
-`.specify/jit-files.sha256` in the project (committed with the setup), one line per file `put()`
+`.specify/landspec-files.sha256` in the project (committed with the setup), one line per file `put()`
 wrote: `<sha256> <path>`. `put()` replaces the line for a path each time it writes it. `remove.sh`
 deletes a marked file only when its current SHA-256 equals its line; with no line (a project set up
 before 1.8.0), only when the file is tracked and `git diff --quiet HEAD` says it is unchanged.
@@ -54,7 +54,7 @@ Every `PIN_*` action is also used by `.github/workflows/pins.yml`, so Dependabot
 
 ## Review record (changed: FR-030, FR-032)
 
-The task-review record in `<git-common-dir>/jit-review/` keeps `state:` (the whole-branch patch id)
+The task-review record in `<git-common-dir>/landspec-review/` keeps `state:` (the whole-branch patch id)
 and `assessment:`, and adds `head: <sha reviewed>` (the report's `Reviewed:` line, which must equal
 HEAD at record time) and `round: full|delta`, `model: <the report's Model: line>` and any `warning:` lines; a delta record also carries the previous full
 record's `- deep:`/`- proven:` lines, so the PR shows both rounds' risk maps. `record --delta` reads

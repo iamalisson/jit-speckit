@@ -57,7 +57,7 @@ Also checked, no finding:
   `review.sh check` passes. `docs/design.md:38-46` says the review "runs in a fresh agent that
   gets only facts" and "The review is a gate, not a prompt". The gate is real for *some* recorded
   report on *this* diff; who wrote it, and whether it read anything, is only asked by the prompt.
-  The report also lives in `.git/jit-review/`, so nobody else can see it. (The full-level
+  The report also lives in `.git/landspec-review/`, so nobody else can see it. (The full-level
   analysis marker is weaker still: F3.8.)
 - **reproduction**: section A of the script below.
 - **exposure**: public (the operator, or their own agent, can skip it; FR-013).
@@ -101,7 +101,7 @@ Also checked, no finding:
   (`.specify/memory/constitution.md:11`). Only `extension/commands/pr.md:10-11` asks for it, and
   `pr.sh` never runs the test, lint or build command (section B: 0 mentions). Section B: with the
   project's check exiting 1, `pr.sh task` prints `PR=…`. CI runs afterwards, on the open PR.
-  Ranked Medium, not High: no gate in jit claims to run the checks (`pr.md` asks, and section 3's
+  Ranked Medium, not High: no gate in landspec claims to run the checks (`pr.md` asks, and section 3's
   table says "nothing" refuses), so no gate passes without what it claims; and opening a PR changes
   no branch. On standard and full, CI runs on the PR, and red code cannot merge when the user
   accepted `init`'s branch-protection offer (`skills/init/SKILL.md` step 4); on lite nothing stops
@@ -125,7 +125,7 @@ Also checked, no finding:
   docs list both in the same breath.
 - **reproduction**: section E of the script below.
 - **exposure**: public.
-- **fix**: `mutants.sh` writes its result line to `.git/jit-mutants/<diff patch id>`, and
+- **fix**: `mutants.sh` writes its result line to `.git/landspec-mutants/<diff patch id>`, and
   `pr.sh task` refuses when there is none for this diff, or when it says `survivors` and the body
   has no `## Evidence` line naming the survivor. `missing` stays allowed (a stack with no tool) and
   goes into the body. Check for `tests/pr.test.sh`: when the constitution has a `mutate` command and
@@ -180,11 +180,11 @@ Also checked, no finding:
   semgrep      missing   install: uv tool install semgrep (or pipx install semgrep)
   zizmor       missing   install: uv tool install zizmor (or brew install zizmor)
   trivy        skipped   no Dockerfile/Terraform/Kubernetes files
-  REPORT_DIR=.git/jit-security/<timestamp>
+  REPORT_DIR=.git/landspec-security/<timestamp>
   rc=0
   ```
 - **exposure**: public.
-- **fix**: `security-scan.sh --changed` writes its result line to `.git/jit-security/<diff patch
+- **fix**: `security-scan.sh --changed` writes its result line to `.git/landspec-security/<diff patch
   id>`, and `pr.sh task` refuses when there is none for this diff. Check for
   `tests/pr.test.sh`: when no scan was recorded for this diff, then `pr.sh task` refuses and names
   `security-scan.sh`. It fails today.
@@ -257,7 +257,7 @@ Also checked, no finding:
 # T003 reproductions, run as: bash t003-repro.sh <v1.7.2 worktree>
 source "$1/tests/helpers.sh"
 fake_gh; new_repo lite
-[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/jit-speckit ] || exit 1
+[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/landspec ] || exit 1
 r="$SCRIPTS/review.sh"; p="$SCRIPTS/pr.sh"
 printf '# Plan\n' > specs/001-demo/plan.md; printf 'spec v1\n' > specs/001-demo/spec.md; printf 'research v1\n' > specs/001-demo/research.md
 commit_tasks '- [ ] T001 Add search — #5'
@@ -296,13 +296,13 @@ pr.sh mentions the test command, mutants.sh, security-scan.sh or /security-revie
 == C. the plan record covers plan.md and tasks.md only
 REVIEW=ready
 REVIEW=ready
-jit: the plan (specs/001-demo/plan.md and tasks.md) changed since the last review; run /speckit-jit-review again and record it
+landspec: the plan (specs/001-demo/plan.md and tasks.md) changed since the last review; run /speckit-landspec-review again and record it
 rc=1
 == D. the hint when no task review is recorded
-jit: no independent review recorded for this branch's diff; run /speckit-jit-review and record its report: review.sh record --plan <report-file>
+landspec: no independent review recorded for this branch's diff; run /speckit-landspec-review and record its report: review.sh record --plan <report-file>
 rc=1
 == E. mutation testing with no mutate command
-mutants missing no 'mutate' command in the constitution's **Commands** line; /jit-speckit:adopt fills it
+mutants missing no 'mutate' command in the constitution's **Commands** line; /landspec:adopt fills it
 rc=0
 ```
 
@@ -315,7 +315,7 @@ rc=0
 # T003 reproduction F, run as: bash t003-repro-f.sh <v1.7.2 worktree>
 source "$1/tests/helpers.sh"
 fake_gh; new_repo full
-[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/jit-speckit ] || exit 1
+[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/landspec ] || exit 1
 commit_tasks '- [ ] T001 Add search — #5'
 echo "== F. level full: the analysis marker without any analysis"
 "$SCRIPTS/branch.sh" T001 2>&1 | tail -1 || true
@@ -325,7 +325,7 @@ echo "== F. level full: the analysis marker without any analysis"
 
 ```text
 == F. level full: the analysis marker without any analysis
-jit: level 'full' requires /speckit-analyze on the current tasks.md before implementing
+landspec: level 'full' requires /speckit-analyze on the current tasks.md before implementing
 ANALYZED=001-demo
 BRANCH=feat/001-t001-add-search ISSUE=5 TASK=T001 BASE=develop
 ```
@@ -339,7 +339,7 @@ BRANCH=feat/001-t001-add-search ISSUE=5 TASK=T001 BASE=develop
 # T003 reproduction G, run as: bash t003-repro-g.sh <v1.7.2 worktree>
 source "$1/tests/helpers.sh"
 fake_gh; new_repo lite
-[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/jit-speckit ] || exit 1
+[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/landspec ] || exit 1
 mkdir -p app Tests/AppTests tests
 printf 'def test_total():\n    assert total([1, 2]) == 3\n' > app/tests.py
 printf 'func testTotal() { XCTAssertEqual(total([1, 2]), 3) }\n' > Tests/AppTests/AppTests.swift
@@ -360,7 +360,7 @@ sed -i 's/== 3/is not None/' tests/test_a.py; git commit -q -am "test: loosen"; 
 == G. an existing test weakened in layouts TEST_PATH_RE does not know
 PR=https://github.com/acme/app/pull/99
 == control: the same weakening in tests/test_a.py
-jit: existing tests were changed: tests/test_a.py 
+landspec: existing tests were changed: tests/test_a.py 
 ```
 
 </details>
@@ -372,11 +372,11 @@ jit: existing tests were changed: tests/test_a.py
 # T003 on the sandbox: the Copilot request exactly as pr.sh sends it. Run from the sandbox clone.
 set -u
 [ "$(git remote)" = origin ] && [ "$(gh repo view --json nameWithOwner -q .nameWithOwner)" = iamalisson/jit-speckit-sandbox ] || exit 1
-REC="$(git rev-parse --git-common-dir)/jit-repro/t003-created.txt"; R=iamalisson/jit-speckit-sandbox
+REC="$(git rev-parse --git-common-dir)/landspec-repro/t003-created.txt"; R=iamalisson/jit-speckit-sandbox
 git fetch -q origin && git switch -q -c review-001-t003-copilot origin/develop && echo "branch review-001-t003-copilot" >> "$REC"
 mkdir -p docs && echo "copilot probe" > docs/001-review-t003.md && git add docs/001-review-t003.md && git commit -q -m "docs: 001 review T003 probe"
 git push -q -u origin review-001-t003-copilot 2>&1 | grep -v '^remote:' || true
-url=$(gh pr create -R $R --base develop --head review-001-t003-copilot --title "[001 review T003] Copilot request probe" --body "Probe for the jit-speckit 001 review, T003. Closed after.")
+url=$(gh pr create -R $R --base develop --head review-001-t003-copilot --title "[001 review T003] Copilot request probe" --body "Probe for the landspec 001 review, T003. Closed after.")
 n=${url##*/}; echo "pr $n" >> "$REC"; echo "PR #$n"
 echo "== pr.sh's call (pr.sh:29), with the answer shown"
 gh api -X POST "repos/$R/pulls/$n/requested_reviewers" -f 'reviewers[]=copilot-pull-request-reviewer[bot]' -i 2>&1 | sed -n '1p;/"requested_reviewers"/,/\]/p' | head -8; echo "rc=${PIPESTATUS[0]}"
@@ -405,6 +405,6 @@ The probe's label "the login GitHub documents for Copilot" is the probe's wordin
 checked fact (see F3.5).
 
 Cleanup: PR #15 closed with `[001 review T003] cleanup`, branch `review-001-t003-copilot` deleted
-on origin and locally. The record is in the sandbox clone's `.git/jit-repro/t003-created.txt`.
+on origin and locally. The record is in the sandbox clone's `.git/landspec-repro/t003-created.txt`.
 
 </details>

@@ -21,7 +21,7 @@ check "when the plan was not reviewed, then no issue is created" 'fails_with "no
 CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 plan_reviewed 2>/dev/null
 out="$("$i" 2>"$TMP/issues.err")"
 check "when the plan record has a model warning, then issues.sh prints it as it creates the issues" \
-  'grep -qxF "jit: warning: CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set; the review did not run on the configured model" "$TMP/issues.err" && grep -q "^issue create" "$GH_LOG"'
+  'grep -qxF "landspec: warning: CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set; the review did not run on the configured model" "$TMP/issues.err" && grep -q "^issue create" "$GH_LOG"'
 check "when tasks have no issue, then one issue is created per task" '[[ "$(grep -c "^issue create" "$GH_LOG")" == 2 ]]'
 check "then each issue number is written at the end of its task line" \
   'grep -qx -- "- \[ \] T001 Create the schema in \`db/schema.sql\` — #1" specs/001-demo/tasks.md && grep -q "T003 \[US1\] Show prices in src/view.tsx and src/list.tsx, with tests in tests/view.test.ts — #2$" specs/001-demo/tasks.md'

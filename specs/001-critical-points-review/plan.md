@@ -8,7 +8,7 @@
 
 Produce one review report, split into one file per section under
 `specs/001-critical-points-review/report/` with `report.md` as its summary, that takes every promise
-jit-speckit makes (inventory in [contracts/report-format.md](contracts/report-format.md)), checks
+landspec makes (inventory in [contracts/report-format.md](contracts/report-format.md)), checks
 the code that keeps it, and gives a verdict with evidence; then weighs the core model (task = PR,
 spec PR, levels) and ends with a ranked list of fixes. The review changes no behavior (FR-011):
 its only output is Markdown. Reproductions run on throwaway repositories built the way

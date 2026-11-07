@@ -1,6 +1,6 @@
 name: Pins
 
-# Keeps every pin jit-speckit writes into projects (extension/scripts/pins.sh) current.
+# Keeps every pin landspec writes into projects (extension/scripts/pins.sh) current.
 # actions: never runs (if: false). It uses every PIN_* action exactly as pins.sh writes it, so
 #   Dependabot (which reads the uses: lines under jobs, whatever the if:) proposes their updates;
 #   bin/sync-pins.sh then copies a bump back into pins.sh.

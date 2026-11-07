@@ -21,7 +21,7 @@ check is in [contracts/checks.md](contracts/checks.md).
 
 **Primary Dependencies**: `git`, `gh` (with its built-in `--jq`), `specify` (v1.2.5, `bin/setup.sh`); no new dependency. Semgrep's official image by digest replaces its `uvx` install in the generated full-level workflow (U2)
 
-**Storage**: files only: `<git-common-dir>/jit-{review,mutants,security}/<diff id>`, `.specify/jit-files.sha256`, `extension/scripts/old-files.sha256`
+**Storage**: files only: `<git-common-dir>/landspec-{review,mutants,security}/<diff id>`, `.specify/landspec-files.sha256`, `extension/scripts/old-files.sha256`
 
 **Testing**: `tests/run.sh` (one `tests/<script>.test.sh` per script, "when …, then …", `tests/helpers.sh` throwaway repos and fake `gh`); each fix's check seen failing first (constitution, no bash mutation tool)
 

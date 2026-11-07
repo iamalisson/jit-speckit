@@ -1,1 +1,0 @@
-../../../.specify/extensions/jit/.specify-dev/agent-commands/claude/speckit-jit-issues/SKILL.md

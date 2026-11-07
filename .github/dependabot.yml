@@ -1,5 +1,5 @@
 # Keeps this repo's own GitHub Actions current. After a bump, run bin/sync-pins.sh so the pins that
-# jit-speckit writes into projects (extension/scripts/pins.sh) move with it.
+# landspec writes into projects (extension/scripts/pins.sh) move with it.
 version: 2
 updates:
   - package-ecosystem: github-actions

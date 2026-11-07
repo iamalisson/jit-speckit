@@ -32,7 +32,7 @@ reviewed
 check "when the body has no Review section, then it refuses" \
   'fails_with "Review" "$p" task T001 "feat(search): add search" "$TMP/unreviewed.md"'
 check "when no scan was recorded for this diff, then it refuses and names security-scan.sh" \
-  'fails_with "no security-scan.sh --changed result for this diff; run bash .specify/extensions/jit/scripts/security-scan.sh --changed after the last commit" "$p" task T001 "feat(search): add search" "$TMP/body.md"'
+  'fails_with "no security-scan.sh --changed result for this diff; run bash .specify/extensions/landspec/scripts/security-scan.sh --changed after the last commit" "$p" task T001 "feat(search): add search" "$TMP/body.md"'
 scanned # with no scanner installed: every one is "missing", and that is enough
 # A test command that prints 30 lines and fails: the refusal shows the last 20 (11 to 30).
 mkdir -p .specify/memory
@@ -41,17 +41,17 @@ printf '**Commands**: build `[BUILD_COMMAND]` · test `bash %s` · lint `[LINT_C
 claim="$(git ls-remote origin "refs/heads/$(git branch --show-current)")"
 red=0; out="$("$p" task T001 "feat(search): add search" "$TMP/body.md" 2>&1)" || red=$?
 check "when the constitution's test command exits 1, then it refuses, prints its last 20 lines and pushes nothing" \
-  '((red != 0)) && grep -qxF "jit: the test command failed (bash $TMP/red.sh); fix it before opening the PR" <<<"$out" \
+  '((red != 0)) && grep -qxF "landspec: the test command failed (bash $TMP/red.sh); fix it before opening the PR" <<<"$out" \
    && grep -qx "red line 30" <<<"$out" && grep -qx "red line 11" <<<"$out" && ! grep -qx "red line 10" <<<"$out" \
    && [[ "$(git ls-remote origin "refs/heads/$(git branch --show-current)")" == "$claim" ]] && ! grep -q "^pr create" "$GH_LOG" \
-   && grep -qx "red line 1" "$(git rev-parse --git-common-dir)/jit-test/feat__001-t001-add-search.log"'
+   && grep -qx "red line 1" "$(git rev-parse --git-common-dir)/landspec-test/feat__001-t001-add-search.log"'
 check "when a scan was recorded for this diff, then the scan check lets the PR through" \
   '! grep -q "no security-scan.sh --changed result" <<<"$out" && grep -qx "red line 30" <<<"$out"'
 printf '#!/usr/bin/env bash\ntouch "%s/green.ran"\n' "$TMP" > "$TMP/green.sh"
 printf '**Commands**: build `[BUILD_COMMAND]` · test `bash %s` · lint `[LINT_COMMAND]` · mutate `[MUTATE_COMMAND]`\n' "$TMP/green.sh" > .specify/memory/constitution.md
 out="$("$p" task T001 "feat(search): add search" "$TMP/body.md" 2>"$TMP/pr.err")" || true
 check "when the constitution's test command exits 0, then it opens the PR with no warning" \
-  '[[ -f "$TMP/green.ran" && "$out" == *"PR=https://github.com/acme/app/pull/99" ]] && grep -q "^pr create" "$GH_LOG" && ! grep -q "^jit:" "$TMP/pr.err"'
+  '[[ -f "$TMP/green.ran" && "$out" == *"PR=https://github.com/acme/app/pull/99" ]] && grep -q "^pr create" "$GH_LOG" && ! grep -q "^landspec:" "$TMP/pr.err"'
 rm -f "$GH_PR"; : > "$GH_LOG" # the checks below are about the next run's PR alone
 # F3.1/F4.3: the recorded review reaches the body; its findings never do, wherever the report puts them.
 printf 'LEAK-1 before the marker\n\n- **What changed**: Adds LEAK-2 search.\n- **Findings**:\n  - High: LEAK-3 in src/a.ts:3\n\nSecurity: LEAK-4 token logged\n\n%s\n\nAssessment: ready\n' "$(range)" > "$TMP/review.md"
@@ -59,7 +59,7 @@ printf 'LEAK-1 before the marker\n\n- **What changed**: Adds LEAK-2 search.\n- *
 rm .specify/memory/constitution.md
 out="$("$p" task T001 "feat(search): add search" "$TMP/body.md" 2>"$TMP/pr.err")"
 check "when the constitution has no test command, then it says the tests were not run and opens the PR" \
-  'grep -qx "jit: tests not run before the PR (no test command in the constitution)" "$TMP/pr.err" && [[ "$out" == *"PR=https://github.com/acme/app/pull/99" ]]'
+  'grep -qx "landspec: tests not run before the PR (no test command in the constitution)" "$TMP/pr.err" && [[ "$out" == *"PR=https://github.com/acme/app/pull/99" ]]'
 check "when a review is recorded, then the body sent to gh pr create has the patch-id and Assessment lines, folded, before Closes" \
   'sed -n "/^pr create/,\$p" "$GH_LOG" | grep -A4 -xF "<details><summary>Independent review</summary>" | grep -xE -e "Independent review recorded for this diff \(patch id [0-9a-f]{12}\)" -e "Assessment: ready" | wc -l | grep -qx " *2" \
    && [[ "$(grep -nxF "</details>" "$GH_LOG" | tail -1 | cut -d: -f1)" -lt "$(grep -n "Closes #5" "$GH_LOG" | cut -d: -f1)" ]]'
@@ -74,12 +74,12 @@ check "then the user is assigned and no milestone or project is guessed" \
 out="$("$p" task T001 "feat(search): add search" "$TMP/body.md")"
 check "when the PR already exists, then it is reused, not duplicated" '[[ "$(grep -c "^pr create" "$GH_LOG")" == 1 ]]'
 
-sed -i.bak 's/^level: .*/level: full/' .specify/extensions/jit/jit-config.yml
+sed -i.bak 's/^level: .*/level: full/' .specify/extensions/landspec/landspec-config.yml
 rm -f "$GH_PR"; printf 'No evidence here.\n' > "$TMP/thin.md"
 check "when the level is full and the body has no Evidence section, then it refuses" \
   'fails_with "Evidence" "$p" task T001 "feat(search): add search" "$TMP/thin.md"'
 
-sed -i.bak 's/^level: .*/level: standard/' .specify/extensions/jit/jit-config.yml
+sed -i.bak 's/^level: .*/level: standard/' .specify/extensions/landspec/landspec-config.yml
 echo 'export const x = 2' >> search.ts; git commit --quiet -am "feat: more"
 check "when the code changed after the review, then the PR is refused until a new review is recorded" \
   'fails_with "changed since" "$p" task T001 "feat(search): add search" "$TMP/body.md" && reviewed && scanned && "$p" task T001 "feat(search): add search" "$TMP/body.md" | grep -q "^PR="'
@@ -125,7 +125,7 @@ git -C "$TMP" clone --quiet "$TMP/origin.git" mate 2>/dev/null
 mate="$(git -C "$TMP/mate" rev-parse HEAD)"; git fetch --quiet origin
 out="$(GH_FAIL_PR_LIST=1 "$p" spec 2>&1)" && spec_rc=0 || spec_rc=$?
 check "when gh pr list fails while the spec PR is open with a teammate's commit, then pr.sh spec exits non-zero after gh's error" \
-  '((spec_rc != 0)) && grep -q "HTTP 502" <<<"$out" && grep -qxF "jit: could not check for an open spec PR" <<<"$out"'
+  '((spec_rc != 0)) && grep -q "HTTP 502" <<<"$out" && grep -qxF "landspec: could not check for an open spec PR" <<<"$out"'
 check "then origin's spec branch still has the teammate's commit" '[[ "$(git ls-remote origin refs/heads/spec/002-new | cut -f1)" == "$mate" ]]'
 
 # ── Changing existing tests needs a reason ──
@@ -229,7 +229,7 @@ mkdir -p src .specify/memory; echo 'export const search = 1' > src/search.ts; gi
 mutate() { printf '**Commands**: build `[BUILD_COMMAND]` · test `[TEST_COMMAND]` · lint `[LINT_COMMAND]` · mutate `%s`\n' "$1" > .specify/memory/constitution.md; }
 mutate true
 check "when a mutate command is set and mutants.sh was not run on this diff, then it refuses and names mutants.sh" \
-  'fails_with "no mutants.sh result for this diff; run bash .specify/extensions/jit/scripts/mutants.sh after the last commit" "$p" task T001 "feat(search): add search" "$TMP/body.md"'
+  'fails_with "no mutants.sh result for this diff; run bash .specify/extensions/landspec/scripts/mutants.sh after the last commit" "$p" task T001 "feat(search): add search" "$TMP/body.md"'
 "$SCRIPTS/mutants.sh" >/dev/null; scanned
 check "when mutants.sh ran on this diff, then the PR opens" '"$p" task T001 "feat(search): add search" "$TMP/body.md" | grep -q "^PR="'
 echo 'export const more = 2' >> src/search.ts; git commit --quiet -am "feat: more"; reviewed; rm -f "$GH_PR"
@@ -324,10 +324,10 @@ check "when pr.sh task runs again on an open PR, then the body is updated to the
 check "then it prints that the body was replaced from the author's file" 'grep -qxF "PR body replaced from $TMP/body.md; edits made on GitHub are gone" <<<"$out"'
 edit_rc=0; out="$(GH_FAIL_EDIT=1 "$p" task T001 "feat: search" "$TMP/body.md" 2>"$TMP/pr.err")" || edit_rc=$?
 check "when the edit fails, then it prints one refusal naming the PR and no PR= line" \
-  '((edit_rc != 0)) && [[ "$(wc -l < "$TMP/pr.err")" -eq 1 ]] && grep -q "^jit: .*https://github.com/acme/app/pull/99" "$TMP/pr.err" && ! grep -q "^PR=" <<<"$out"'
+  '((edit_rc != 0)) && [[ "$(wc -l < "$TMP/pr.err")" -eq 1 ]] && grep -q "^landspec: .*https://github.com/acme/app/pull/99" "$TMP/pr.err" && ! grep -q "^PR=" <<<"$out"'
 list_rc=0; out="$(GH_FAIL_PR_LIST=1 "$p" task T001 "feat: search" "$TMP/body.md" 2>&1)" || list_rc=$?
 check "when the open-PR lookup fails, then it stops after gh's error and creates no PR" \
-  '((list_rc != 0)) && grep -q "HTTP 502" <<<"$out" && grep -qxF "jit: could not check for an open PR" <<<"$out" && ! grep -q "^PR=" <<<"$out" && ! grep -q "^pr create" "$GH_LOG"'
+  '((list_rc != 0)) && grep -q "HTTP 502" <<<"$out" && grep -qxF "landspec: could not check for an open PR" <<<"$out" && ! grep -q "^PR=" <<<"$out" && ! grep -q "^pr create" "$GH_LOG"'
 printf 'What changed: x\n\n- deep: ghp_abc123\n- deep: Token=abc\n- deep: search.ts\n\n%s\n\nAssessment: ready\n' "$(range)" > "$TMP/review.md"
 "$SCRIPTS/review.sh" record "$TMP/review.md" >/dev/null 2>&1; : > "$GH_LOG"
 "$p" task T001 "feat: search" "$TMP/body.md" >/dev/null
@@ -357,25 +357,25 @@ branch="$(git branch --show-current)"
 # unopened: nothing was pushed past the claim and no PR was created.
 unopened() { ! grep -q "^pr create" "$GH_LOG" && [[ "$(git ls-remote origin "refs/heads/$branch" | cut -f1)" == "$(git rev-parse origin/develop)" ]]; }
 check "when the body has no '## Review' section, then it refuses with that message and opens nothing" \
-  'fails_with "jit: the PR body needs a '"'"'## Review'"'"' section: the independent review'"'"'s findings and what was done about them" "$p" task T001 "feat: search" "$TMP/unreviewed.md" && unopened'
+  'fails_with "landspec: the PR body needs a '"'"'## Review'"'"' section: the independent review'"'"'s findings and what was done about them" "$p" task T001 "feat: search" "$TMP/unreviewed.md" && unopened'
 set_cfg base_branch nosuch
 check "when the base branch is on neither the machine nor origin, then it refuses naming it and opens nothing" \
-  'fails_with "jit: base branch '"'"'nosuch'"'"' not found locally or on origin" "$p" task T001 "feat: search" "$TMP/body.md" && unopened'
+  'fails_with "landspec: base branch '"'"'nosuch'"'"' not found locally or on origin" "$p" task T001 "feat: search" "$TMP/body.md" && unopened'
 set_cfg base_branch auto
 mkdir -p .specify/memory; printf '# Constitution\n\ntests: ([\n' > .specify/memory/constitution.md
 check "when the constitution's tests: regex is invalid, then it refuses with the regex in the message and opens nothing" \
-  'fails_with "jit: the constitution'"'"'s tests: regex is invalid: ([" "$p" task T001 "feat: search" "$TMP/body.md" && unopened'
+  'fails_with "landspec: the constitution'"'"'s tests: regex is invalid: ([" "$p" task T001 "feat: search" "$TMP/body.md" && unopened'
 rm .specify/memory/constitution.md
 check "when no review was recorded for the diff, then it refuses saying so and opens nothing" \
-  'fails_with "jit: no independent review recorded for this branch'"'"'s diff" "$p" task T001 "feat: search" "$TMP/body.md" && unopened'
+  'fails_with "landspec: no independent review recorded for this branch'"'"'s diff" "$p" task T001 "feat: search" "$TMP/body.md" && unopened'
 printf 'What changed: x\n\n%s\n\nAssessment: changes needed\n' "$(range)" > "$TMP/review.md"
 "$SCRIPTS/review.sh" record "$TMP/review.md" >/dev/null
 check "when the recorded review said changes needed, then it refuses saying so and opens nothing" \
-  'fails_with "jit: the last review said '"'"'changes needed'"'"'" "$p" task T001 "feat: search" "$TMP/body.md" && unopened'
+  'fails_with "landspec: the last review said '"'"'changes needed'"'"'" "$p" task T001 "feat: search" "$TMP/body.md" && unopened'
 reviewed
 echo 'export const more = 2' >> search.ts; git commit --quiet -am "feat: more"; scanned
 check "when a commit follows a ready review (the scan is current), then it refuses with changed since and opens nothing" \
-  'fails_with "jit: this branch'"'"'s diff changed since the last review" "$p" task T001 "feat: search" "$TMP/body.md" && unopened'
+  'fails_with "landspec: this branch'"'"'s diff changed since the last review" "$p" task T001 "feat: search" "$TMP/body.md" && unopened'
 reviewed
 out="$("$p" task T001 "feat: search" "$TMP/body.md")"
 check "when the review is ready and current, then it pushes HEAD itself: origin's branch is the commit being reviewed" \
