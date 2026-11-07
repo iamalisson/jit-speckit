@@ -178,20 +178,20 @@ ci_repo
 printf '{"packageManager":"yarn@4.5.0","scripts":{"test":"x"}}\n' > package.json; : > yarn.lock
 "$l" standard --no-branches >/dev/null
 check "when packageManager is Yarn 2+, then setup-node has no cache (it would run the runner's Yarn 1) and corepack comes before the install" \
-  '! grep -q "cache:" $ci_yml && [[ "$(grep -A1 -F "npm install -g corepack && corepack enable" $ci_yml | tail -1)" == "      - run: yarn install --immutable" ]] && ! grep -q "frozen-lockfile" $ci_yml'
+  '! grep -qE "^ +cache:" $ci_yml && [[ "$(grep -A1 -F "npm install -g corepack && corepack enable" $ci_yml | tail -1)" == "      - run: yarn install --immutable" ]] && ! grep -q "frozen-lockfile" $ci_yml'
 printf '{"packageManager":"yarn@1.22.22","scripts":{"test":"x"}}\n' > package.json; rm $ci_yml
 "$l" standard --no-branches >/dev/null
 check "when packageManager is Yarn 1, then CI keeps the cache and the frozen install, with no corepack" \
   'grep -q "cache: yarn" $ci_yml && grep -q "yarn install --frozen-lockfile" $ci_yml && ! grep -q corepack $ci_yml'
 
 ci_repo
-printf '{"scripts":{"test":"x"}}\n' > package.json
+printf '{"packageManager":"npm@10.9.0","scripts":{"test":"x"}}\n' > package.json
 "$l" standard --no-branches >/dev/null
-check "when a project has no lockfile, then setup-node gets no cache, which would fail the first run" \
-  '! grep -q "cache:" $ci_yml && grep -q "run: npm install" $ci_yml'
+check "when a project has no lockfile, then setup-node gets no cache, not even its automatic one, which would fail the first run" \
+  '! grep -qE "^ +cache:" $ci_yml && grep -q "package-manager-cache: false" $ci_yml && grep -q "run: npm install" $ci_yml'
 : > package-lock.json; rm $ci_yml
 "$l" standard --no-branches >/dev/null
-check "when it has a lockfile, then the cache is kept" 'grep -q "cache: npm" $ci_yml && grep -q "run: npm ci" $ci_yml'
+check "when it has a lockfile, then the cache is kept" 'grep -q "cache: npm" $ci_yml && ! grep -q package-manager-cache $ci_yml && grep -q "run: npm ci" $ci_yml'
 
 ci_repo
 mkdir -p .specify/memory; cp "$ROOT/preset/templates/constitution-template.md" .specify/memory/constitution.md
