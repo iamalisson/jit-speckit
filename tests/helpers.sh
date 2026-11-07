@@ -26,6 +26,13 @@ fails_with() {
   grep -qF -- "$text" <<<"$out"
 }
 
+# one_refusal <text> <cmd...>: the command fails with exactly one stderr line, which mentions <text>.
+one_refusal() {
+  local text="$1" err rc=0; shift
+  err="$("$@" 2>&1 >/dev/null)" || rc=$?
+  ((rc != 0)) && [[ "$err" == *"$text"* && "$(wc -l <<<"$err")" -eq 1 ]]
+}
+
 # Fake GitHub CLI: issues and PRs are numbered from a counter; every call is logged.
 fake_gh() {
   mkdir -p "$TMP/bin"
@@ -33,8 +40,6 @@ fake_gh() {
 #!/usr/bin/env bash
 echo "$*" >> "$GH_LOG"
 case "$1 $2" in
-  "api -X") # pr.sh's Copilot request: prints, as its --jq does, the logins in $GH_REVIEWERS
-            if [[ -n "${GH_REVIEWERS:-}" ]]; then echo "$GH_REVIEWERS"; fi; exit 0 ;;
   "api graphql") # next.sh's issue-state query: prints, as its --jq does, the asked numbers in $GH_CLOSED
                  if [[ -n "${GH_FAIL_GRAPHQL:-}" ]]; then echo "gh: Could not resolve to an Issue with the number of $GH_FAIL_GRAPHQL." >&2; exit 1; fi
                  for q in $(grep -oE 'issue\(number: *[0-9]+' <<<"$*" | grep -oE '[0-9]+$'); do
@@ -101,6 +106,19 @@ new_repo() {
   git add -A; git commit --quiet -m init; git branch -M main
   git push --quiet origin main; git remote set-head origin main >/dev/null 2>&1 || git remote set-head origin -a >/dev/null
   git push --quiet origin main:develop
+}
+
+# shallow_repo [depth]: pushes the current branch, then enters $TMP/shallow, a real
+# --no-single-branch clone at that depth (default 1, where the branch and the base share no history).
+shallow_repo() {
+  local b; b="$(git branch --show-current)"
+  git push --quiet origin "$b"
+  rm -rf "$TMP/shallow"
+  git clone --quiet --depth "${1:-1}" --no-single-branch "file://$TMP/origin.git" "$TMP/shallow" 2>/dev/null
+  cp -R .specify "$TMP/shallow/"
+  cd "$TMP/shallow"
+  git config user.email t@t; git config user.name t; git config commit.gpgsign false
+  git switch --quiet "$b"
 }
 
 # commit_tasks <content>: write tasks.md, commit it on main and develop.

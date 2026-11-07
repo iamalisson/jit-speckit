@@ -128,8 +128,8 @@ check "the review prompt takes the range's start from origin/<base>, as review.s
   'grep -qF "git merge-base HEAD origin/<base>" extension/commands/review.md && ! grep -qF "git merge-base HEAD <base>" extension/commands/review.md'
 
 # FR-034: every review runs in the plugin's reviewer agent on a pinned strong model; FR-035: no fast-model checker.
-check "when agents/reviewer.md is read, then it has name: reviewer, model: opus, effort: high and no ## Method (review.md is the only copy)" \
-  'grep -qx "name: reviewer" agents/reviewer.md && grep -qx "model: opus" agents/reviewer.md && grep -qx "effort: high" agents/reviewer.md && ! grep -q "^## Method" agents/reviewer.md'
+check "when agents/reviewer.md is read, then it has name: reviewer, model: sonnet, effort: medium and no ## Method (review.md is the only copy)" \
+  'grep -qx "name: reviewer" agents/reviewer.md && grep -qx "model: sonnet" agents/reviewer.md && grep -qx "effort: medium" agents/reviewer.md && ! grep -q "^## Method" agents/reviewer.md'
 # Guard half (FR-035): it passes on main too, so it is never presented as failing-first.
 check "then the plugin ships no fast-model checker agent and plugin.json has no agents key (the default scan finds agents/)" \
   '[[ ! -e agents/checker.md ]] && ! grep -q "\"agents\"" .claude-plugin/plugin.json'
@@ -144,7 +144,13 @@ check "when docs/reference.md is read, then the Configuration table has a review
 # The section is read into a variable: a pipe into grep -q can fail under pipefail (SIGPIPE on sed).
 sec_readme="$(sed -n "/^## Security, built in/,/^## Levels/p" README.md)"
 check "when the README's Security, built in table is read, then it names the reviewer's model" \
-  '[[ "$sec_readme" == *"jit-speckit:reviewer"* && "$sec_readme" == *Opus* ]]'
+  '[[ "$sec_readme" == *"jit-speckit:reviewer"* && "$sec_readme" == *Sonnet* ]]'
+
+# FR-006: mutmut's own exit code says nothing of survivors, so adopt names one that does.
+check "when skills/adopt is read, then it names the mutmut command that exits non-zero on a survivor" \
+  'grep -qF "mutmut run && ! mutmut results | grep -q survived" skills/adopt/SKILL.md'
+check "when docs/reference.md is read, then adding tests to an existing file needs no explanation, a deletion, an edit or an added skip does" \
+  'grep -qF "adding tests to an existing file needs no explanation; a deletion, an edit or an added skip does" docs/reference.md'
 
 # The installed copies (specify extension add --dev extension --force) are what this repo runs: they match the source.
 stale=""

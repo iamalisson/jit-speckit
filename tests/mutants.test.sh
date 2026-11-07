@@ -37,5 +37,16 @@ echo 2 > "$TMP/mutate.rc"
 check "when a mutant survives, then it reports survivors and where the log is" \
   'out="$("$m")" && grep -q "^mutants survivors" <<<"$out" && grep -q "mutants.log" <<<"$out"'
 check "then the report lives under .git, never in the tree" '[[ -z "$(git status --porcelain)" ]]'
+sed -i.bak 's/mutate `[^`]*`/mutate `no-such-mutator --run`/' .specify/memory/constitution.md
+check "when the mutate command is not installed (exit 127), then it reports unavailable, names it, and records that" \
+  'out="$("$m")" && grep -q "^mutants unavailable .*no-such-mutator --run" <<<"$out" && ! grep -q survivors <<<"$out" \
+   && grep -q "^mutants unavailable" "$(source "$SCRIPTS/lib.sh" && diff_record jit-mutants)"'
+touch "$TMP/noexec"; sed -i.bak "s|mutate \`[^\`]*\`|mutate \`$TMP/noexec\`|" .specify/memory/constitution.md
+check "when the mutate command cannot be executed (exit 126), then it reports unavailable" 'out="$("$m")" && grep -q "^mutants unavailable" <<<"$out"'
+printf '**Commands**: build `[BUILD_COMMAND]` · test `npm test` · lint `[LINT_COMMAND]` · mutate `%s`\n' "$TMP/mutate.sh" > .specify/memory/constitution.md
+
+shallow_repo
+check "on a --depth 1 clone with no merge base, then it prints one refusal naming git fetch --unshallow and writes no record" \
+  'one_refusal "git fetch --unshallow" "$m" && [[ -z "$(find .git/jit-mutants -maxdepth 1 -type f 2>/dev/null)" ]]'
 
 exit "$FAIL"

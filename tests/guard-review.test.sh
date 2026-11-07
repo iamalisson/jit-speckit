@@ -38,6 +38,9 @@ for tool in Agent Task; do
     'allowed "$(launch $tool general-purpose haiku "Find the config.")" && allowed "$(launch $tool general-purpose "" "Find the config.")"'
 done
 
+check "when CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set, then a reviewer launch with no model is allowed, and one on haiku still blocked" \
+  'export CLAUDE_CODE_SUBAGENT_MODEL_FORCE=opus; allowed "$(launch Agent jit-speckit:reviewer "" "x")" && blocked "$(launch Agent jit-speckit:reviewer haiku "x")" "not haiku"'
+
 # A prompt bigger than the pipe buffer (64 KB) is still read whole: the sentinel launch on haiku is blocked.
 # shellcheck disable=SC2034  # used inside the check string
 big="$(head -c 400000 /dev/zero | tr '\0' x)"

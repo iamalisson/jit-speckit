@@ -17,6 +17,7 @@ source "$(dirname "$0")/lib.sh"
 jit_cd_root
 
 changed=false; [[ "${1:-}" == --changed ]] && changed=true
+if $changed; then rec="$(diff_record jit-security)" || exit 1; fi
 dir="$(git rev-parse --git-common-dir)/jit-security/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$dir"
 summary="$dir/summary.txt"; : > "$summary"
@@ -25,7 +26,7 @@ report() { printf '%-12s %-9s %s\n' "$1" "$2" "$3" | tee -a "$summary"; }
 missing() { report "$1" missing "install: $2"; }
 # With --changed, the summary lines become this diff's record, which pr.sh task requires. Copied
 # only once the scan is done, so an interrupted scan records nothing.
-finish() { if $changed; then cp "$summary" "$(diff_record jit-security)"; fi; echo "REPORT_DIR=$dir"; exit 0; }
+finish() { if $changed; then cp "$summary" "$rec"; fi; echo "REPORT_DIR=$dir"; exit 0; }
 
 files=()
 if $changed; then

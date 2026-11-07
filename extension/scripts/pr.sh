@@ -7,8 +7,10 @@
 #       body, folded: patch id, Assessment line, model, any warning and the risk maps as paths;
 #       "full" also requires "## Evidence".
 #       Runs the constitution's test command before the push and refuses when it fails.
+#       On an open PR, replaces its body from body-file.
 #   pr.sh spec
-#       Commits the active feature's spec folder on spec/<feature> and opens a docs PR.
+#       Stops without a current plan review. Commits the active feature's spec folder on
+#       spec/<feature> and opens a docs PR.
 # Prints: PR=<url>
 set -euo pipefail
 # shellcheck source=lib.sh
@@ -20,18 +22,17 @@ fdir="$(feature_dir)"
 base="$(base_branch)"
 mode="${1:-}"
 
-open_pr() { # open_pr <title> <body>
-  local url logins=""
-  url="$(gh pr list --head "$(git branch --show-current)" --state open --json url --jq '.[0].url // empty' 2>/dev/null || true)"
+# With a body file (a task PR, whose body must describe the new diff), an open PR's body is replaced.
+open_pr() { # open_pr <title> <body> [body-file]
+  local url err
+  url="$(gh pr list --head "$(git branch --show-current)" --state open --json url --jq '.[0].url // empty')" \
+    || die "could not check for an open PR"
   if [[ -z "$url" ]]; then
     url="$(gh pr create --base "$base" --head "$(git branch --show-current)" --title "$1" --body "$2")"
     add_meta pr "$url"
-    # A second independent reader when the account has GitHub Copilot code review. GitHub can
-    # accept the request and add no one, so the line says what its answer lists.
-    if [[ "$url" =~ /([^/]+/[^/]+)/pull/([0-9]+)$ ]]; then
-      logins="$(gh api -X POST "repos/${BASH_REMATCH[1]}/pulls/${BASH_REMATCH[2]}/requested_reviewers" -f 'reviewers[]=copilot-pull-request-reviewer[bot]' --jq '.requested_reviewers[].login' 2>/dev/null || true)"
-    fi
-    if grep -qi copilot <<<"$logins"; then echo "copilot: code review requested"; else echo "copilot: not requested (GitHub did not add the reviewer)"; fi
+  elif [[ -n "${3:-}" ]]; then
+    err="$(gh pr edit "$url" --body "$2" 2>&1 >/dev/null)" || die "could not update the body of $url: ${err%%$'\n'*}"
+    echo "PR body replaced from $3; edits made on GitHub are gone"
   fi
   echo "PR=$url"
 }
@@ -57,13 +58,21 @@ case "$mode" in
     fi
     grep -qE '^## Review' <<<"$body" \
       || die "the PR body needs a '## Review' section: the independent review's findings and what was done about them (/speckit-jit-review)"
-    # A test that changes to fit the code proves nothing: editing, renaming or deleting an
-    # existing test needs a reason a reviewer can check. New tests need none.
+    # A test that changes to fit the code proves nothing: editing, renaming, skipping or deleting
+    # an existing test needs a reason a reviewer can check. Lines only added need none; position
+    # cannot decide, as a new test usually lands above a file's closing line.
     # --no-renames: a test moved out of a test folder counts as deleted, not as a new file.
     ref="$(base_ref)"
     git rev-parse --verify --quiet "$ref" >/dev/null || die "base branch '$base' not found locally or on origin"
+    diff_id >/dev/null # no merge base: "$ref...HEAD" below would read as no changed tests
     re="$(test_path_re)" || exit 1
-    changed_tests="$(git diff --no-renames --diff-filter=MD --name-only "$ref...HEAD" | grep -E "$re" || true)"
+    changed_tests=""
+    while IFS=$'\t' read -r added deleted f; do
+      grep -qE -- "$re" <<<"$f" || continue
+      new="$(jit_diff -U0 "$ref...HEAD" -- "$f" | sed -n '/^@@/,$p' | grep '^+' || true)"
+      # A binary file shows "-" and a mode-only change adds nothing: neither is lines only added.
+      if ! [[ "$added" =~ ^[1-9] && "$deleted" == 0 ]] || grep -qiE -- "$TEST_SKIP_RE" <<<"$new"; then changed_tests+="$f"$'\n'; fi
+    done < <(jit_numstat --diff-filter=MD "$ref...HEAD")
     if [[ -n "$changed_tests" ]] && ! grep -qE '^## Test changes' <<<"$body"; then
       die "existing tests were changed: $(tr '\n' ' ' <<<"$changed_tests")
 add a '## Test changes' section to the PR body saying why (spec changed, test was wrong). Never weaken a test to make it pass."
@@ -76,14 +85,18 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
     if [[ -n "$(constitution_cmd mutate)" ]]; then
       mutants="$(diff_record jit-mutants)"
       [[ -f "$mutants" ]] || die "no mutants.sh result for this diff; run bash .specify/extensions/jit/scripts/mutants.sh after the last commit"
-      if grep -q '^mutants survivors' "$mutants" && ! sed -n '/^## Evidence/,/^## /p' <<<"$body" | grep -qi surviv; then
+      grep -q '^mutants unavailable' "$mutants" \
+        && die "the mutate command could not run ($(constitution_cmd mutate)); install it or fix it in the constitution, then run mutants.sh again"
+      evidence="$(sed -n '/^## Evidence/,/^## /p' <<<"$body")"
+      if grep -q '^mutants survivors' "$mutants" && ! grep -qi surviv <<<"$evidence"; then
         die "mutants.sh found surviving mutants; say in '## Evidence' why each changes nothing, or add the test that kills it"
       fi
     else
       body+=$'\n\n'"Mutation testing: not run (no mutate command in the constitution)"
     fi
     # And the scanners on the changed files: a missing scanner or a finding is for the body to say.
-    [[ -f "$(diff_record jit-security)" ]] \
+    scan="$(diff_record jit-security)"
+    [[ -f "$scan" ]] \
       || die "no security-scan.sh --changed result for this diff; run bash .specify/extensions/jit/scripts/security-scan.sh --changed after the last commit"
     # Never open a PR on red checks. One log per branch, so parallel worktrees never share one.
     test_cmd="$(constitution_cmd test)"
@@ -99,9 +112,10 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
     body+=$'\n\n<details><summary>Independent review</summary>\n\n'"$review"$'\n\n</details>'
     grep -qiE "(close[sd]?|fix(e[sd])?|resolve[sd]?) #$issue([^0-9]|$)" <<<"$body" || body+=$'\n\n'"Closes #$issue"
     git push --quiet -u origin "$branch"
-    open_pr "$title" "$body"
+    open_pr "$title" "$body" "$body_file"
     ;;
   spec)
+    bash "$JIT_EXT_DIR/scripts/review.sh" check --plan >/dev/null
     feature="$(basename "$fdir")"
     branch="spec/$feature"
     # An open spec PR is updated in place. Otherwise (first time, or a later run such as after

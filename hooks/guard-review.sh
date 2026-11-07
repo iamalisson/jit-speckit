@@ -24,6 +24,8 @@ fi
 model="$(field model)"
 case "$model" in
   sonnet|opus|fable) exit 0 ;;
-  "") model="the session's model" ;;
+  "") # A session that forces one subagent model decides it; the record warns.
+      if [[ -n "${CLAUDE_CODE_SUBAGENT_MODEL_FORCE:-}" ]]; then exit 0; fi
+      model="the session's model" ;;
 esac
 echo "jit: the review must run on sonnet, opus or fable (review_model:), not $model" >&2; exit 2

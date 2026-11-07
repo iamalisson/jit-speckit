@@ -56,5 +56,7 @@ or one with another summary never matches.
    - **standard**: run `bash .specify/extensions/jit/scripts/pr.sh spec`.
    - **full**: do not open it yet. Tell the user to run `/speckit-analyze` next; the spec PR opens
      after the analysis.
+   - If `pr.sh spec` stops on a stale plan review, run the plan review again, record it, and run
+     `pr.sh spec` once more.
 6. End with one line: the PR URL (if one was opened), and "merge it, then start a task with
    `/speckit-implement T001`".

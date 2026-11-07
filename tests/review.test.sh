@@ -5,7 +5,7 @@ source "$(dirname "$0")/helpers.sh"
 r="$SCRIPTS/review.sh"
 # Every task report states its range (the merge-base with the base, then HEAD) and the reviewer's model.
 range() { echo "Reviewed: $(git merge-base HEAD origin/develop)..$(git rev-parse HEAD)"; }
-report() { printf 'What changed: x\n\nFindings: none\n\n%s\nModel: claude-opus-4-7\n\nAssessment: %s\n' "$(range)" "$1" > "$TMP/report.md"; }
+report() { printf 'What changed: x\n\nFindings: none\n\n%s\nModel: claude-sonnet-4-7\n\nAssessment: %s\n' "$(range)" "$1" > "$TMP/report.md"; }
 
 new_repo standard
 commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
@@ -19,7 +19,7 @@ printf 'Looks fine to me.\n' > "$TMP/report.md"
 check "when the report has no assessment line, then it is refused" 'fails_with "Assessment" "$r" record "$TMP/report.md"'
 printf 'Assessment: not ready, changes needed\n' > "$TMP/report.md"
 check "when the verdict is not the exact line (not ready, already), then it is refused" 'fails_with "exactly" "$r" record "$TMP/report.md"'
-printf 'Assessment: changes needed\n\nmy risk assessment is that the retry path is already covered\n%s\nModel: claude-opus-4-7\n' "$(range)" > "$TMP/report.md"
+printf 'Assessment: changes needed\n\nmy risk assessment is that the retry path is already covered\n%s\nModel: claude-sonnet-4-7\n' "$(range)" > "$TMP/report.md"
 check "when prose after the verdict mentions ready, then the verdict still counts" '"$r" record "$TMP/report.md" | grep -q "^REVIEW=changes needed"'
 report "changes needed"
 check "when the review said changes needed, then check refuses" '"$r" record "$TMP/report.md" && fails_with "changes needed" "$r" check'
@@ -27,11 +27,11 @@ report ready
 check "when the review said ready on this diff, then check passes" '"$r" record "$TMP/report.md" | grep -q "^REVIEW=ready" && "$r" check'
 # F3.1/F4.3: report prints only what the script checked (the patch id and the verdict), never the report's text,
 # even a body line shaped like a header field (warning:, map-full:, map-fix:).
-printf 'Preamble LEAK-1\n\n- **What changed**: Adds LEAK-2 search.\n- **Findings**:\n  - High: LEAK-3 in src/a.ts:3\n  - Security: LEAK-4 token logged\nwarning: LEAK-5\nmap-full: - deep: LEAK-6\nmap-fix: - deep: LEAK-7\n\n%s\nModel: claude-opus-4-7\n\nAssessment: ready\n' "$(range)" > "$TMP/report.md"
+printf 'Preamble LEAK-1\n\n- **What changed**: Adds LEAK-2 search.\n- **Findings**:\n  - High: LEAK-3 in src/a.ts:3\n  - Security: LEAK-4 token logged\nwarning: LEAK-5\nmap-full: - deep: LEAK-6\nmap-fix: - deep: LEAK-7\n\n%s\nModel: claude-sonnet-4-7\n\nAssessment: ready\n' "$(range)" > "$TMP/report.md"
 "$r" record "$TMP/report.md" >/dev/null; out="$("$r" report 2>&1)" || true
 id="$(sed -n 's/^state: //p' "$(git rev-parse --git-common-dir)/jit-review/task-$(git branch --show-current | sed 's|/|__|g')" | cut -c1-12)"
 check "when a review is recorded, then report prints exactly the patch-id line, the Assessment line and the Model line" \
-  '[[ ${#id} == 12 && "$out" == "Independent review recorded for this diff (patch id $id)"$'"'"'\n'"'"'"Assessment: ready"$'"'"'\n'"'"'"Model: claude-opus-4-7" ]]'
+  '[[ ${#id} == 12 && "$out" == "Independent review recorded for this diff (patch id $id)"$'"'"'\n'"'"'"Assessment: ready"$'"'"'\n'"'"'"Model: claude-sonnet-4-7" ]]'
 check "then report prints nothing from the report body (What changed, findings, the security finding)" \
   '! grep -qiE "LEAK|search|what changed|findings|token" <<<"$out"'
 report "changes needed"; "$r" record "$TMP/report.md" >/dev/null
@@ -73,6 +73,9 @@ check "when a task was added, then the plan needs a new review" 'fails_with "cha
 printf 'Plan read.\n\nAssessment: ready\n' > "$TMP/plan.md"
 check "when a plan report has no Model: line, then record --plan refuses" \
   'fails_with "the report must state Model: <id> for the plan: run the review again" "$r" record --plan "$TMP/plan.md"'
+printf 'Plan read.\n\nModel: ghp_abc123\n\nAssessment: ready\n' > "$TMP/plan.md"
+check "when a plan report's Model: is ghp_abc123, then the plan record stores unknown" \
+  '"$r" record --plan "$TMP/plan.md" >/dev/null 2>&1; grep -qx "model: unknown" "$(git rev-parse --git-common-dir)/jit-review/plan-001-demo"'
 
 # ── FR-030/FR-031: the risk map sets the minimum depth ──
 rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"
@@ -81,9 +84,9 @@ commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
 "$SCRIPTS/branch.sh" T001 >/dev/null
 echo 'export const search = 1' > search.ts; git add search.ts; git commit --quiet -m "feat: search"
 # rep <assessment> <line...>: a full-round report for HEAD with the given lines (risk map, findings).
-rep() { local v="$1"; shift; { echo 'What changed: x'; echo; printf '%s\n' "$@"; echo; range; echo 'Model: claude-opus-4-7'; echo; echo "Assessment: $v"; } > "$TMP/report.md"; }
+rep() { local v="$1"; shift; { echo 'What changed: x'; echo; printf '%s\n' "$@"; echo; range; echo 'Model: claude-sonnet-4-7'; echo; echo "Assessment: $v"; } > "$TMP/report.md"; }
 # drep <assessment> <from> <line...>: a delta report reviewing <from>..HEAD.
-drep() { local v="$1" f="$2"; shift 2; { echo 'What changed: y'; echo; printf '%s\n' "$@"; echo; echo "Delta from: $f"; echo "Reviewed: $f..$(git rev-parse HEAD)"; echo 'Model: claude-opus-4-7'; echo; echo "Assessment: $v"; } > "$TMP/report.md"; }
+drep() { local v="$1" f="$2"; shift 2; { echo 'What changed: y'; echo; printf '%s\n' "$@"; echo; echo "Delta from: $f"; echo "Reviewed: $f..$(git rev-parse HEAD)"; echo 'Model: claude-sonnet-4-7'; echo; echo "Assessment: $v"; } > "$TMP/report.md"; }
 check "when the diff touches nothing risky, then review.sh risk prints exactly RISK=none" '[[ "$("$r" risk)" == RISK=none ]]'
 drep ready "$(git rev-parse HEAD)"
 check "when no full review was recorded for the branch, then record --delta refuses" \
@@ -103,8 +106,8 @@ check "when an added line swallows a failure (x || true), then risk prints RISK=
 check "then risk prints only paths and categories, never the line content" '! "$r" risk | grep -qiE "drop table|make x"'
 deep=("- deep: src/authorization.py — always allows: checked the callers" "- deep: build.sh")
 rep ready "${deep[@]}"
-check "when the report has no '- deep:' line for a risky path, then record refuses and names the path" \
-  'fails_with "the report does not check db/migrations/002_drop.sql (" "$r" record "$TMP/report.md"'
+check "when the report has no '- deep:' line for a risky path, then record refuses, names the path and says to run the review again" \
+  'fails_with "the report does not check db/migrations/002_drop.sql (" "$r" record "$TMP/report.md" && fails_with "run the review again" "$r" record "$TMP/report.md"'
 rep ready "${deep[@]}" "- deep: db/migrations/002_drop.sql.bak"
 check "when a '- deep:' line names a longer path (002_drop.sql.bak), then it does not cover 002_drop.sql" \
   'fails_with "the report does not check db/migrations/002_drop.sql (" "$r" record "$TMP/report.md"'
@@ -152,13 +155,29 @@ check "when review_model is unset or opus and Model: is claude-haiku-4-5, then r
 check "when CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set, then its reason wins over an outside-family model (one line)" \
   'err="$(CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 "$r" record "$TMP/report.md" 2>&1 >/dev/null)"; [[ "$err" == "$(warn "CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set")" ]]'
 sed -i.bak '/^review_model:/d' .specify/extensions/jit/jit-config.yml; echo "review_model: sonnet" >> .specify/extensions/jit/jit-config.yml
-rep ready "${all[@]}"
+rep ready "${all[@]}"; sed -i.bak 's/^Model: .*/Model: claude-opus-4-7/' "$TMP/report.md"
 check "when Model: is opus and review_model is sonnet, then record warns the review ran on <id>, not sonnet" \
   'err="$("$r" record "$TMP/report.md" 2>&1 >/dev/null)"; [[ "$err" == "$(warn "the review ran on claude-opus-4-7, not sonnet")" ]]'
 sed -i.bak '/^review_model:/d' .specify/extensions/jit/jit-config.yml; echo "review_model: haiku" >> .specify/extensions/jit/jit-config.yml
 check "when review_model is haiku, then record refuses (the config cannot lower the bar)" \
   'fails_with "jit: review_model must be sonnet, opus or fable" "$r" record "$TMP/report.md"'
 sed -i.bak '/^review_model:/d' .specify/extensions/jit/jit-config.yml
+
+# Model: reaches the PR body, so only something shaped like a model id is stored.
+rec() { echo "$(git rev-parse --git-common-dir)/jit-review/task-$(git branch --show-current | sed 's|/|__|g')"; }
+model_is() { rep ready "${all[@]}"; sed -i.bak "s/^Model: .*/Model: $1/" "$TMP/report.md"; err="$("$r" record "$TMP/report.md" 2>&1 >/dev/null)"; [[ "$(sed -n 's/^model: //p' "$(rec)" | head -1)" == "$2" ]]; }
+echo "review_model: opus" >> .specify/extensions/jit/jit-config.yml
+check "when Model: is claude-opus-4-8[1m], then it is kept with no warning" 'model_is "claude-opus-4-8[1m]" "claude-opus-4-8[1m]" && [[ -z "$err" ]]'
+check "when Model: is us.anthropic.claude-opus-4-1-20250805-v1:0, then it is kept with no warning" \
+  'model_is us.anthropic.claude-opus-4-1-20250805-v1:0 us.anthropic.claude-opus-4-1-20250805-v1:0 && [[ -z "$err" ]]'
+sed -i.bak '/^review_model:/d' .specify/extensions/jit/jit-config.yml
+check "when Model: is claude-haiku-4-5, then it is kept, with its warning" 'model_is claude-haiku-4-5 claude-haiku-4-5 && [[ "$err" == "$(warn "the review ran on claude-haiku-4-5")" ]]'
+for bad in Token=abc ghp_abc123; do
+  check "when Model: is $bad, then unknown is stored in the record and the warning, and the value in neither" \
+    'model_is "$bad" unknown && [[ "$err" == "$(warn "the review ran on unknown")" ]] && grep -qx "warning: the review ran on unknown; the review did not run on the configured model" "$(rec)" && ! sed "/^$/q" "$(rec)" | grep -qF "$bad"'
+done
+long="claude-$(head -c 80 /dev/zero | tr '\0' x)"
+check "when Model: is over 80 characters, then unknown is stored" 'model_is "$long" unknown'
 
 # ── FR-032/FR-033: delta rounds ──
 rep ready "${all[@]}"; "$r" record "$TMP/report.md" >/dev/null || true
@@ -184,8 +203,10 @@ check "when a delta report has no Model: line, then record --delta refuses" \
 drep ready "$h1" "round: full"
 check "when the fix changes 25 lines of a findings file plus a new 30-line test, then a ready delta is recorded and check passes on the whole diff" \
   'out="$("$r" record --delta "$TMP/report.md")"; [[ "$out" == "$(printf "REVIEWED=%s\nREVIEW=ready" "$(git rev-parse HEAD)")" ]] && "$r" check'
-check "when the last round was a delta (its body has a line round: full), then another --delta is refused" \
-  'fails_with "a delta follows a recorded full review" "$r" record --delta "$TMP/report.md"'
+h3="$(git rev-parse HEAD)"; echo "// fix" >> search.ts; git add search.ts; git commit --quiet -m "fix: second round"
+drep ready "$h3"
+check "when the last round was a delta, then another delta from its head is recorded, so fix rounds can always end" \
+  'out="$("$r" record --delta "$TMP/report.md")"; [[ "$out" == "$(printf "REVIEWED=%s\nREVIEW=ready" "$(git rev-parse HEAD)")" ]] && "$r" check'
 
 rep "changes needed" "${all[@]}" "Findings:" "- High: search.ts:1 still wrong"
 "$r" record "$TMP/report.md" >/dev/null || true; h2="$(git rev-parse HEAD)"
@@ -225,5 +246,29 @@ check "when a test path flagged only auth (tests/login.test.js) is 'proven' by i
 git checkout --quiet --detach
 check "when HEAD is detached, then review.sh risk still prints the risk map" '"$r" risk | grep -qx "RISK=gate tests/a.test.js"'
 git switch --quiet -
+
+# ── FR-006: no merge base is a refusal, an empty diff is not ──
+rm -rf "$TMP/origin.git" "$TMP/repo" "$TMP/shallow"; cd "$TMP"
+new_repo standard
+git commit --quiet --allow-empty -m one; git commit --quiet --allow-empty -m two # so depth 3 leaves the clone shallow
+commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
+"$SCRIPTS/branch.sh" T001 >/dev/null
+echo a > a.txt; git add a.txt; git commit --quiet -m "feat: a"
+task_record() { echo ".git/jit-review/task-$(git branch --show-current | sed 's|/|__|g')"; }
+shallow_repo
+# The range the old fallback accepted: with no merge base, diff_base is HEAD.
+printf 'What changed: x\n\nReviewed: %s..%s\nModel: claude-sonnet-4-7\n\nAssessment: ready\n' "$(git rev-parse HEAD)" "$(git rev-parse HEAD)" > "$TMP/report.md"
+check "on a --depth 1 clone with no merge base, then record prints one refusal naming git fetch --unshallow and writes no record" \
+  'one_refusal "git fetch --unshallow" "$r" record "$TMP/report.md" && [[ ! -e "$(task_record)" ]]'
+check "then check prints one refusal naming git fetch --unshallow" 'one_refusal "git fetch --unshallow" "$r" check'
+cd "$TMP/repo"; git switch --quiet --orphan feat/001-t001-unrelated
+echo b > b.txt; git add b.txt; git commit --quiet -m "feat: unrelated"
+check "when a full clone's branch shares no history with the base, then check refuses without naming git fetch --unshallow" \
+  'one_refusal "no history" "$r" check && out="$("$r" check 2>&1 || true)" && [[ "$out" != *unshallow* ]]'
+git switch --quiet feat/001-t001-add-search
+git revert --no-edit HEAD >/dev/null
+shallow_repo 3
+check "on a shallow clone that has the merge base, then a commit and its revert are an empty diff, not a refusal" \
+  '[[ "$(git rev-parse --is-shallow-repository)" == true ]] && one_refusal "no independent review" "$r" check'
 
 exit "$FAIL"
