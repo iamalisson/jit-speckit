@@ -1,5 +1,6 @@
 # Test helpers: a throwaway repo with a local bare "origin" and a fake `gh` on PATH.
 # shellcheck shell=bash disable=SC2034  # SCRIPTS and FAIL are used by the test files
+unset GH_REPO # pr.sh exports it for gh; a test starts from none, as a fresh shell does
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
