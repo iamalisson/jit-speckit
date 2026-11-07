@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Record and check the independent review (/speckit-jit-review), so nothing opens without one.
 #   review.sh record <report-file>          task review: tied to the branch's exact diff against the base
-#   review.sh record --delta <report-file>  fix round: reviews <last reviewed>..HEAD, after a recorded full round
+#   review.sh record --delta <report-file>  fix round: reviews <last reviewed>..HEAD, after any recorded round
 #   review.sh record --plan <report-file>   plan review: tied to the feature's plan.md and tasks.md (issue numbers aside)
 #   review.sh check [--plan]                exit 0 when a review that said "ready" matches the current state
 #   review.sh report [--plan]               check, then print the recorded facts: the patch id, "Assessment: ready",
@@ -141,7 +141,7 @@ case "$action" in
         rf="$(commit "${BASH_REMATCH[1]}")"; rh="$(commit "${BASH_REMATCH[2]}")"
       fi
       if $delta; then
-        [[ -f "$record" && "$(hdr round)" == full ]] \
+        [[ -f "$record" && -n "$(hdr round)" ]] \
           || die "a delta follows a recorded full review of this branch: run a new full review, then record it with review.sh record <report-file>"
         from="$(hdr head)"
         [[ -n "$df" ]] || die "a delta report names its base: Delta from: $from; run the delta review again"

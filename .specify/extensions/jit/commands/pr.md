@@ -35,12 +35,13 @@ description: "Review, commit, push and open the task's pull request"
    Save the report as it came to a file outside the repository (`mktemp`) and record it:
    `bash .specify/extensions/jit/scripts/review.sh record <file>`. Then fix every **High** and
    **Medium** finding in the code (a test changes only when the test was wrong: then
-   `## Test changes`, step 2). Commit the fixes (same rules), re-run step 2, and run the review
-   again until it says `ready`, at most three rounds; after that stop and show the user what
-   remains. Round 2 is a **delta**: pass the reviewer the `REVIEWED=` sha and the last report, and
-   record it with `review.sh record --delta <file>`; when that refuses (the fix grew, or the branch
-   was rebased), run a new full review instead. **Low** findings are fixed or listed with a reason. Skip nothing because the first
-   round was clean: the second round reviews the fixes. This step runs at **every level**: the
+   `## Test changes`, step 2). Commit the fixes (same rules), re-run step 2, and check them with a
+   **delta**: pass the reviewer the `REVIEWED=` sha and the last report, and record it with
+   `review.sh record --delta <file>`. It reviews the fixes only, so it ends: a real bug in a fix
+   gets one more delta, and a bug it notices elsewhere goes in `## Review` or a follow-up issue. When
+   `record --delta` refuses (the fix grew, or the branch was rebased), run a new full review instead.
+   A first review that says `ready` needs no second round. **Low** findings and test gaps are
+   fixed or listed in `## Review`; they never hold the PR. This step runs at **every level**: the
    script in step 6 refuses a PR without a recorded `ready` review for the exact diff, so a
    commit after the review means one more review.
 

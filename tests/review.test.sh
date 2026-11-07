@@ -184,8 +184,10 @@ check "when a delta report has no Model: line, then record --delta refuses" \
 drep ready "$h1" "round: full"
 check "when the fix changes 25 lines of a findings file plus a new 30-line test, then a ready delta is recorded and check passes on the whole diff" \
   'out="$("$r" record --delta "$TMP/report.md")"; [[ "$out" == "$(printf "REVIEWED=%s\nREVIEW=ready" "$(git rev-parse HEAD)")" ]] && "$r" check'
-check "when the last round was a delta (its body has a line round: full), then another --delta is refused" \
-  'fails_with "a delta follows a recorded full review" "$r" record --delta "$TMP/report.md"'
+h3="$(git rev-parse HEAD)"; echo "// fix" >> search.ts; git add search.ts; git commit --quiet -m "fix: second round"
+drep ready "$h3"
+check "when the last round was a delta, then another delta from its head is recorded, so fix rounds can always end" \
+  'out="$("$r" record --delta "$TMP/report.md")"; [[ "$out" == "$(printf "REVIEWED=%s\nREVIEW=ready" "$(git rev-parse HEAD)")" ]] && "$r" check'
 
 rep "changes needed" "${all[@]}" "Findings:" "- High: search.ts:1 still wrong"
 "$r" record "$TMP/report.md" >/dev/null || true; h2="$(git rev-parse HEAD)"

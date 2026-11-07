@@ -42,7 +42,8 @@ Facts the author passes:
   that round's report.
 
 **A delta** reads `git diff <sha>..HEAD` only: it checks that each previous finding is fixed and
-applies steps 2 to 6 to the fix commits alone. `record --delta` refuses it unless a full round was
+applies steps 2 to 6 to the fix commits alone, and it never widens. A bug it notices outside those
+commits is reported at its true severity and does not change the assessment. `record --delta` refuses it unless a round was
 recorded on this branch, `<sha>` is still on the branch, something was committed since, and the fix
 changes at most 20 lines outside the previous findings' files (test files aside); otherwise run a
 new full review.
@@ -109,8 +110,9 @@ Written for the author, who fixes it, and for the human who merges:
   `<test file>` is a test file at HEAD with a line `<n>`. Anything not listed was sampled. The PR
   shows these paths, never the text after them.
 - **Findings**, ranked: **High** (wrong result, data loss, a broken upgrade on existing state,
-  security), **Medium** (a guard the siblings have, a test that cannot fail, an unhandled
-  real-path case, a failure path that is silent or untested), **Low** (worth a line, not a block). Each one: `file:line`, one concrete
+  security), **Medium** (a real bug: a guard the siblings have, an unhandled real-path
+  case, a silent failure path), **Low** (worth a line, not a block: a test gap where the code
+  behaves correctly, a test that cannot fail, wording). Each one: `file:line`, one concrete
   scenario of what goes wrong ("on a database built by `create_all` and stamped at the previous
   revision, `flask db upgrade` stops with 'already exists'"), and the evidence (the sibling's
   `file:line`, the command output). A finding you could not verify says so. No style, no naming,
@@ -122,8 +124,8 @@ Written for the author, who fixes it, and for the human who merges:
   `git rev-parse HEAD`), and `Model: <your model id>`. A delta report also has `Delta from: <sha>`. A plan report
   has only `Model:`. `review.sh record` refuses a report without them, a range that is not the
   branch's (or the delta's), and a commit made after the review started.
-- The last line, exactly: `Assessment: ready`, or `Assessment: changes needed` when there is any
-  High or Medium. `review.sh record` reads that line; without it the report cannot be recorded.
+- The last line, exactly: `Assessment: ready`, or `Assessment: changes needed` when there is a
+  High or Medium in the lines this review covers (the branch's diff, or a delta's commits). `review.sh record` reads that line; without it the report cannot be recorded.
 
 The PR never shows this report: its "Independent review" block holds only the recorded facts (a
 review of this diff, by patch id, the `Assessment:` line, the model and any warning about it, and
