@@ -642,6 +642,15 @@ them.
     at `1.8.0`; a `tests/static.test.sh` check that `docs/releases/1.8.0.md` names every fixed id
     (F1.1 … F5.6 and #41) passes, seen failing with one id removed; quickstart steps 1–7 on the PR's
     head are in `## Evidence`; `sandbox-run.md` has no `does not hold` without a merged fix task; plus the common check
+  - Convergence (Phase 7): the tag waits for T013 to T021. #72 rebases after them and corrects
+    `docs/releases/1.8.0.md` in the same PR: Upgrading starts with the README's update command; it
+    says marked files are re-created, so commit first or delete the marker, not that changed files
+    are kept; the FR-034 row says the hook blocks a model outside sonnet, opus and fable; the notes
+    list T013 to T021; Upgrading says a review recorded before T014 needs a new one and that
+    `pr.sh spec` stops on a stale plan review. A `tests/static.test.sh` check that the notes name `claude plugin update` and
+    no longer say changed files are kept is seen failing on the old text. The sandbox repeats two real
+    steps on #72's head, since tests fake them: `gh pr edit` on an open task PR (T018) and `next`'s
+    fetch behind origin (T015)
 
 ---
 
@@ -655,4 +664,219 @@ them.
   `fake_gh`'s `api` cases); T006 after T001, T002, T003 (`level.sh`, adjacent `README.md` and
   `docs/security.md` lines, `docs/design.md`); T007 after T003, T005, T006 (`fake_gh`, pins).
 - **Last**: T008 (the sandbox proof, after T001–T007 and T010–T012), then T009 (the release).
+- **Phase 7**: T013 to T021 merge before T009 (see T009's last sub-bullet); `next` cannot enforce
+  this, because T009's `depends on` names only T008.
 - MVP: T001 removes both High findings.
+
+---
+
+## Phase 7: Convergence
+
+The whole-product coherence review of 1.8.0 (head e70e5af, run after T008) found these gaps against
+this spec and the constitution. T009's PR (#72) stays open until T013 to T021 merge, then rebases,
+takes the corrections named in T009's last sub-bullet, and runs quickstart again. "Rules every task follows" apply, including seen failing first; new
+lines go in contracts/output-lines.md in the same PR.
+
+- [ ] T013 [P] [US1] CRITICAL: keep the user's constitution and kept files through setup and remove in bin/setup.sh and bin/remove.sh per Constitution "Nothing of the user's is overwritten", FR-001, SC-003 (contradicts) — #73
+  - Comes from: Constitution "Nothing of the user's is overwritten"; FR-001; SC-003
+  - What: `bin/setup.sh:72-76` treats a constitution as blank only when it equals
+    `.specify/templates/constitution-template.md` (`cmp -s`), not when a template token appears in
+    it. `bin/remove.sh` drops the lines of removed and missing files from
+    `.specify/jit-files.sha256`, deletes the record when empty, and when a kept file holds it in
+    place prints that the record stays with it (today `:65` deletes it, so a second run deletes a
+    file the first kept). `ours()` reads the recorded hash before the shape fallbacks; with no record line, as on
+    any project set up before 1.8.0, the `CODEOWNERS` check is exact (line 2 is `* @OWNER` or `*
+    @<repo owner>`), and that no-record path prints `kept (edited): <file>` too, only for a file
+    whose first line equals its scaffold's first line, never a user's own `.claude/settings.json`. A kept git hook
+    prints one line saying it still calls jit's scripts and how to unset `core.hooksPath`. The
+    constitution pre-check at `level.sh:19-24`, before anything changes, requires one line-start
+    `jit:start` followed by one `jit:end`, through one new `lib.sh` helper that `remove.sh` also calls above `:31`, before it
+    deletes anything; the awk at `:109` is anchored the same way, with its grep at `:101` and awk at `:106` anchored too. Only
+    line-start markers count: a marker mentioned mid-line is plain text and passes, a file with no
+    markers passes, and an unpaired or reversed line-start marker refuses. `remove.sh:103` deletes
+    the constitution only when, with jit's block stripped from both sides, the file equals jit's
+    constitution template; any other text stays, with the block stripped. `--with-speckit` deletes the record with `.specify`,
+    so the header of `remove.sh` and `docs/reference.md` state that re-running after it is the limit
+    of "safe to re-run"
+  - Impact: `bin/setup.sh`, `bin/remove.sh`, `extension/scripts/level.sh`, `lib.sh` and installed
+    copies;
+    `tests/setup.test.sh` (`:71-72` "nothing of jit is left" changes for a kept file) and
+    `tests/remove.test.sh` (the check that pins the record being gone), both with
+    `## Test changes`; `tests/level.test.sh`; `docs/reference.md` Uninstall
+  - Completed when: a filled constitution holding a template token survives setup; a filled constitution
+    that still has the title placeholder survives remove, and an untouched one is deleted; a second remove keeps what the first kept
+    for every file with a record line (a no-record file committed between the runs is the stated
+    limit); an edited `CODEOWNERS` and `SECURITY.md`, with and without a record
+    line, are kept and print `kept (edited): <file>`; a kept hook prints its line; with nothing kept,
+    no record remains; reversed or unpaired line-start markers refuse in `level.sh` and `remove.sh`
+    with the constitution, `jit-config.yml` and every jit file unchanged; a valid block followed by
+    a mid-line marker keeps everything after the block; plus the common check
+
+- [ ] T014 [P] [US2] Make the diff id independent of the user's git config in extension/scripts/lib.sh per FR-006, FR-009, SC-004 (partial) — #74
+  - Comes from: FR-006, FR-009, SC-004 ("for this diff")
+  - What: `lib.sh` holds one flag list, `JIT_DIFF_FLAGS` of these flags:
+    `--no-color --no-ext-diff --no-textconv --ignore-submodules=none --submodule=short -U3 --inter-hunk-context=0 --no-renames --diff-algorithm=myers --src-prefix=a/ --dst-prefix=b/`,
+    always with `git -c diff.suppressBlankEmpty=false diff`, which has no flag, used by `diff_id` (`:143`), `mutants.sh:26` and `review.sh:56`
+    and `:121`. An empty id is refused only when the diff is not empty or there is no merge base; the
+    refusal names `git fetch --unshallow` only when `git rev-parse --is-shallow-repository` says
+    true. A commit and its revert stay an empty diff. The failure propagates: `diff_record`
+    and `state()` use `id="$(diff_id)" || exit 1`; `review.sh` `record`, `check` and `report` compute
+    the state in a plain assignment, so nothing writes an empty `state:`; `mutants.sh:20` and
+    `security-scan.sh:28` compute the record path before the pipeline, because a `die` inside
+    `tee "$(diff_record …)"` ends only the subshell;
+    `pr.sh` stops before `:66` when there is no merge base, and `:77` and `:86` print one message
+    for one failure
+  - Impact: `extension/scripts/lib.sh`, `review.sh`, `mutants.sh`, `security-scan.sh`, `pr.sh` and
+    installed copies; `tests/review.test.sh`, `tests/pr.test.sh`, `tests/mutants.test.sh`,
+    `tests/security-scan.test.sh`. Recorded ids change once, so a record made before this needs a
+    new review
+  - Completed when: with `color.ui=always`, with `diff.external`, with a textconv driver, with
+    `diff.ignoreSubmodules=all`, with `diff.interHunkContext=20` and with
+    `diff.suppressBlankEmpty=true` set, a commit after a recorded `ready` makes the record stale and
+    `pr.sh` refuses; on a real `--depth 1 --no-single-branch` clone with no merge base, `review.sh record`,
+    `review.sh check`, `pr.sh task`, `mutants.sh` and `security-scan.sh` each exit non-zero with
+    exactly one stderr line and write no record; a
+    commit and its revert are not refused as shallow; plus the common check
+
+- [ ] T015 [P] [US6] Print a parallel line only when it can start and carry the named feature in extension/scripts/next.sh and skills/next per FR-036, FR-028 (partial) — #75
+  - Comes from: FR-036 ("ready-to-run"), FR-028
+  - What: `next.sh` fetches origin before it reads branches (`git fetch --quiet origin`, as
+    `branch.sh:27`; a failed fetch warns), so the worktree on `origin/<base>` has the merged spec.
+    `next.sh` reads `git show origin/<base>:<fdir>/tasks.md` once and prints a `parallel` line only
+    for an id whose line is there with its issue, since before a spec PR merges, including a
+    converge one, the worktree has no such task. For the same reason `branch.sh` (`:34`) refuses
+    with "merge the spec PR first" when the task's line is not in `$from:$fdir/tasks.md`, before the
+    claim push. `next.sh` prints `FEATURE=<num>`,
+    and `skills/next` step 5 runs `/speckit-implement <feature> <NEXT>`, so a named feature beats
+    the current task branch. The one-startable branch stops writing `.specify/feature.json`, and
+    where `skills/next` suggests `/speckit-jit-issues` it runs `next <feature>` first, because
+    `issues.sh` takes no feature
+  - Impact: `extension/scripts/next.sh`, `branch.sh` and installed copies, `skills/next/SKILL.md`,
+    `tests/next.test.sh`, `tests/branch.test.sh`, `docs/reference.md` "Several features at once"
+  - Completed when: with `origin/develop` behind origin, a printed line starts the task; with a first
+    spec PR open, and with a converge spec PR open on a base that already has `tasks.md`, no
+    `parallel` line prints for the unmerged tasks, and starting NEXT from that state refuses with no
+    branch pushed; `next 002` on a 001 task branch starts 002's
+    task; `feature.json` is unchanged when one other feature is startable; a failed fetch warns and
+    `next` still answers; plus the common check
+
+- [ ] T016 [US4] Enable the secret hooks only where they really run and say so otherwise in extension/scripts/level.sh per SC-004 (partial) (depends on T013) — #76
+  - Comes from: SC-004 (README "secrets are refused at commit and push")
+  - What: four cases, each printing what is true. (1) An own `.githooks` (`level.sh:383-384`,
+    `:406-408`): grep the two files for `secrets.sh` and `prepush.sh`, and print the "add these
+    lines" message when one is absent. (2) Hooks already in `git rev-parse --git-path hooks`
+    (non-`.sample` files): do not set `core.hooksPath`, and print that message naming `.git/hooks`.
+    (3) A machine-wide `core.hooksPath` (set, but not by `git config --local --get`): keep it, and
+    say it is machine-wide instead of treating it as the repo's. (4) Husky (`:401-405`): `chmod +x`
+    both files, start the append on a new line, and when `core.hooksPath` does not reach `.husky`
+    print "not active in this clone yet", as the pre-commit branch does at `:399-400`
+  - Impact: `extension/scripts/level.sh` and installed copy, `tests/level.test.sh` (`:156` pins
+    today's husky state, so it changes with `## Test changes`), `docs/security.md`,
+    `skills/init/SKILL.md` step 7
+  - Completed when: each of the four cases prints its line, none prints "enabled", or "added" without
+    "not active in this clone yet", with the checks not running, a machine-wide path is left in charge, and a real commit through an
+    active husky hook runs the check; plus the common check
+
+- [ ] T017 [US2] Stop the task PR refusing what the docs allow in extension/scripts/pr.sh and mutants.sh per FR-006, FR-007, FR-035 (contradicts) (depends on T014) — #77
+  - Comes from: FR-006, FR-007, FR-035; `docs/reference.md` "New tests need no explanation"; O3
+  - What: `pr.sh:66` exempts a modified test file only when, read with `JIT_DIFF_FLAGS`,
+    `git diff --numstat` shows lines added and none deleted, and no added line matches a skip-only pattern.
+    That pattern is new in `lib.sh`, next to `test_path_re`, case-folded as `risk` does, and holds
+    only the skip markers of the gate pattern at `review.sh:76`, which uses it. `|| true` and `exit`
+    stay out of it, because new tests here use both. A new test usually
+    lands above a file's closing line, so position cannot decide. A deleted file, a binary one
+    (numstat `-`), a mode-only change (nothing added) and an edited line still need
+    `## Test changes`. An added line can still weaken a test in ways this rule cannot see: the docs
+    say so, and the review reads it, with `review.sh risk` still flagging gate lines.
+    `mutants.sh:31-34` records exit 126 and 127 as a new state, `unavailable`, and `pr.sh` refuses it
+    naming the command; `missing` keeps its meaning (no mutate command). A wrapper such as `uv run`
+    exits otherwise, so it stays recorded as survivors, and the docs state that limit. `pr.sh:79` reads
+    `## Evidence` into a variable and matches a here-string, since `sed | grep -q` under pipefail
+    can fail at random. `skills/adopt` names, for mutmut, a command this task's `## Evidence` shows
+    exiting non-zero on a survivor; if none does, it says survivors are
+    not gated for mutmut
+  - Impact: `extension/scripts/pr.sh`, `mutants.sh`, `lib.sh`, `review.sh` and installed copies,
+    `extension/commands/pr.md`, `skills/adopt/SKILL.md`, `data-model.md`, `tests/pr.test.sh`,
+    `tests/mutants.test.sh`, `tests/review.test.sh`,
+    `tests/static.test.sh`, `docs/reference.md:101` (the row becomes: adding tests to an existing
+    file needs no explanation; a deletion, an edit or an added skip does)
+  - Completed when: a test added above a file's closing `exit "$FAIL"` passes with no
+    `## Test changes`; a new test holding `|| true` or a heredoc stub with `exit 0` passes; an added skip, an edited line, a mode-only change,
+    a binary test and a deleted test are refused, and an edited line is refused under
+    `color.ui=always`; a directly run mutate command that is not installed is
+    named, not called survivors; the adopt line is pinned by a static check; plus the common check
+
+- [ ] T018 [US2] Keep the open PR true to its diff and say only what the gate proves in extension/scripts/pr.sh and docs/design.md per FR-009, FR-031, FR-034, SC-004 (partial) (depends on T014, T017) — #78
+  - Comes from: FR-009, FR-031, FR-034, SC-004; F3.1's doc half
+  - What: on an existing PR, `pr.sh task` runs `gh pr edit "$url" --body` and asks for Copilot again;
+    a failed edit is one `die` naming the PR, with no `PR=` line, and a failed lookup at `:25` stops
+    as `pr.sh:111-112` does. It prints `PR body replaced from
+    <file>; edits made on GitHub are gone`, since the author's file is the source. Only `pr.sh task`
+    does this: a task body must describe the new diff, and `pr.sh spec` keeps its body.
+    `pr.sh spec` starts with `review.sh check --plan` (`:133` discards a failure today). In a task
+    record, map lines keep only paths in the diff. The family check at `review.sh:168` reads the raw `Model:`
+    first; then a value that does not match `^[A-Za-z0-9][]A-Za-z0-9.:@_[-]{1,79}$`, or that names none of claude, sonnet, opus, fable and
+    haiku, is stored as `unknown`, before the warning at `:170` is written (`the review ran on <id>` stays for ids that
+    match); a `--plan` record's map never reaches a
+    body, so only the `Model:` rule applies there. `guard-review.sh:24-29` allows an empty model when
+    `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is set, and only then; the record already warns. `design.md:52`
+    says a report saying `ready` was recorded for this exact diff, and that a fresh reader wrote it
+    rests on the prompt and the launch hook; `design.md:41-44` says Evidence is the author's. The
+    risk-map refusal says to run the review again, and review.md and the contract say gate, delete
+    and test paths take `- deep:` only. `analyzed.md` says to run the plan review again when the
+    analysis changes `tasks.md` or `plan.md`, and `issues.md` step 5 says the same for a `pr.sh spec`
+    that stops on a stale plan review
+  - Impact: `extension/scripts/pr.sh`, `review.sh`, `hooks/guard-review.sh`,
+    `extension/commands/pr.md`, `review.md`, `analyzed.md`, `issues.md:50-51`, installed copies;
+    `docs/design.md`, `docs/security.md`, `contracts/output-lines.md`; `tests/pr.test.sh`,
+    `tests/review.test.sh`, `tests/guard-review.test.sh`, using `GH_FAIL_EDIT` (`tests/helpers.sh:64`)
+  - Completed when: a second `pr.sh task` updates the body to the new patch id and logs a second
+    Copilot request; a failed edit prints one refusal and no `PR=`; a stale plan review stops
+    `pr.sh spec`, on the analyze path too; a report token outside the diff never reaches the body;
+    `claude-haiku-4-5`, `claude-opus-4-8[1m]` and `us.anthropic.claude-opus-4-1-20250805-v1:0` are
+    kept, the last two with no warning, and `Token=abc` and `ghp_abc123` are stored as `unknown` in the
+    record and the warning; a second run prints the body-replaced line; `guard-review.sh` allows
+    an empty model with the variable set and blocks it without; plus the common check
+
+- [ ] T019 [US4] Make the docs and the level skill match what 1.8.0 does in skills/level and docs/reference.md per FR-021, FR-023, SC-004 (partial) (depends on T013, T015, T016, T018) — #79
+  - Comes from: FR-021, FR-023, SC-004; O1, O2
+  - What: `skills/level` going up from lite offers merge commits back on, and going down offers
+    squash-only. `reference.md:18-19` and `level.sh:7` say marked files are re-created, so commit
+    first or delete the marker. `level.sh` names the delete-it hint on an unmarked `security.yml`.
+    `reference.md` says the hook blocks a model outside sonnet, opus and fable. `docs/security.md`
+    and the README say the pre-PR scan ran, not passed. `examples/README.md:31-32` uses the
+    `next` parallel offer
+  - Impact: `skills/level/SKILL.md`, `docs/reference.md`, `docs/security.md`, `README.md`,
+    `examples/README.md`, `extension/scripts/level.sh` and installed copy, `tests/static.test.sh`,
+    `tests/level.test.sh`
+  - Completed when: `level full` on an unmarked `security.yml` prints the hint; one static check per
+    changed doc line fails on the old wording and passes on the new; plus the common check
+
+- [ ] T020 [US5] Make the suite fail when a guard goes missing or a test file loses its last line in tests/run.sh and tests/helpers.sh per SC-005, Constitution "Tests are bash and prove themselves" (partial) (depends on T016) — #80
+  - Comes from: SC-005; Constitution "Tests are bash and prove themselves"
+  - What: `tests/run.sh` fails on any `^FAIL` line and on a `*.test.sh` whose last line is not
+    `exit "$FAIL"`, and the Linux job sets `REQUIRE_SPECIFY=1`, so
+    `setup.test.sh:19` cannot skip silently. New checks: a real `git commit` of a sample token and a
+    real `git push` to the local origin are refused in a `level.sh` repo; `hooks.json` registers the
+    Bash guard with `onFailure: "block"`, with the no-python fallback of
+    `tests/guard-review.test.sh:53-56`; `prepush.sh`'s lite and branch-deletion pass-throughs
+  - Impact: `tests/run.sh`, `tests/helpers.sh`, `tests/level.test.sh`, `tests/secrets.test.sh`,
+    `tests/static.test.sh`, `tests/setup.test.sh`, `.github/workflows/test.yml`
+  - Completed when: replacing either hook's body with `exit 0`, removing the Bash entry, and
+    deleting a file's final exit line each turn the suite red; plus the common check
+
+- [ ] T021 [US6] Pin the rules that decide a review or a refusal with checks in tests/review.test.sh and tests/pr.test.sh per FR-022, FR-030, FR-032 (partial) (depends on T017, T018, T020) — #81
+  - Comes from: FR-022, FR-030, FR-032
+  - What: a table-driven check, one path per risk category with its exact `RISK=` line; one case per
+    uncovered review rule (exactly 20 lines, a binary fix, two verdicts, a prose verdict, two
+    `Model:` lines, `file:0`). `pr.sh`'s review-gate checks get their own scan record, added without
+    disturbing the later no-scan and test-command checks, and assert `^pr create` is absent from
+    `$GH_LOG`. The push check compares origin's branch with `HEAD`. One sample per secret pattern
+    runs through staged and range. The refusals `base branch '…' not found`, the `## Review` one and
+    the invalid `tests:` regex get checks, found by their messages. `fake_gh`'s `pr list` honors
+    `--head`
+  - Impact: `tests/review.test.sh`, `tests/pr.test.sh`, `tests/secrets.test.sh`, `tests/helpers.sh`,
+    `contracts/checks.md`; no script changes
+  - Completed when: `contracts/checks.md` lists one mutant per rule named here, each seen killed in
+    a throwaway copy, and any survivor is listed there with why it changes nothing; plus the common
+    check
