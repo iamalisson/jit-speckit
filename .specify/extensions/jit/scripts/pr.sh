@@ -7,7 +7,7 @@
 #       body, folded: patch id, Assessment line, model, any warning and the risk maps as paths;
 #       "full" also requires "## Evidence".
 #       Runs the constitution's test command before the push and refuses when it fails.
-#       On an open PR, replaces its body from body-file and asks for Copilot again.
+#       On an open PR, replaces its body from body-file.
 #   pr.sh spec
 #       Stops without a current plan review. Commits the active feature's spec folder on
 #       spec/<feature> and opens a docs PR.
@@ -22,16 +22,6 @@ fdir="$(feature_dir)"
 base="$(base_branch)"
 mode="${1:-}"
 
-# A second independent reader when the account has GitHub Copilot code review. GitHub can accept
-# the request and add no one, so the line says what its answer lists.
-ask_copilot() { # ask_copilot <url>
-  local logins=""
-  if [[ "$1" =~ /([^/]+/[^/]+)/pull/([0-9]+)$ ]]; then
-    logins="$(gh api -X POST "repos/${BASH_REMATCH[1]}/pulls/${BASH_REMATCH[2]}/requested_reviewers" -f 'reviewers[]=copilot-pull-request-reviewer[bot]' --jq '.requested_reviewers[].login' 2>/dev/null || true)"
-  fi
-  if grep -qi copilot <<<"$logins"; then echo "copilot: code review requested"; else echo "copilot: not requested (GitHub did not add the reviewer)"; fi
-}
-
 # With a body file (a task PR, whose body must describe the new diff), an open PR's body is replaced.
 open_pr() { # open_pr <title> <body> [body-file]
   local url err
@@ -40,11 +30,9 @@ open_pr() { # open_pr <title> <body> [body-file]
   if [[ -z "$url" ]]; then
     url="$(gh pr create --base "$base" --head "$(git branch --show-current)" --title "$1" --body "$2")"
     add_meta pr "$url"
-    ask_copilot "$url"
   elif [[ -n "${3:-}" ]]; then
     err="$(gh pr edit "$url" --body "$2" 2>&1 >/dev/null)" || die "could not update the body of $url: ${err%%$'\n'*}"
     echo "PR body replaced from $3; edits made on GitHub are gone"
-    ask_copilot "$url"
   fi
   echo "PR=$url"
 }

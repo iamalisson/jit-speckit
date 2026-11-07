@@ -40,8 +40,6 @@ fake_gh() {
 #!/usr/bin/env bash
 echo "$*" >> "$GH_LOG"
 case "$1 $2" in
-  "api -X") # pr.sh's Copilot request: prints, as its --jq does, the logins in $GH_REVIEWERS
-            if [[ -n "${GH_REVIEWERS:-}" ]]; then echo "$GH_REVIEWERS"; fi; exit 0 ;;
   "api graphql") # next.sh's issue-state query: prints, as its --jq does, the asked numbers in $GH_CLOSED
                  if [[ -n "${GH_FAIL_GRAPHQL:-}" ]]; then echo "gh: Could not resolve to an Issue with the number of $GH_FAIL_GRAPHQL." >&2; exit 1; fi
                  for q in $(grep -oE 'issue\(number: *[0-9]+' <<<"$*" | grep -oE '[0-9]+$'); do

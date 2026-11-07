@@ -5,7 +5,7 @@ source "$(dirname "$0")/helpers.sh"
 fake_gh
 p="$SCRIPTS/pr.sh"
 # range: the Reviewed: and Model: lines every task report states.
-range() { printf 'Reviewed: %s..%s\nModel: claude-opus-4-7\n' "$(git merge-base HEAD origin/develop)" "$(git rev-parse HEAD)"; }
+range() { printf 'Reviewed: %s..%s\nModel: claude-sonnet-4-7\n' "$(git merge-base HEAD origin/develop)" "$(git rev-parse HEAD)"; }
 # reviewed: a ready review of HEAD that deep-checks every path review.sh risk flags.
 reviewed() {
   { printf 'What changed: x\n\n'; { "$SCRIPTS/review.sh" risk 2>/dev/null || true; } | sed -n 's/^RISK=[a-z]* /- deep: /p' | sort -u
@@ -67,18 +67,12 @@ check "then none of the report's text reaches the body" '! grep -qE "LEAK|What c
 check "when the work is committed, then it pushes and opens the PR into the base" \
   '[[ "$out" == *"PR=https://github.com/acme/app/pull/99" ]] && git ls-remote --exit-code origin "$(git branch --show-current)" && grep -q -- "--base develop" "$GH_LOG"'
 check "then the body links the issue with Closes #N" 'grep -q "Closes #5" "$GH_LOG"'
-check "then a Copilot code review is requested on the new PR" \
-  'grep -q "^api -X POST repos/acme/app/pulls/99/requested_reviewers -f reviewers\[\]=copilot-pull-request-reviewer\[bot\] --jq .requested_reviewers\[\]\.login$" "$GH_LOG"'
-check "when GitHub answers with no reviewer, then the output says copilot: not requested, not code review requested" \
-  'grep -qxF "copilot: not requested (GitHub did not add the reviewer)" <<<"$out" && ! grep -q "code review requested" <<<"$out"'
+check "then no outside reviewer is asked for" '! grep -q "requested_reviewers" "$GH_LOG" && ! grep -qi copilot <<<"$out"'
 check "then the user is assigned and no milestone or project is guessed" \
   'grep -q -- "^pr edit https://github.com/acme/app/pull/99 --add-assignee @me" "$GH_LOG" && ! grep -qE -- "--milestone|--add-project" "$GH_LOG"'
 
 out="$("$p" task T001 "feat(search): add search" "$TMP/body.md")"
 check "when the PR already exists, then it is reused, not duplicated" '[[ "$(grep -c "^pr create" "$GH_LOG")" == 1 ]]'
-rm -f "$GH_PR"; out="$(GH_REVIEWERS=Copilot "$p" task T001 "feat(search): add search" "$TMP/body.md")"
-check "when GitHub lists Copilot among the requested reviewers, then the output says copilot: code review requested" \
-  'grep -qxF "copilot: code review requested" <<<"$out" && ! grep -q "not requested" <<<"$out"'
 
 sed -i.bak 's/^level: .*/level: full/' .specify/extensions/jit/jit-config.yml
 rm -f "$GH_PR"; printf 'No evidence here.\n' > "$TMP/thin.md"
@@ -266,20 +260,20 @@ mkdir -p db/migrations; echo 'DROP TABLE users;' > db/migrations/002_drop.sql; g
 printf 'What changed: x\n\n- deep: db/migrations/002_drop.sql — PROSE-1 drops users: checked the backup\n\n%s\n\nAssessment: changes needed\n' "$(range)" > "$TMP/review.md"
 "$SCRIPTS/review.sh" record "$TMP/review.md" >/dev/null 2>&1 || true
 echo 'DROP TABLE orders;' >> db/migrations/002_drop.sql; git commit --quiet -am "fix: drop orders"
-printf 'What changed: y\n\n- deep: db/migrations/002_drop.sql — PROSE-2 second drop\n\nDelta from: %s\nReviewed: %s..%s\nModel: claude-opus-4-7\n\nAssessment: ready\n' "$h1" "$h1" "$(git rev-parse HEAD)" > "$TMP/review.md"
+printf 'What changed: y\n\n- deep: db/migrations/002_drop.sql — PROSE-2 second drop\n\nDelta from: %s\nReviewed: %s..%s\nModel: claude-sonnet-4-7\n\nAssessment: ready\n' "$h1" "$h1" "$(git rev-parse HEAD)" > "$TMP/review.md"
 CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 "$SCRIPTS/review.sh" record --delta "$TMP/review.md" >/dev/null 2>&1 || true
 scanned; "$p" task T001 "feat: drop" "$TMP/body.md" >/dev/null 2>&1 || true
 body="$(sed -n "/^pr create/,\$p" "$GH_LOG")"
 check "after a delta, then the PR body lists both labeled risk maps, as paths" \
   'grep -A1 -xF "Risk map (round 1)" <<<"$body" | grep -qxF -- "- deep: db/migrations/002_drop.sql" && grep -A1 -xF "Risk map (fix round)" <<<"$body" | grep -qxF -- "- deep: db/migrations/002_drop.sql"'
 check "when the record was made with CLAUDE_CODE_SUBAGENT_MODEL_FORCE set, then the PR body has the model and the warning, though pr.sh ran without it" \
-  'grep -qxF "Model: claude-opus-4-7" <<<"$body" && grep -qxF "warning: CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set; the review did not run on the configured model" <<<"$body"'
+  'grep -qxF "Model: claude-sonnet-4-7" <<<"$body" && grep -qxF "warning: CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set; the review did not run on the configured model" <<<"$body"'
 check "then no risk-map prose reaches the PR body" '[[ -n "$body" ]] && ! grep -q PROSE "$GH_LOG"'
-printf 'What changed: x\n\n- deep: db/migrations/002_drop.sql\n\n%s\n\nAssessment: ready\n' "$(range | sed 's/^Model: .*/Model: claude-sonnet-4-5/')" > "$TMP/review.md"
+printf 'What changed: x\n\n- deep: db/migrations/002_drop.sql\n\n%s\n\nAssessment: ready\n' "$(range | sed 's/^Model: .*/Model: claude-opus-4-8/')" > "$TMP/review.md"
 "$SCRIPTS/review.sh" record "$TMP/review.md" >/dev/null 2>&1 || true; rm -f "$GH_PR"; : > "$GH_LOG"
 "$p" task T001 "feat: drop" "$TMP/body.md" >/dev/null 2>&1 || true
 check "when Model: is outside the configured family, then the warning reaches the PR body from the record" \
-  'grep -qxF "warning: the review ran on claude-sonnet-4-5, not opus; the review did not run on the configured model" "$GH_LOG"'
+  'grep -qxF "warning: the review ran on claude-opus-4-8, not sonnet; the review did not run on the configured model" "$GH_LOG"'
 
 # ── FR-009: the diff id ignores the user's git config ──
 rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR"
@@ -324,10 +318,9 @@ echo 'export const search = 1' > search.ts; git add search.ts; git commit --quie
 "$p" task T001 "feat: search" "$TMP/body.md" >/dev/null 2>&1
 echo 'export const more = 2' >> search.ts; git commit --quiet -am "feat: more"; reviewed; scanned
 id2="$(source "$SCRIPTS/lib.sh"; diff_id | cut -c1-12)"; : > "$GH_LOG"
-out="$(GH_REVIEWERS=Copilot "$p" task T001 "feat: search" "$TMP/body.md")"
+out="$("$p" task T001 "feat: search" "$TMP/body.md")"
 check "when pr.sh task runs again on an open PR, then the body is updated to the new patch id and no PR is created" \
   'grep -q "^pr edit https://github.com/acme/app/pull/99 --body " "$GH_LOG" && grep -qxF "Independent review recorded for this diff (patch id $id2)" "$GH_LOG" && ! grep -q "^pr create" "$GH_LOG"'
-check "then a second Copilot review is requested" 'grep -q "^api -X POST repos/acme/app/pulls/99/requested_reviewers" "$GH_LOG" && grep -qxF "copilot: code review requested" <<<"$out"'
 check "then it prints that the body was replaced from the author's file" 'grep -qxF "PR body replaced from $TMP/body.md; edits made on GitHub are gone" <<<"$out"'
 edit_rc=0; out="$(GH_FAIL_EDIT=1 "$p" task T001 "feat: search" "$TMP/body.md" 2>"$TMP/pr.err")" || edit_rc=$?
 check "when the edit fails, then it prints one refusal naming the PR and no PR= line" \
@@ -343,7 +336,7 @@ check "when a report's map names a token outside the diff, then it never reaches
 
 # ── A stale plan review stops pr.sh spec ──
 git switch --quiet main; rm -f "$GH_PR"; : > "$GH_LOG"
-printf 'Plan read.\n\nModel: claude-opus-4-7\n\nAssessment: ready\n' > "$TMP/plan.md"
+printf 'Plan read.\n\nModel: claude-sonnet-4-7\n\nAssessment: ready\n' > "$TMP/plan.md"
 check "when no plan review was recorded, then pr.sh spec stops and opens nothing" \
   'fails_with "no independent review" "$p" spec && ! grep -q "^pr create" "$GH_LOG"'
 "$SCRIPTS/review.sh" record --plan "$TMP/plan.md" >/dev/null

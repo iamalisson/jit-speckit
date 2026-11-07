@@ -52,10 +52,10 @@ cfg_set() {
 
 jit_level() { cfg level standard; }
 
-# review_model: the model family the independent review must run on (default opus). Any other
+# review_model: the model family the independent review must run on (default sonnet). Any other
 # value dies, so the config can never lower the bar: callers read it with `|| exit 1`.
 review_model() {
-  local m; m="$(cfg review_model opus)"
+  local m; m="$(cfg review_model sonnet)"
   case "$m" in sonnet|opus|fable) echo "$m" ;; *) die "review_model must be sonnet, opus or fable" ;; esac
 }
 
