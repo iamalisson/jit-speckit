@@ -60,10 +60,11 @@ if [[ ! -d .specify/templates ]]; then
 fi
 
 # A project set up before 2.0.0, when this was jit-speckit: drop the old registration and move what
-# the user owns. The settings are read first, because removing the extension deletes them.
-old_cfg=""
+# the user owns. The settings are saved first, because removing the extension deletes them, and to
+# a file, so a run that fails below still has them on the next one.
+old_cfg=.specify/landspec-config.moving
 if [[ -d .specify/extensions/jit ]]; then
-  old_cfg="$(cat .specify/extensions/jit/jit-config.yml 2>/dev/null || true)"
+  if [[ -f .specify/extensions/jit/jit-config.yml ]]; then cp .specify/extensions/jit/jit-config.yml "$old_cfg"; fi
   specify preset remove jit >/dev/null 2>&1 || rm -rf .specify/presets/jit
   specify extension remove jit --force >/dev/null 2>&1 || rm -rf .specify/extensions/jit
   rm -rf .specify/extensions/.backup/jit .claude/skills/speckit-jit-*
@@ -77,7 +78,7 @@ if [[ -d .specify/extensions/jit ]]; then
 fi
 
 quiet specify extension add --dev "$here/extension" --force
-if [[ -n "$old_cfg" ]]; then printf '%s\n' "$old_cfg" > .specify/extensions/landspec/landspec-config.yml; fi
+if [[ -f "$old_cfg" ]]; then mv "$old_cfg" .specify/extensions/landspec/landspec-config.yml; fi
 echo "spec-kit: extension 'landspec' installed"
 specify preset remove landspec >/dev/null 2>&1 || true
 quiet specify preset add --dev "$here/preset"

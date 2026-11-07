@@ -122,6 +122,9 @@ check "then the generated text names landspec, and the user's own text stays" \
 check "then the file record moved" '[[ -f .specify/landspec-files.sha256 && ! -e .specify/jit-files.sha256 ]]'
 check "then a file with the old marker is re-created under the new name" \
   'grep -q "^# landspec: managed file" .githooks/pre-commit && ! grep -q "jit" .githooks/pre-commit'
+printf 'level: lite\nreview_model: fable\n' > .specify/landspec-config.moving
+check "when a run failed after saving the settings, then the next one still restores them" \
+  '"$ROOT/bin/setup.sh" . >/dev/null 2>&1 && grep -qx "review_model: fable" .specify/extensions/landspec/landspec-config.yml && [[ ! -e .specify/landspec-config.moving ]]'
 check "when setup runs again, then there is nothing left to move" '! "$ROOT/bin/setup.sh" . 2>&1 | grep -q "^renamed:"'
 
 exit "$FAIL"
