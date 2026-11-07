@@ -82,9 +82,16 @@ sed '/^<!-- jit:start/d' "$TMP/const.bak" > .specify/memory/constitution.md; cp 
 check "when only an end marker is left, then it refuses before anything changes" \
   'fails_with "damaged" "$l" lite && cmp -s "$TMP/const.two" .specify/memory/constitution.md && cmp -s "$TMP/cfg.bak" "$JIT_CFG"'
 cp "$TMP/const.bak" .specify/memory/constitution.md
-printf 'The marker is written <!-- jit:start like this.\nkeep me\n' >> .specify/memory/constitution.md
-check "when a mid-line marker follows the block, then it is plain text and stays" \
-  '"$l" full >/dev/null && grep -q "keep me" .specify/memory/constitution.md && grep -q "written <!-- jit:start" .specify/memory/constitution.md'
+printf 'The marker is written <!-- jit:start like this.\nThe end is <!-- jit:end --> in prose.\nkeep me\n' >> .specify/memory/constitution.md
+check "when mid-line markers follow the block, then they are plain text and stay" \
+  '"$l" full >/dev/null && grep -q "keep me" .specify/memory/constitution.md && grep -q "written <!-- jit:start" .specify/memory/constitution.md && grep -q "end is <!-- jit:end" .specify/memory/constitution.md'
+cp "$TMP/const.bak" .specify/memory/constitution.md
+sed -i.bak '/^<!-- jit:start/a\
+The end is <!-- jit:end --> in prose.\
+stale block line
+' .specify/memory/constitution.md; rm -f .specify/memory/constitution.md.bak
+check "when a mid-line end marker sits inside the block, then the whole block is replaced" \
+  '"$l" full >/dev/null && ! grep -q "stale block line" .specify/memory/constitution.md'
 cp "$TMP/const.bak" .specify/memory/constitution.md
 
 out="$("$l" lite)"

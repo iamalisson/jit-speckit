@@ -149,6 +149,6 @@ an edit you commit between two runs looks like jit's own file, and the second ru
 untouched template; any other text stays, without jit's block. A damaged block refuses before
 anything is deleted. Your specs, commits and edits stay; `develop`/`staging` and the GitHub protections
 are listed for you to remove by hand. `/jit-speckit:remove --with-speckit` also removes spec-kit's
-own files, for a reinstall from zero with `/jit-speckit:init`.
+own files, your constitution included, for a reinstall from zero with `/jit-speckit:init`.
 
 From Claude Code: `/plugin uninstall jit-speckit`.

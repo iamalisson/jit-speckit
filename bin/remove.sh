@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Remove jit-speckit from one project (the reverse of setup.sh). Spec-kit, your specs and your edits stay.
 # Usage: remove.sh [project-dir] [--with-speckit]
-#   --with-speckit  also delete spec-kit's own files (.specify/, .claude/skills/speckit-*) for a reinstall from zero; specs/ is never touched
+#   --with-speckit  also delete spec-kit's own files (.specify/, the constitution with it, .claude/skills/speckit-*) for a reinstall from zero; specs/ is never touched
 # Deletes only what jit-speckit created: files that still carry its "managed file" marker and are
 # unchanged since it wrote them (.specify/jit-files.sha256), files identical to its scaffold, its
 # lines in hook configs, and its block in the constitution. Safe to re-run: what it keeps stays in
@@ -120,7 +120,7 @@ done
 
 # ── Constitution ─────────────────────────────────────────────────────────────
 strip_block() { awk '/^<!-- jit:start/ { skip = 1 } !skip { print } /^<!-- jit:end -->/ { skip = 0 }' "$1"; }
-if [[ -f "$const" ]] && grep -q '^<!-- jit:start' "$const"; then
+if [[ -f "$const" ]] && ! $speckit && grep -q '^<!-- jit:start' "$const"; then
   if [[ "$(strip_block "$const")" == "$(strip_block "$here/preset/templates/constitution-template.md")" ]]; then
     rm "$const"; gone "$const (jit's template, never filled in)"
   else
@@ -130,9 +130,10 @@ if [[ -f "$const" ]] && grep -q '^<!-- jit:start' "$const"; then
 fi
 
 if $speckit; then
+  lost=""; if [[ -f "$const" ]]; then lost=" the constitution went with it;"; fi
   rm -rf .specify .claude/skills/speckit-*
   rmdir .claude/skills .claude 2>/dev/null || true
-  gone "spec-kit (.specify/, .claude/skills/speckit-*); specs/ kept"
+  gone "spec-kit (.specify/, .claude/skills/speckit-*);$lost specs/ kept"
 fi
 
 cat <<EOT

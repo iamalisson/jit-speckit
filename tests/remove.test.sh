@@ -133,11 +133,30 @@ check "when it is filled in but keeps the title placeholder, then remove keeps t
   'grep -q "my real text" "$const" && ! grep -q "^<!-- jit:start" "$const"'
 
 const_repo
-printf 'The marker is written <!-- jit:start like this.\n\n## After\nkeep me\n' >> "$const"
+printf 'The marker is written <!-- jit:start like this.\nThe end is <!-- jit:end --> in prose.\n\n## After\nkeep me\n' >> "$const"
 sed -i.bak '1s/.*/# App Constitution/' "$const"; rm -f "$const.bak"
 rm_out >/dev/null
-check "when a valid block is followed by a mid-line marker, then everything after the block stays" \
-  'grep -q "keep me" "$const" && grep -q "written <!-- jit:start" "$const" && ! grep -q "^<!-- jit:start" "$const"'
+check "when a valid block is followed by mid-line markers, then everything after the block stays" \
+  'grep -q "keep me" "$const" && grep -q "written <!-- jit:start" "$const" && grep -q "end is <!-- jit:end" "$const" && ! grep -q "^<!-- jit:start" "$const"'
+
+const_repo
+sed -i.bak -e '1s/.*/# App Constitution/' -e '/^<!-- jit:start/a\
+The end is <!-- jit:end --> in prose.\
+stale block line
+' "$const"; rm -f "$const.bak"
+rm_out >/dev/null
+check "when a mid-line end marker sits inside the block, then the whole block is stripped" '[[ -f "$const" ]] && ! grep -q "stale block line" "$const"'
+
+const_repo
+printf '# App Constitution\n\nThe marker is written <!-- jit:start like this.\n' > "$const"
+out="$(rm_out)"
+check "when the only marker is mid-line, then no block is reported removed" '! grep -q "jit block removed" <<<"$out" && grep -q "written <!-- jit:start" "$const"'
+
+const_repo
+sed -i.bak '1s/.*/# App Constitution/' "$const"; rm -f "$const.bak"
+out="$("$ROOT/bin/remove.sh" . --with-speckit 2>&1 || true)"
+check "when --with-speckit deletes a filled constitution, then it says so and never that the text was kept" \
+  '[[ ! -e .specify ]] && ! grep -q "your text kept" <<<"$out" && grep -q "the constitution went with it" <<<"$out"'
 
 const_repo
 awk '/^<!-- jit:end -->/ { next } /^<!-- jit:start/ { print "<!-- jit:end -->" } { print }' "$const" > "$const.tmp"; mv "$const.tmp" "$const"
