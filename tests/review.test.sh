@@ -73,6 +73,9 @@ check "when a task was added, then the plan needs a new review" 'fails_with "cha
 printf 'Plan read.\n\nAssessment: ready\n' > "$TMP/plan.md"
 check "when a plan report has no Model: line, then record --plan refuses" \
   'fails_with "the report must state Model: <id> for the plan: run the review again" "$r" record --plan "$TMP/plan.md"'
+printf 'Plan read.\n\nModel: ghp_abc123\n\nAssessment: ready\n' > "$TMP/plan.md"
+check "when a plan report's Model: is ghp_abc123, then the plan record stores unknown" \
+  '"$r" record --plan "$TMP/plan.md" >/dev/null 2>&1; grep -qx "model: unknown" "$(git rev-parse --git-common-dir)/jit-review/plan-001-demo"'
 
 # ── FR-030/FR-031: the risk map sets the minimum depth ──
 rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"
@@ -103,8 +106,8 @@ check "when an added line swallows a failure (x || true), then risk prints RISK=
 check "then risk prints only paths and categories, never the line content" '! "$r" risk | grep -qiE "drop table|make x"'
 deep=("- deep: src/authorization.py — always allows: checked the callers" "- deep: build.sh")
 rep ready "${deep[@]}"
-check "when the report has no '- deep:' line for a risky path, then record refuses and names the path" \
-  'fails_with "the report does not check db/migrations/002_drop.sql (" "$r" record "$TMP/report.md"'
+check "when the report has no '- deep:' line for a risky path, then record refuses, names the path and says to run the review again" \
+  'fails_with "the report does not check db/migrations/002_drop.sql (" "$r" record "$TMP/report.md" && fails_with "run the review again" "$r" record "$TMP/report.md"'
 rep ready "${deep[@]}" "- deep: db/migrations/002_drop.sql.bak"
 check "when a '- deep:' line names a longer path (002_drop.sql.bak), then it does not cover 002_drop.sql" \
   'fails_with "the report does not check db/migrations/002_drop.sql (" "$r" record "$TMP/report.md"'
@@ -159,6 +162,20 @@ sed -i.bak '/^review_model:/d' .specify/extensions/jit/jit-config.yml; echo "rev
 check "when review_model is haiku, then record refuses (the config cannot lower the bar)" \
   'fails_with "jit: review_model must be sonnet, opus or fable" "$r" record "$TMP/report.md"'
 sed -i.bak '/^review_model:/d' .specify/extensions/jit/jit-config.yml
+
+# Model: reaches the PR body, so only something shaped like a model id is stored.
+rec() { echo "$(git rev-parse --git-common-dir)/jit-review/task-$(git branch --show-current | sed 's|/|__|g')"; }
+model_is() { rep ready "${all[@]}"; sed -i.bak "s/^Model: .*/Model: $1/" "$TMP/report.md"; err="$("$r" record "$TMP/report.md" 2>&1 >/dev/null)"; [[ "$(sed -n 's/^model: //p' "$(rec)" | head -1)" == "$2" ]]; }
+check "when Model: is claude-opus-4-8[1m], then it is kept with no warning" 'model_is "claude-opus-4-8[1m]" "claude-opus-4-8[1m]" && [[ -z "$err" ]]'
+check "when Model: is us.anthropic.claude-opus-4-1-20250805-v1:0, then it is kept with no warning" \
+  'model_is us.anthropic.claude-opus-4-1-20250805-v1:0 us.anthropic.claude-opus-4-1-20250805-v1:0 && [[ -z "$err" ]]'
+check "when Model: is claude-haiku-4-5, then it is kept, with its warning" 'model_is claude-haiku-4-5 claude-haiku-4-5 && [[ "$err" == "$(warn "the review ran on claude-haiku-4-5")" ]]'
+for bad in Token=abc ghp_abc123; do
+  check "when Model: is $bad, then unknown is stored in the record and the warning, and the value in neither" \
+    'model_is "$bad" unknown && [[ "$err" == "$(warn "the review ran on unknown")" ]] && grep -qx "warning: the review ran on unknown; the review did not run on the configured model" "$(rec)" && ! sed "/^$/q" "$(rec)" | grep -qF "$bad"'
+done
+long="claude-$(head -c 80 /dev/zero | tr '\0' x)"
+check "when Model: is over 80 characters, then unknown is stored" 'model_is "$long" unknown'
 
 # ── FR-032/FR-033: delta rounds ──
 rep ready "${all[@]}"; "$r" record "$TMP/report.md" >/dev/null || true

@@ -85,6 +85,8 @@ description: "Review, commit, push and open the task's pull request"
      `<details>` / `<summary>Test output</summary>` / blank line / the content / `</details>`;
    - attribution lines only if the project's settings ask for them (see step 3).
 6. Run `bash .specify/extensions/jit/scripts/pr.sh task <TASK_ID> "<commit title>" <body-file>`.
+   On an open PR it replaces the body from `<body-file>`, so edits made on GitHub are gone, and
+   asks for Copilot again.
    It pushes (the pre-push hook re-checks every commit for secrets), adds `Closes #<ISSUE>` and
    prints `PR=<url>`, and asks GitHub Copilot code review for a second independent read: it prints
    `copilot: code review requested` only when GitHub lists Copilot as a reviewer, and

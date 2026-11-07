@@ -107,8 +107,9 @@ Written for the author, who fixes it, and for the human who merges:
   `- proven: <path> by <test file>:<n> — <what it asserts>`
   Write each line exactly as shown, from the start of the line, path first. Every `RISK=` path
   needs one; `review.sh record` refuses the report otherwise, and accepts `- proven:` only when
-  `<test file>` is a test file at HEAD with a line `<n>`. Anything not listed was sampled. The PR
-  shows these paths, never the text after them.
+  `<test file>` is a test file at HEAD with a line `<n>`; gate, delete and test paths take
+  `- deep:` only. Anything not listed was sampled. The PR shows these paths, never the text after
+  them, and only paths in the diff.
 - **Findings**, ranked: **High** (wrong result, data loss, a broken upgrade on existing state,
   security), **Medium** (a real bug: a guard the siblings have, an unhandled real-path
   case, a silent failure path), **Low** (worth a line, not a block: a test gap where the code

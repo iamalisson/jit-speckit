@@ -100,7 +100,7 @@ checked() {
     P="$p" O="$o" awk 'BEGIN { d = "- deep: " ENVIRON["P"]; q = "- proven: " ENVIRON["P"] " by " }
       (index($0, q) == 1 && ENVIRON["O"] ~ /^ or /) || (index($0, d) == 1 && (length($0) == length(d) || substr($0, length(d) + 1, 1) == " ")) { f = 1 }
       END { exit !f }' "$report" \
-      || die "the report does not check $p ($cats): add '- deep: $p'$o"
+      || die "the report does not check $p ($cats): add '- deep: $p'$o, and run the review again"
   done < <(risk "$1" | awk '$0 != "RISK=none" { c = substr($1, 6); p = substr($0, length($1) + 2)
       if (!(p in cats)) { order[++n] = p; cats[p] = c } else cats[p] = cats[p] ", " c }
       END { for (i = 1; i <= n; i++) print cats[order[i]] "\t" order[i] }')
@@ -166,12 +166,17 @@ case "$action" in
     fi
     # The model the review ran on: a warning, never a refusal (the session may force one model).
     warn=""; fam="$(tr '[:upper:]' '[:lower:]' <<<"$model" | grep -oE 'sonnet|opus|fable|haiku' | head -1 || true)"
+    # The id reaches the PR body: anything that is not shaped like a model id stays out of it.
+    mre='^[A-Za-z0-9][]A-Za-z0-9.:@_[-]{1,79}$'
+    if ! [[ "$model" =~ $mre ]] || ! grep -qiE 'claude|sonnet|opus|fable|haiku' <<<"$model"; then model=unknown; fi
     if [[ -n "${CLAUDE_CODE_SUBAGENT_MODEL_FORCE:-}" ]]; then warn="CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set"
     elif [[ "$fam" != sonnet && "$fam" != opus && "$fam" != fable ]]; then warn="the review ran on $model"
     elif [[ "$fam" != "$want" ]]; then warn="the review ran on $model, not $want"
     fi
     if [[ -n "$warn" ]]; then warn="$warn; the review did not run on the configured model"; echo "jit: warning: $warn" >&2; fi
     map="$(grep -oE '^- (deep|proven): [^ ]+' "$report" || true)"
+    # A task's map reaches the PR body, so only paths of the diff are kept; a plan's never does.
+    if ! $plan; then map="$(awk 'NR == FNR { p[$0]; next } $3 in p' <(jit_diff --name-only "$(diff_base)" HEAD) <(cat <<<"$map"))"; fi
     {
       echo "state: $st"; echo "assessment: $verdict"
       if ! $plan; then echo "head: $head"; if $delta; then echo "round: delta"; else echo "round: full"; fi; fi

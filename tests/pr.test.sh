@@ -116,6 +116,7 @@ git -C "$TMP" clone --quiet "$TMP/origin.git" squash 2>/dev/null
 git fetch --quiet origin; rm -f "$GH_PR"; git switch --quiet main
 mkdir -p specs/002-new; git checkout --quiet origin/develop -- specs/002-new; git reset --quiet
 printf '%s\n' '- [ ] T003 Added by converge in `c` — #13' >> specs/002-new/tasks.md
+"$SCRIPTS/review.sh" record --plan "$TMP/plan.md" >/dev/null 2>&1
 "$p" spec >/dev/null
 check "when a later spec PR follows a squash-merged one, then it starts fresh from the base" \
   'git merge-base --is-ancestor origin/develop HEAD && [[ "$(git branch --show-current)" == spec/002-new ]]'
@@ -313,6 +314,45 @@ check "on a --depth 1 clone with no merge base, then pr.sh task prints one refus
   ': > "$GH_LOG"; one_refusal "git fetch --unshallow" "$p" task T001 "feat: edit" "$TMP/body.md" && ! grep -q "^pr create" "$GH_LOG"'
 cd "$TMP"
 
+# ── FR-009: an open task PR stays true to its diff ──
+rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR"; : > "$GH_LOG"
+new_repo standard
+commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
+"$SCRIPTS/branch.sh" T001 >/dev/null
+mkdir -p .specify/memory; printf '**Commands**: build `[BUILD_COMMAND]` · test `true` · lint `[LINT_COMMAND]` · mutate `[MUTATE_COMMAND]`\n' > .specify/memory/constitution.md
+echo 'export const search = 1' > search.ts; git add search.ts; git commit --quiet -m "feat: search"; reviewed; scanned
+"$p" task T001 "feat: search" "$TMP/body.md" >/dev/null 2>&1
+echo 'export const more = 2' >> search.ts; git commit --quiet -am "feat: more"; reviewed; scanned
+id2="$(source "$SCRIPTS/lib.sh"; diff_id | cut -c1-12)"; : > "$GH_LOG"
+out="$(GH_REVIEWERS=Copilot "$p" task T001 "feat: search" "$TMP/body.md")"
+check "when pr.sh task runs again on an open PR, then the body is updated to the new patch id and no PR is created" \
+  'grep -q "^pr edit https://github.com/acme/app/pull/99 --body " "$GH_LOG" && grep -qxF "Independent review recorded for this diff (patch id $id2)" "$GH_LOG" && ! grep -q "^pr create" "$GH_LOG"'
+check "then a second Copilot review is requested" 'grep -q "^api -X POST repos/acme/app/pulls/99/requested_reviewers" "$GH_LOG" && grep -qxF "copilot: code review requested" <<<"$out"'
+check "then it prints that the body was replaced from the author's file" 'grep -qxF "PR body replaced from $TMP/body.md; edits made on GitHub are gone" <<<"$out"'
+edit_rc=0; out="$(GH_FAIL_EDIT=1 "$p" task T001 "feat: search" "$TMP/body.md" 2>"$TMP/pr.err")" || edit_rc=$?
+check "when the edit fails, then it prints one refusal naming the PR and no PR= line" \
+  '((edit_rc != 0)) && [[ "$(wc -l < "$TMP/pr.err")" -eq 1 ]] && grep -q "^jit: .*https://github.com/acme/app/pull/99" "$TMP/pr.err" && ! grep -q "^PR=" <<<"$out"'
+list_rc=0; out="$(GH_FAIL_PR_LIST=1 "$p" task T001 "feat: search" "$TMP/body.md" 2>&1)" || list_rc=$?
+check "when the open-PR lookup fails, then it stops after gh's error and creates no PR" \
+  '((list_rc != 0)) && grep -q "HTTP 502" <<<"$out" && grep -qxF "jit: could not check for an open PR" <<<"$out" && ! grep -q "^PR=" <<<"$out" && ! grep -q "^pr create" "$GH_LOG"'
+printf 'What changed: x\n\n- deep: ghp_abc123\n- deep: Token=abc\n- deep: search.ts\n\n%s\n\nAssessment: ready\n' "$(range)" > "$TMP/review.md"
+"$SCRIPTS/review.sh" record "$TMP/review.md" >/dev/null 2>&1; : > "$GH_LOG"
+"$p" task T001 "feat: search" "$TMP/body.md" >/dev/null
+check "when a report's map names a token outside the diff, then it never reaches the body, and a path in the diff does" \
+  '! grep -qE "ghp_abc123|Token=abc" "$GH_LOG" && grep -qxF -- "- deep: search.ts" "$GH_LOG"'
+
+# ── A stale plan review stops pr.sh spec ──
+git switch --quiet main; rm -f "$GH_PR"; : > "$GH_LOG"
+printf 'Plan read.\n\nModel: claude-opus-4-7\n\nAssessment: ready\n' > "$TMP/plan.md"
+check "when no plan review was recorded, then pr.sh spec stops and opens nothing" \
+  'fails_with "no independent review" "$p" spec && ! grep -q "^pr create" "$GH_LOG"'
+"$SCRIPTS/review.sh" record --plan "$TMP/plan.md" >/dev/null
+printf '%s\n' '- [ ] T002 Added by analysis in `b`' >> specs/001-demo/tasks.md
+printf '## Specification Analysis Report\n\nCoverage Summary Table\n' > "$TMP/analysis.md"; "$SCRIPTS/analyzed.sh" "$TMP/analysis.md" >/dev/null
+check "when the analysis changed tasks.md after the plan review, then pr.sh spec stops, pushes nothing and stays on the branch" \
+  'fails_with "changed since the last review" "$p" spec && ! grep -q "^pr create" "$GH_LOG" && [[ "$(git branch --show-current)" == main ]] && ! git ls-remote --exit-code origin spec/001-demo'
+git checkout --quiet -- specs/001-demo/tasks.md
+
 # ── The spec folder survives a refused branch switch ──
 rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR"
 new_repo standard
@@ -320,6 +360,7 @@ echo a > app.txt; git add app.txt; git commit --quiet -m app; git push --quiet o
 echo b > app.txt; git add app.txt; git commit --quiet -m app2   # local only: HEAD differs from origin/develop...
 echo c > app.txt                                                  # ...and an unstaged edit on top: git switch refuses
 printf '%s\n' '- [ ] T001 Thing in `a` — #11' > specs/001-demo/tasks.md; echo draft > specs/001-demo/spec.md
+"$SCRIPTS/review.sh" record --plan "$TMP/plan.md" >/dev/null
 check "when the switch to the spec branch is refused, then it fails and the spec folder is put back untouched" \
   'fails_with "put back" "$p" spec && [[ "$(cat specs/001-demo/spec.md)" == draft && "$(cat specs/001-demo/tasks.md)" == *"#11" && "$(git branch --show-current)" == main ]]'
 
