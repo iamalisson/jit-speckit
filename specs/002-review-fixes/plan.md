@@ -158,3 +158,7 @@ with its test, `old-files.sha256` as data) and two workflows.
 ## Complexity Tracking
 
 Empty: no constitution violation.
+
+## Convergence
+
+The 1.8.0 coherence review added T013 to T021 (tasks.md, Phase 7). They merge before T009.
