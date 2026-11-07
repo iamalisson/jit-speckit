@@ -136,7 +136,7 @@ Details, the configuration keys and what runs automatically: [docs/reference.md]
 ## Uninstall
 
 `/jit-speckit:remove` takes jit-speckit out of one project (`--with-speckit` also removes
-spec-kit's files); `/plugin uninstall jit-speckit` removes the plugin from Claude Code. What
+spec-kit's files, your constitution included); `/plugin uninstall jit-speckit` removes the plugin from Claude Code. What
 `remove` deletes and keeps: [docs/reference.md](docs/reference.md#uninstall).
 
 ## More

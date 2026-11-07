@@ -36,6 +36,8 @@ non-zero); warnings go to stderr with exit 0; results go to stdout.
 | `review.sh record` | an invalid `review_model:` in `jit-config.yml` | `jit: review_model must be sonnet, opus or fable` |
 | `/speckit-jit-review` prompt | `review_model:` not sonnet, opus or fable | `jit: review_model must be sonnet, opus or fable` |
 | `review.sh record` | a report with `Delta from:` recorded without `--delta` | `this is a delta report: record it with --delta, or run a new full review` |
+| `level.sh`, `bin/remove.sh` | the constitution has one line-start start marker and no end marker | `<file> has '<!-- jit:start' but no '<!-- jit:end -->'; restore the end marker, then run again` |
+| `level.sh`, `bin/remove.sh` | any other line-start markers that are not one start then one end | `<file>'s jit block is damaged: it needs one '<!-- jit:start' line followed by one '<!-- jit:end -->' line; fix the markers, then run again` |
 | `review.sh record --plan` | no `Model:` line | `the report must state Model: <id> for the plan: run the review again` |
 | `hooks/guard-review.sh` | a reviewer launch whose model is missing or not sonnet, opus or fable | `jit: the review must run on sonnet, opus or fable (review_model:), not <model or "the session's model">` (exit 2) |
 | `hooks/guard-review.sh` | a fork carrying the reviewer sentinel | `jit: the review must run in a fresh agent, not a fork of this session` (exit 2) |
@@ -58,7 +60,10 @@ non-zero); warnings go to stderr with exit 0; results go to stdout.
 | `level.sh` `put()` | a managed workflow has a newer pin | `kept newer pin: <action> <version>` |
 | `level.sh` `put()` | an old release's file, `name` | `kept (written by jit-speckit <versions>, no marker): <file> — delete it to get the current one` |
 | `level.sh` `put()` | a generated file kept after an old hook matched | `kept (written by jit-speckit <versions> or older, no marker): <file> — delete it to get the current one` |
-| `bin/remove.sh` | a marked file changed since jit wrote it | `kept (edited): <file>` |
+| `bin/remove.sh` | a file changed since jit wrote it, marked or not, or with no record and jit's scaffold first line (not `.claude/settings.json` or a git hook, whose first line is generic) | `kept (edited): <file>` |
+| `bin/remove.sh` | a kept file holds the record in place (never with `--with-speckit`, which deletes it) | `kept: .specify/jit-files.sha256 (it names the files kept above)` |
+| `bin/remove.sh --with-speckit` | a constitution existed | `removed: spec-kit (.specify/, .claude/skills/speckit-*); the constitution went with it; specs/ kept` |
+| `bin/remove.sh` | a kept hook still calls jit's scripts | `kept: .githooks still calls jit's scripts, which are gone; edit those lines out, or: git config --unset core.hooksPath` |
 | `bin/check-tools.sh` | always | `BEHIND=<n>`; one issue "Tool pins behind" when n > 0 and none is open |
 | `close-linked-issues.yml` | a close failed | `could not close: #<n> …`, job fails |
 

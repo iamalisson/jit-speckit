@@ -48,7 +48,7 @@ check "then the preset templates win over the core ones" 'out="$(specify preset 
 check "then spec-kit's implement command ends with jit's one-task, no-tick override" \
   'f=.claude/skills/speckit-implement/SKILL.md; grep -q "Do not mark tasks \`\[X\]\`" "$f" && [[ "$(grep -n "mark the task off as \[X\]" "$f" | cut -d: -f1)" -lt "$(grep -n "Do not mark tasks" "$f" | cut -d: -f1)" ]]'
 check "then the constitution starts from the jit template with a standard block" \
-  'grep -q "\[PROJECT_NAME\] Constitution" .specify/memory/constitution.md && grep -q "level: standard" .specify/memory/constitution.md'
+  'grep -q "\[PROJECT_NAME\] Constitution" .specify/memory/constitution.md && grep -q "^## Project$" .specify/memory/constitution.md && grep -q "level: standard" .specify/memory/constitution.md'
 check "then develop exists on origin and CI was scaffolded" 'git ls-remote --exit-code origin develop && [[ -f .github/workflows/ci.yml ]]'
 
 setup .
@@ -64,13 +64,20 @@ check "when the level is unknown, then it fails and names it" 'fails_with "unkno
 check "when spec-kit itself fails, then its own message is shown" \
   'fails_with "Unknown integration" "$ROOT/bin/setup.sh" "$TMP/bad" --integration not-an-agent' # spec-kit's words, not jit's
 
+# A template token in a finished constitution (a Sync Impact Report quotes them) is not a blank file.
+cp .specify/memory/constitution.md "$TMP/const.keep"
+printf '# App Constitution\n<!-- replaced [PRINCIPLE_1_NAME] -->\nmy finished rule\n' > .specify/memory/constitution.md
+check "when a filled constitution holds a template token, then setup keeps it" \
+  '"$ROOT/bin/setup.sh" . >/dev/null 2>&1 && grep -q "my finished rule" .specify/memory/constitution.md && grep -q "^# App Constitution" .specify/memory/constitution.md'
+cp "$TMP/const.keep" .specify/memory/constitution.md
+
 # ── Removal: the reverse of setup, then a reinstall from zero ──
 remove() { local out; if ! out="$("$ROOT/bin/remove.sh" "$@" 2>&1)"; then echo "FAIL - remove.sh $* failed:"; echo "$out"; exit 1; fi; echo "$out" > "$TMP/remove.out"; }
 sed -i.bak 's/\[PROJECT_NAME\]/App/' .specify/memory/constitution.md; rm -f .specify/memory/constitution.md.bak
 sed -i.bak 1d .github/workflows/ci.yml; rm -f .github/workflows/ci.yml.bak # the user took ci.yml over (marker gone)
 remove .
 check "when removed, then nothing of jit is left in the tree (extension, preset, skills, scaffold)" \
-  '! git status --porcelain --untracked-files=all | grep -qi jit && [[ ! -e .githooks && ! -e .github/workflows/security.yml && ! -e .github/dependabot.yml && ! -e .claude/settings.json ]]'
+  '! git status --porcelain --untracked-files=all | grep -v "jit-files.sha256" | grep -qi jit && [[ ! -e .githooks && ! -e .github/workflows/security.yml && ! -e .github/dependabot.yml && ! -e .claude/settings.json ]]'
 check "then spec-kit's templates and implement command are its own again" \
   'specify preset resolve tasks-template | grep -q "from: core" && ! grep -q "Do not mark tasks" .claude/skills/speckit-implement/SKILL.md'
 check "then the git hooks setting is unset and a file the user took over is kept" '[[ -z "$(git config core.hooksPath)" && -f .github/workflows/ci.yml ]]'

@@ -62,10 +62,36 @@ rm -rf Dockerfile services terraform
 check "when going up to full, then staging is created on origin" 'git ls-remote --exit-code origin staging'
 check "then SECURITY.md, CODEOWNERS and the release workflow exist" '[[ -f SECURITY.md && -f .github/CODEOWNERS && -f .github/workflows/release.yml ]]'
 
-cp .specify/memory/constitution.md "$TMP/const.bak"
+cp .specify/memory/constitution.md "$TMP/const.bak"; JIT_CFG=.specify/extensions/jit/jit-config.yml
 sed -i.bak '/<!-- jit:end -->/d' .specify/memory/constitution.md; echo "my own principle" >> .specify/memory/constitution.md
 check "when the jit:end marker is missing, then it refuses and keeps the user's text" \
   'fails_with "no '"'"'<!-- jit:end -->'"'"'" "$l" lite && grep -q "my own principle" .specify/memory/constitution.md'
+cp "$TMP/const.bak" .specify/memory/constitution.md
+
+awk '/^<!-- jit:end -->/ { next } /^<!-- jit:start/ { print "<!-- jit:end -->" } { print }' .specify/memory/constitution.md > "$TMP/const.rev"
+echo 'my text after' >> "$TMP/const.rev"; cp "$TMP/const.rev" .specify/memory/constitution.md; cp "$JIT_CFG" "$TMP/cfg.bak"
+check "when the markers are reversed, then it refuses before anything changes, the level included" \
+  'fails_with "damaged" "$l" lite && cmp -s "$TMP/const.rev" .specify/memory/constitution.md && cmp -s "$TMP/cfg.bak" "$JIT_CFG"'
+{ cat "$TMP/const.bak"; echo '<!-- jit:start (managed) -->'; } > .specify/memory/constitution.md; cp .specify/memory/constitution.md "$TMP/const.two"
+check "when a second start marker follows the block, then it refuses before anything changes" \
+  'fails_with "damaged" "$l" lite && cmp -s "$TMP/const.two" .specify/memory/constitution.md && cmp -s "$TMP/cfg.bak" "$JIT_CFG"'
+{ cat "$TMP/const.bak"; echo '<!-- jit:end -->'; } > .specify/memory/constitution.md; cp .specify/memory/constitution.md "$TMP/const.two"
+check "when a second end marker follows the block, then it refuses before anything changes" \
+  'fails_with "damaged" "$l" lite && cmp -s "$TMP/const.two" .specify/memory/constitution.md && cmp -s "$TMP/cfg.bak" "$JIT_CFG"'
+sed '/^<!-- jit:start/d' "$TMP/const.bak" > .specify/memory/constitution.md; cp .specify/memory/constitution.md "$TMP/const.two"
+check "when only an end marker is left, then it refuses before anything changes" \
+  'fails_with "damaged" "$l" lite && cmp -s "$TMP/const.two" .specify/memory/constitution.md && cmp -s "$TMP/cfg.bak" "$JIT_CFG"'
+cp "$TMP/const.bak" .specify/memory/constitution.md
+printf 'The marker is written <!-- jit:start like this.\nThe end is <!-- jit:end --> in prose.\nkeep me\n' >> .specify/memory/constitution.md
+check "when mid-line markers follow the block, then they are plain text and stay" \
+  '"$l" full >/dev/null && grep -q "keep me" .specify/memory/constitution.md && grep -q "written <!-- jit:start" .specify/memory/constitution.md && grep -q "end is <!-- jit:end" .specify/memory/constitution.md'
+cp "$TMP/const.bak" .specify/memory/constitution.md
+sed -i.bak '/^<!-- jit:start/a\
+The end is <!-- jit:end --> in prose.\
+stale block line
+' .specify/memory/constitution.md; rm -f .specify/memory/constitution.md.bak
+check "when a mid-line end marker sits inside the block, then the whole block is replaced" \
+  '"$l" full >/dev/null && ! grep -q "stale block line" .specify/memory/constitution.md'
 cp "$TMP/const.bak" .specify/memory/constitution.md
 
 out="$("$l" lite)"

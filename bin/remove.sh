@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Remove jit-speckit from one project (the reverse of setup.sh). Spec-kit, your specs and your edits stay.
 # Usage: remove.sh [project-dir] [--with-speckit]
-#   --with-speckit  also delete spec-kit's own files (.specify/, .claude/skills/speckit-*) for a reinstall from zero; specs/ is never touched
+#   --with-speckit  also delete spec-kit's own files (.specify/, the constitution with it, .claude/skills/speckit-*) for a reinstall from zero; specs/ is never touched
 # Deletes only what jit-speckit created: files that still carry its "managed file" marker and are
 # unchanged since it wrote them (.specify/jit-files.sha256), files identical to its scaffold, its
-# lines in hook configs, and its block in the constitution. Safe to re-run.
+# lines in hook configs, and its block in the constitution. Safe to re-run: what it keeps stays in
+# .specify/jit-files.sha256. Two limits: --with-speckit deletes that record with .specify, and with
+# no record (set up before 1.8.0) an edit committed between two runs looks like jit's own file.
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")/.." && pwd)"
@@ -26,6 +28,8 @@ cd "$dir" 2>/dev/null || die "no such directory: $dir"
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "not a git repository: $dir"
 cd "$(git rev-parse --show-toplevel)"
 gone() { echo "removed: $1"; }
+const=.specify/memory/constitution.md
+constitution_markers "$const" # before anything is deleted
 
 # ── spec-kit registrations: extension, preset, hook skills ───────────────────
 if [[ -d .specify/extensions/jit || -d .specify/presets/jit ]]; then
@@ -42,32 +46,50 @@ rm -rf .claude/skills/speckit-jit-*
 record=.specify/jit-files.sha256 # "<sha256> <path>" for each file level.sh wrote
 ours() { # ours <file>: created by jit-speckit and not taken over by the user
   [[ -f "$1" ]] || return 1
-  if head -2 "$1" | grep -q '^# jit-speckit: managed file'; then
-    local want; want="$(awk -v p="$1" '$2 == p { print $1 }' "$record" 2>/dev/null || true)"
-    # No record (set up before 1.8.0): only a committed, unchanged file is known to be jit's.
-    if [[ -n "$want" && "$(sha256 < "$1")" == "$want" ]] \
-      || { [[ -z "$want" ]] && git ls-files --error-unmatch "$1" >/dev/null 2>&1 && git diff --quiet HEAD -- "$1" 2>/dev/null; }; then
-      return 0
-    fi
+  local want; want="$(awk -v p="$1" '$2 == p { print $1 }' "$record" 2>/dev/null || true)"
+  if [[ -n "$want" ]]; then
+    if [[ "$(sha256 < "$1")" == "$want" ]]; then return 0; fi
     echo "kept (edited): $1"; return 1
   fi
-  local l
+  # No record (set up before 1.8.0): only a committed, unchanged marked file is known to be jit's.
+  if head -2 "$1" | grep -q '^# jit-speckit: managed file'; then
+    if git ls-files --error-unmatch "$1" >/dev/null 2>&1 && git diff --quiet HEAD -- "$1" 2>/dev/null; then return 0; fi
+    echo "kept (edited): $1"; return 1
+  fi
+  local l ours_shape=false
   for l in lite standard full; do
-    if [[ -f "$here/extension/scaffold/$l/$1" ]] && cmp -s "$1" "$here/extension/scaffold/$l/$1"; then return 0; fi
+    if [[ -f "$here/extension/scaffold/$l/$1" ]]; then
+      if cmp -s "$1" "$here/extension/scaffold/$l/$1"; then return 0; fi
+      [[ "$(head -1 "$1")" == "$(head -1 "$here/extension/scaffold/$l/$1")" ]] && ours_shape=true
+    fi
   done
-  [[ "$1" == .github/CODEOWNERS && "$(head -1 "$1")" == "# Every change needs a review from an owner." && "$(wc -l < "$1")" -le 2 ]]
+  if [[ "$1" == .github/CODEOWNERS && "$(head -1 "$1")" == "# Every change needs a review from an owner." ]]; then
+    local owner line; owner="$(repo_slug)"; owner="${owner%%/*}"; line="$(sed -n 2p "$1")"
+    if [[ "$(wc -l < "$1")" -le 2 && ( "$line" == "* @OWNER" || ( -n "$owner" && "$line" == "* @$owner" ) ) ]]; then return 0; fi
+    ours_shape=true
+  fi
+  # "{" and a shebang open every such file, so they say nothing about who wrote it.
+  if $ours_shape && [[ "$1" != .claude/settings.json && "$1" != .githooks/* ]]; then echo "kept (edited): $1"; fi
+  return 1
 }
 { (cd "$here/extension/scaffold" && find lite standard full -type f | sed 's#^[a-z]*/##')
   printf '%s\n' .github/workflows/ci.yml .github/workflows/security.yml .github/dependabot.yml .github/CODEOWNERS
 } | sort -u | while IFS= read -r f; do
   if ours "$f"; then rm "$f"; gone "$f"; fi
 done
-rm -f "$record"
+# The record outlives a kept file, so the next run still knows it was edited.
+if [[ -f "$record" ]] && ! $speckit; then
+  while read -r sum f; do if [[ -f "$f" ]]; then echo "$sum $f"; fi; done < "$record" > "$record.tmp"
+  if [[ -s "$record.tmp" ]]; then mv "$record.tmp" "$record"; echo "kept: $record (it names the files kept above)"
+  else rm -f "$record" "$record.tmp"; fi
+fi
 rmdir -p .githooks .github/workflows 2>/dev/null || true
 
 # ── Git hooks ────────────────────────────────────────────────────────────────
 if [[ "$(git config --get core.hooksPath || true)" == .githooks && ! -e .githooks ]]; then
   git config --unset core.hooksPath; echo "git hooks: core.hooksPath unset"
+elif [[ "$(git config --get core.hooksPath || true)" == .githooks ]] && grep -qs '\.specify/extensions/jit/scripts/' .githooks/pre-commit .githooks/pre-push; then
+  echo "kept: .githooks still calls jit's scripts, which are gone; edit those lines out, or: git config --unset core.hooksPath"
 fi
 pc=.pre-commit-config.yaml
 if [[ -f "$pc" ]] && grep -qE '^ *- +id: jit-(secrets|prepush) *$' "$pc"; then
@@ -97,26 +119,27 @@ for h in .husky/pre-commit .husky/pre-push; do
 done
 
 # ── Constitution ─────────────────────────────────────────────────────────────
-const=.specify/memory/constitution.md
-if [[ -f "$const" ]] && grep -q '<!-- jit:start' "$const"; then
-  grep -q '<!-- jit:end -->' "$const" || die "$const has '<!-- jit:start' but no '<!-- jit:end -->'; restore the end marker, then run again"
-  if grep -q '^# \[PROJECT_NAME\] Constitution' "$const"; then
+strip_block() { awk '/^<!-- jit:start/ { skip = 1 } !skip { print } /^<!-- jit:end -->/ { skip = 0 }' "$1"; }
+if [[ -f "$const" ]] && ! $speckit && grep -q '^<!-- jit:start' "$const"; then
+  if [[ "$(strip_block "$const")" == "$(strip_block "$here/preset/templates/constitution-template.md")" ]]; then
     rm "$const"; gone "$const (jit's template, never filled in)"
   else
-    awk '/<!-- jit:start/ { skip = 1 } !skip { print } /<!-- jit:end -->/ { skip = 0 }' "$const" > "$const.tmp" && mv "$const.tmp" "$const"
+    strip_block "$const" > "$const.tmp" && mv "$const.tmp" "$const"
     echo "constitution: jit block removed from $const (your text kept)"
   fi
 fi
 
 if $speckit; then
+  lost=""; if [[ -f "$const" ]]; then lost=" the constitution went with it;"; fi
   rm -rf .specify .claude/skills/speckit-*
   rmdir .claude/skills .claude 2>/dev/null || true
-  gone "spec-kit (.specify/, .claude/skills/speckit-*); specs/ kept"
+  gone "spec-kit (.specify/, .claude/skills/speckit-*);$lost specs/ kept"
 fi
 
+edited="files you edited"; if $speckit; then edited="files you edited outside .specify/"; fi
 cat <<EOT
 
-Done. Kept on purpose: specs/, your commits, files you edited, and:
+Done. Kept on purpose: specs/, your commits, $edited, and:
   branches develop/staging, if created:   git push origin --delete develop staging
   GitHub protections set at init:         repository Settings → Branches, Code security
 Reinstall: /jit-speckit:init
