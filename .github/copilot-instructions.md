@@ -1,6 +1,6 @@
 # Review instructions
 
-This project is spec-driven (GitHub Spec Kit with jit-speckit). When reviewing a pull request:
+This project is spec-driven (GitHub Spec Kit with landspec). When reviewing a pull request:
 
 - The rules are in `.specify/memory/constitution.md`. A task PR closes one issue and names its task
   in `specs/NNN-*/tasks.md`: check the change against that task's *Completed when* and *Impact*

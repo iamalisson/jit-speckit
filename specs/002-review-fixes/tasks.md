@@ -57,7 +57,7 @@ them.
   and lists Lows with a reason; at most 2 review rounds, the second on the fix commit only (a
   delta review).
 - The common check, in every *Completed when*: `tests/run.sh` passes; `bash
-  .specify/extensions/jit/scripts/secrets.sh staged` is clean on the staged files; the PR's
+  .specify/extensions/landspec/scripts/secrets.sh staged` is clean on the staged files; the PR's
   `## Evidence` has the seen-failing lines (T008 and T009 have no failing-first check: their
   evidence is the run itself and the version check).
 
@@ -75,16 +75,16 @@ them.
     later part edits lines the earlier one left), one commit per part, so a revert of one part stays
     possible
   - Completed when: every part's *Completed when* below holds; plus the common check
-  - **Part a**: Keep a managed file that changed since jit wrote it, on remove, in bin/remove.sh and extension/scripts/level.sh
+  - **Part a**: Keep a managed file that changed since landspec wrote it, on remove, in bin/remove.sh and extension/scripts/level.sh
     - Comes from: FR-001, F5.2 (High), US1 scenario 1; research R9 F5.2; data-model "Written-file record"
-    - What: `put()` writes `<sha256> <path>` for each file it writes to `.specify/jit-files.sha256`
+    - What: `put()` writes `<sha256> <path>` for each file it writes to `.specify/landspec-files.sha256`
       (replacing that path's line); `remove.sh` deletes a marked file only when its SHA-256 matches its
       line, or with no line only when tracked and `git diff --quiet HEAD`; else `kept (edited): <file>`.
-      `remove.sh` also deletes `.specify/jit-files.sha256` last
+      `remove.sh` also deletes `.specify/landspec-files.sha256` last
     - Impact: `level.sh` `put()` (`:123-127`), `bin/remove.sh` `ours()` and its loop (`:39-51`),
       `lib.sh` `sha256()` (reused), `skills/remove/SKILL.md` and `docs/reference.md` "Uninstall"
       (say what is kept), `tests/setup.test.sh` (its remove scenario must still remove unchanged files
-      and its `! git status | grep -qi jit` check must still hold), `tests/level.test.sh` (the record is
+      and its `! git status | grep -qi landspec` check must still hold), `tests/level.test.sh` (the record is
       written), a new `tests/remove.test.sh` (one test file per script; it runs on every CI job with a
       stub `specify` on `PATH`, since `remove.sh:29` only checks that `specify` exists, so the record
       reading and `shasum -a 256` run on bash 3.2 and BSD too; `setup.test.sh` skips without
@@ -109,7 +109,7 @@ them.
     - Completed when: FR-003 and FR-004 rows of contracts/checks.md pass, including `version_newer`
       cases `v1.10.0 > v1.9.9`, `v7.0.1` not newer than `v7.1.0`, `v2` = `v2.0.0`, `master` never
       newer; plus the common check
-  - **Part c**: Refuse to take a project to an older jit-speckit version, in bin/setup.sh
+  - **Part c**: Refuse to take a project to an older landspec version, in bin/setup.sh
     - Comes from: FR-002, F5.4 (High), US1 scenario 2, edge case "a plugin copy at 1.8.0 or later run on a project at a newer version"; research R9 F5.4
     - What: `setup.sh` sources `lib.sh` for `version_newer`, reads the project's and the plugin's
       `version:` from `extension.yml` (the indented `version:` line, not `schema_version` or
@@ -142,7 +142,7 @@ them.
   - **Part a**: Run the project's test command before opening a task PR, in extension/scripts/pr.sh
     - Comes from: FR-005, F3.3, US2 scenario 1; research R9 F3.3
     - What: in `pr.sh task`, after the cheap refusals and before the push, run `constitution_cmd test`
-      (logged to `<git-common-dir>/jit-test/${branch//\//__}.log`, one per branch (the `/` flattened as
+      (logged to `<git-common-dir>/landspec-test/${branch//\//__}.log`, one per branch (the `/` flattened as
     `review.sh` does), so parallel worktrees never
       share a log); on failure its last 20 lines then the refusal in
       contracts/output-lines.md; with no test command the warning line and go on
@@ -158,7 +158,7 @@ them.
     - What: `lib.sh` gets `diff_id()` (moved from `review.sh` `state()`, `:25-30`) and `diff_record DIR`;
       `review.sh` task state calls `diff_id`; `pr.md` moves the `mutants.sh` run to after the last
       commit (after the review fix rounds), as T002 part c does for the scan; `mutants.sh` writes its result line to
-      `diff_record jit-mutants`; `pr.sh task` refuses as in contracts/output-lines.md when a mutate
+      `diff_record landspec-mutants`; `pr.sh task` refuses as in contracts/output-lines.md when a mutate
       command is set; with none it adds "Mutation testing: not run (no mutate command in the
       constitution)" to the body
     - Impact: `lib.sh` (new helpers), `review.sh` (`state()`, existing records must still match:
@@ -170,7 +170,7 @@ them.
       the common check
   - **Part c**: Record the pre-PR scan per diff and require it on the task PR, in extension/scripts/security-scan.sh and pr.sh
     - Comes from: FR-006, F3.6, US2 scenario 2; research R9 F3.6
-    - What: `security-scan.sh --changed` copies its summary lines to `diff_record jit-security` on both
+    - What: `security-scan.sh --changed` copies its summary lines to `diff_record landspec-security` on both
       exits; `pr.sh task` refuses without one (contracts/output-lines.md); `missing` and findings do not
       refuse
     - Impact: `security-scan.sh` `report()` and its two exits, `pr.sh` task block,
@@ -475,7 +475,7 @@ them.
     block stays facts only, as T003 part a built it: paths, model, warnings and assessment from the
     record, never reviewer prose), `docs/reference.md` (the `tests:` regex also
     widens the delta's size exemption), `tests/review.test.sh`, `tests/pr.test.sh`; the installed
-    `.claude/skills/speckit-jit-*` copies regenerated with `specify extension add --dev extension
+    `.claude/skills/speckit-landspec-*` copies regenerated with `specify extension add --dev extension
     --force`; `data-model.md` "Review record" is the format
   - Completed when: FR-030–FR-033 rows of contracts/checks.md pass, each seen failing on `main`, and
     every check of research R10 and R11 is in the suite, by name: `RISK=none`; migration +
@@ -507,14 +507,14 @@ them.
   - Comes from: FR-034, FR-035; US6 scenario 3; research R12 and Part 2
   - What: `agents/reviewer.md` (`name: reviewer`, `model: opus`, `effort: high`, a short body that
     defers to `review.md`, no `## Method`); `review.md`, `pr.md` step 4 and `issues.md` step 2 launch
-    `jit-speckit:reviewer` with `model:` set, falling back to `general-purpose` with that model when
-    the scoped id is refused; `review_model:` in `jit-config.yml` (`sonnet`, `opus` or `fable`;
-    anything else refused with `jit: review_model must be sonnet, opus or fable`); no fast-model
+    `landspec:reviewer` with `model:` set, falling back to `general-purpose` with that model when
+    the scoped id is refused; `review_model:` in `landspec-config.yml` (`sonnet`, `opus` or `fable`;
+    anything else refused with `landspec: review_model must be sonnet, opus or fable`); no fast-model
     checker (FR-035). Seen, not only asked: the model warnings are stored and shown by T010 (rule 5);
-    `review.md` requires the reviewer's prompt to carry a fixed sentinel line, `jit-speckit review:
+    `review.md` requires the reviewer's prompt to carry a fixed sentinel line, `landspec review:
     independent reviewer`, wherever the prompt starts, and the plugin's `PreToolUse` hook
     (`hooks/hooks.json`, `Bash` only today) gets a matcher for the subagent tool (`Agent`, and `Task`
-    for older clients) that blocks a launch of `jit-speckit:reviewer`, or of any agent whose prompt
+    for older clients) that blocks a launch of `landspec:reviewer`, or of any agent whose prompt
     holds the sentinel, when its `model` is missing or not `sonnet`, `opus` or `fable`, or when it is a
     fork (`subagent_type: fork` inherits the author's context, so it is not independent), with the
     line in contracts/output-lines.md
@@ -528,13 +528,13 @@ them.
     installed skill copies regenerated as in T010
   - Completed when: FR-034/FR-035 row passes, each check seen failing on `main`, in
     `tests/guard-review.test.sh` (the hook's input as JSON on stdin, both tool names): it blocks a
-    `jit-speckit:reviewer` launch with `model: haiku` or no `model`, blocks a `general-purpose` launch
+    `landspec:reviewer` launch with `model: haiku` or no `model`, blocks a `general-purpose` launch
     whose prompt holds the sentinel with `model: haiku` or none, allows both with `opus`, and allows a
     `general-purpose` launch without the sentinel, and blocks a fork carrying the sentinel even with
     `model: opus`, printing the fork line; the hook input shape is checked against one real
     2.1.295+ session (quoted in `## Evidence`); the docs say the hook exists only where the plugin is
     installed; one sandbox session's
-    transcript in `## Evidence` shows the Agent call with `subagent_type: jit-speckit:reviewer` and
+    transcript in `## Evidence` shows the Agent call with `subagent_type: landspec:reviewer` and
     `model: opus`, and `review_model: haiku` refused (if the scoped id is refused, the PR says so and
     the fallback is what ships); plus the common check
 
@@ -542,7 +542,7 @@ them.
   - Comes from: FR-036; US6 scenario 4; research R13
   - What: `next.sh` collects every other open task whose line has `[P]` right after its id (anchored,
     not anywhere in the line) and prints `parallel <Tnnn> (git worktree add
-    --quiet --detach <dir> origin/<base> && cd <dir> && bash .specify/extensions/jit/scripts/branch.sh
+    --quiet --detach <dir> origin/<base> && cd <dir> && bash .specify/extensions/landspec/scripts/branch.sh
     <num> <Tnnn>)` before the `DONE=` line, which stays last; `skills/next/SKILL.md` asks once whether
     to start them, runs each line as printed, one at a time, shows a failure and skips that task, and
     says a refused claim (FR-012) only warns, and that the worktree goes beside the repository (a
@@ -567,14 +567,14 @@ them.
     write what happened, with the commands and their output, to `sandbox-run.md` in this folder:
     1. install the plugin from this repository's `main` in a fresh Claude Code session (or
        `bin/setup.sh` from a `main` worktree when the plugin cannot be loaded), and `init` at lite, then
-       `/jit-speckit:level standard`, then `/jit-speckit:level full` on the same sandbox clone;
+       `/landspec:level standard`, then `/landspec:level full` on the same sandbox clone;
        expected after each, read back: lite turns merge commits off (squash only), standard and full
        keep that setting from lite and add branch protection on their branches; the sandbox is
        private, so the public-repo offers appear only as the one-line note;
     2. read back every GitHub setting `init` offered and the user accepted (`gh api
        repos/iamalisson/jit-speckit-sandbox --jq '{allow_rebase_merge, allow_merge_commit,
        allow_squash_merge, security_and_analysis}'`, private vulnerability reporting), each against
-       contracts/output-lines.md "What `/jit-speckit:init` offers";
+       contracts/output-lines.md "What `/landspec:init` offers";
     3. one small sandbox feature (numbered from `099` down, as in 001's Rules) through the real
        path: issues → `branch.sh` claim → `pr.sh task` → merge → the issue closes → `next` shows it
        `done`, then a renamed closed issue still `done` (F1.2) and `next` on a task branch serving
@@ -586,13 +586,13 @@ them.
        claim is rejected as non-fast-forward; github.com has no pre-receive hooks),
        `analyzed.sh` without a report on full (F3.8), a review refused for a risky path with no deep
        check and a real delta round accepted (FR-030, FR-032), the review running in
-       `jit-speckit:reviewer` (FR-034), `next`'s `parallel` lines started (FR-036);
+       `landspec:reviewer` (FR-034), `next`'s `parallel` lines started (FR-036);
     5. on full, one CI run of `security.yml` with the Semgrep image by digest (F4.5: the job log
        shows the pull of `semgrep/semgrep@sha256:<SEMGREP_DIGEST>`), and a task PR merged into
        `develop` (the job skips merges into the default branch) whose body also names a number one
        above the newest issue or PR, read just before, so it cannot be closed and is no one's item
        (F1.6: the job fails with `could not close: #<n>`, the task's own issue still closes);
-    6. 1.8.0's `setup.sh` on a sandbox clone whose `.specify/extensions/jit/extension.yml` claims a
+    6. 1.8.0's `setup.sh` on a sandbox clone whose `.specify/extensions/landspec/extension.yml` claims a
        higher version (an uncommitted edit, reverted after: F5.4 refusal; an older copy cannot
        refuse, it predates the check), `remove` after an edit (F5.2 keeps it), a refresh with a
        newer pin (F4.7) and a v1.3.0 hook (F5.3);
@@ -635,8 +635,8 @@ them.
     create v1.8.0 --verify-tag --notes-file docs/releases/1.8.0.md`); they are not part of "done",
     since the task's issue closes at merge (`pr.sh` adds `Closes #N`)
   - Impact: `.claude-plugin/plugin.json:3`, `extension/extension.yml:6`, `preset/preset.yml:6`;
-    `.specify/presets/jit/preset.yml` and `.specify/extensions/jit/` are the installed copies,
-    refreshed by `/jit-speckit:init` after the release, not by hand; `tests/static.test.sh` version
+    `.specify/presets/landspec/preset.yml` and `.specify/extensions/landspec/` are the installed copies,
+    refreshed by `/landspec:init` after the release, not by hand; `tests/static.test.sh` version
     checks; the tag `v1.8.0` on `main` after merge
   - Completed when: the new version check fails with one file at `1.7.2` and passes with all three
     at `1.8.0`; a `tests/static.test.sh` check that `docs/releases/1.8.0.md` names every fixed id
@@ -682,25 +682,25 @@ lines go in contracts/output-lines.md in the same PR.
   - What: `bin/setup.sh:72-76` treats a constitution as blank only when it equals
     `.specify/templates/constitution-template.md` (`cmp -s`), not when a template token appears in
     it. `bin/remove.sh` drops the lines of removed and missing files from
-    `.specify/jit-files.sha256`, deletes the record when empty, and when a kept file holds it in
+    `.specify/landspec-files.sha256`, deletes the record when empty, and when a kept file holds it in
     place prints that the record stays with it (today `:65` deletes it, so a second run deletes a
     file the first kept). `ours()` reads the recorded hash before the shape fallbacks; with no record line, as on
     any project set up before 1.8.0, the `CODEOWNERS` check is exact (line 2 is `* @OWNER` or `*
     @<repo owner>`), and that no-record path prints `kept (edited): <file>` too, only for a file
     whose first line equals its scaffold's first line, never a user's own `.claude/settings.json`. A kept git hook
-    prints one line saying it still calls jit's scripts and how to unset `core.hooksPath`. The
+    prints one line saying it still calls landspec's scripts and how to unset `core.hooksPath`. The
     constitution pre-check at `level.sh:19-24`, before anything changes, requires one line-start
-    `jit:start` followed by one `jit:end`, through one new `lib.sh` helper that `remove.sh` also calls above `:31`, before it
+    `landspec:start` followed by one `landspec:end`, through one new `lib.sh` helper that `remove.sh` also calls above `:31`, before it
     deletes anything; the awk at `:109` is anchored the same way, with its grep at `:101` and awk at `:106` anchored too. Only
     line-start markers count: a marker mentioned mid-line is plain text and passes, a file with no
     markers passes, and an unpaired or reversed line-start marker refuses. `remove.sh:103` deletes
-    the constitution only when, with jit's block stripped from both sides, the file equals jit's
+    the constitution only when, with landspec's block stripped from both sides, the file equals landspec's
     constitution template; any other text stays, with the block stripped. `--with-speckit` deletes the record with `.specify`,
     so the header of `remove.sh` and `docs/reference.md` state that re-running after it is the limit
     of "safe to re-run"
   - Impact: `bin/setup.sh`, `bin/remove.sh`, `extension/scripts/level.sh`, `lib.sh` and installed
     copies;
-    `tests/setup.test.sh` (`:71-72` "nothing of jit is left" changes for a kept file) and
+    `tests/setup.test.sh` (`:71-72` "nothing of landspec is left" changes for a kept file) and
     `tests/remove.test.sh` (the check that pins the record being gone), both with
     `## Test changes`; `tests/level.test.sh`; `docs/reference.md` Uninstall
   - Completed when: a filled constitution holding a template token survives setup; a filled constitution
@@ -709,12 +709,12 @@ lines go in contracts/output-lines.md in the same PR.
     limit); an edited `CODEOWNERS` and `SECURITY.md`, with and without a record
     line, are kept and print `kept (edited): <file>`; a kept hook prints its line; with nothing kept,
     no record remains; reversed or unpaired line-start markers refuse in `level.sh` and `remove.sh`
-    with the constitution, `jit-config.yml` and every jit file unchanged; a valid block followed by
+    with the constitution, `landspec-config.yml` and every landspec file unchanged; a valid block followed by
     a mid-line marker keeps everything after the block; plus the common check
 
 - [ ] T014 [P] [US2] Make the diff id independent of the user's git config in extension/scripts/lib.sh per FR-006, FR-009, SC-004 (partial) — #74
   - Comes from: FR-006, FR-009, SC-004 ("for this diff")
-  - What: `lib.sh` holds one flag list, `JIT_DIFF_FLAGS` of these flags:
+  - What: `lib.sh` holds one flag list, `LANDSPEC_DIFF_FLAGS` of these flags:
     `--no-color --no-ext-diff --no-textconv --ignore-submodules=none --submodule=short -U3 --inter-hunk-context=0 --no-renames --diff-algorithm=myers --src-prefix=a/ --dst-prefix=b/`,
     always with `git -c diff.suppressBlankEmpty=false diff`, which has no flag, used by `diff_id` (`:143`), `mutants.sh:26` and `review.sh:56`
     and `:121`. An empty id is refused only when the diff is not empty or there is no merge base; the
@@ -749,7 +749,7 @@ lines go in contracts/output-lines.md in the same PR.
     claim push. `next.sh` prints `FEATURE=<num>`,
     and `skills/next` step 5 runs `/speckit-implement <feature> <NEXT>`, so a named feature beats
     the current task branch. The one-startable branch stops writing `.specify/feature.json`, and
-    where `skills/next` suggests `/speckit-jit-issues` it runs `next <feature>` first, because
+    where `skills/next` suggests `/speckit-landspec-issues` it runs `next <feature>` first, because
     `issues.sh` takes no feature
   - Impact: `extension/scripts/next.sh`, `branch.sh` and installed copies, `skills/next/SKILL.md`,
     `tests/next.test.sh`, `tests/branch.test.sh`, `docs/reference.md` "Several features at once"
@@ -779,7 +779,7 @@ lines go in contracts/output-lines.md in the same PR.
 
 - [ ] T017 [US2] Stop the task PR refusing what the docs allow in extension/scripts/pr.sh and mutants.sh per FR-006, FR-007, FR-035 (contradicts) (depends on T014) — #77
   - Comes from: FR-006, FR-007, FR-035; `docs/reference.md` "New tests need no explanation"; O3
-  - What: `pr.sh:66` exempts a modified test file only when, read with `JIT_DIFF_FLAGS`,
+  - What: `pr.sh:66` exempts a modified test file only when, read with `LANDSPEC_DIFF_FLAGS`,
     `git diff --numstat` shows lines added and none deleted, and no added line matches a skip-only pattern.
     That pattern is new in `lib.sh`, next to `test_path_re`, case-folded as `risk` does, and holds
     only the skip markers of the gate pattern at `review.sh:76`, which uses it. `|| true` and `exit`

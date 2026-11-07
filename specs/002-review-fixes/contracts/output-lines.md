@@ -10,9 +10,9 @@ non-zero); warnings go to stderr with exit 0; results go to stdout.
 |---|---|---|
 | `bin/setup.sh` | the plugin copy is older than the project, no `--downgrade` | `this plugin copy is <plugin>, the project is at <project>; run /reload-plugins (or setup.sh --downgrade)` |
 | `pr.sh task` | the test command fails | its last 20 lines, then `the test command failed (<cmd>); fix it before opening the PR` |
-| `pr.sh task` | a mutate command is set and no mutation record for this diff | `no mutants.sh result for this diff; run bash .specify/extensions/jit/scripts/mutants.sh after the last commit` |
+| `pr.sh task` | a mutate command is set and no mutation record for this diff | `no mutants.sh result for this diff; run bash .specify/extensions/landspec/scripts/mutants.sh after the last commit` |
 | `pr.sh task` | the mutation record says `survivors` and `## Evidence` does not mention a survivor | `mutants.sh found surviving mutants; say in '## Evidence' why each changes nothing, or add the test that kills it` |
-| `pr.sh task` | no scan record for this diff | `no security-scan.sh --changed result for this diff; run bash .specify/extensions/jit/scripts/security-scan.sh --changed after the last commit` |
+| `pr.sh task` | no scan record for this diff | `no security-scan.sh --changed result for this diff; run bash .specify/extensions/landspec/scripts/security-scan.sh --changed after the last commit` |
 | `pr.sh task` | an edited existing test (wider pattern), no `## Test changes` | today's message, naming the file |
 | `pr.sh task` | the mutation record says `unavailable` | `the mutate command could not run (<cmd>); install it or fix it in the constitution, then run mutants.sh again` |
 | `pr.sh task` | `gh pr edit` fails on the open PR | `could not update the body of <url>: <gh's first line>`, and no `PR=` line |
@@ -40,37 +40,37 @@ non-zero); warnings go to stderr with exit 0; results go to stdout.
 | `review.sh record` | `--plan` with `--delta` | `a plan review is always full: review.sh record --plan <report-file>` |
 | `review.sh record --delta` | no `Delta from:` line | `a delta report names its base: Delta from: <last>; run the delta review again` |
 | `review.sh record` | a `- proven:` line with no test, a non-test file, or a line past the file's end | `<path> is not proven by <file>:<n> (not a test file, or no such line): check it deep or name the test` |
-| `review.sh record` | an invalid `review_model:` in `jit-config.yml` | `jit: review_model must be sonnet, opus or fable` |
-| `/speckit-jit-review` prompt | `review_model:` not sonnet, opus or fable | `jit: review_model must be sonnet, opus or fable` |
+| `review.sh record` | an invalid `review_model:` in `landspec-config.yml` | `landspec: review_model must be sonnet, opus or fable` |
+| `/speckit-landspec-review` prompt | `review_model:` not sonnet, opus or fable | `landspec: review_model must be sonnet, opus or fable` |
 | `review.sh record` | a report with `Delta from:` recorded without `--delta` | `this is a delta report: record it with --delta, or run a new full review` |
-| `level.sh`, `bin/remove.sh` | the constitution has one line-start start marker and no end marker | `<file> has '<!-- jit:start' but no '<!-- jit:end -->'; restore the end marker, then run again` |
-| `level.sh`, `bin/remove.sh` | any other line-start markers that are not one start then one end | `<file>'s jit block is damaged: it needs one '<!-- jit:start' line followed by one '<!-- jit:end -->' line; fix the markers, then run again` |
+| `level.sh`, `bin/remove.sh` | the constitution has one line-start start marker and no end marker | `<file> has '<!-- landspec:start' but no '<!-- landspec:end -->'; restore the end marker, then run again` |
+| `level.sh`, `bin/remove.sh` | any other line-start markers that are not one start then one end | `<file>'s landspec block is damaged: it needs one '<!-- landspec:start' line followed by one '<!-- landspec:end -->' line; fix the markers, then run again` |
 | `review.sh record --plan` | no `Model:` line | `the report must state Model: <id> for the plan: run the review again` |
-| `hooks/guard-review.sh` | a reviewer launch whose model is missing or not sonnet, opus or fable | `jit: the review must run on sonnet, opus or fable (review_model:), not <model or "the session's model">` (exit 2) |
-| `hooks/guard-review.sh` | a fork carrying the reviewer sentinel | `jit: the review must run in a fresh agent, not a fork of this session` (exit 2) |
+| `hooks/guard-review.sh` | a reviewer launch whose model is missing or not sonnet, opus or fable | `landspec: the review must run on sonnet, opus or fable (review_model:), not <model or "the session's model">` (exit 2) |
+| `hooks/guard-review.sh` | a fork carrying the reviewer sentinel | `landspec: the review must run in a fresh agent, not a fork of this session` (exit 2) |
 | `review.sh check` | no task record on a task branch | today's message, hint `review.sh record <report-file>` (no `--plan`) |
 
 ## Warnings and results (new or changed)
 
 | Script | When | Line |
 |---|---|---|
-| `branch.sh` | the claim push fails | `jit: warning: could not claim <branch> on origin: <git's error>; other clones may start this task` (stderr, exit 0) |
-| `pr.sh task` | no test command | `jit: tests not run before the PR (no test command in the constitution)` (stderr) |
+| `branch.sh` | the claim push fails | `landspec: warning: could not claim <branch> on origin: <git's error>; other clones may start this task` (stderr, exit 0) |
+| `pr.sh task` | no test command | `landspec: tests not run before the PR (no test command in the constitution)` (stderr) |
 | `review.sh risk` | always | one `RISK=<category> <path>` line per risky path, or `RISK=none` |
 | `review.sh record` | a task review recorded | `REVIEWED=<sha>` before `REVIEW=<assessment>` |
-| `review.sh record` | `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is set, `Model:` is not sonnet, opus or fable, or not the configured family | `jit: warning: <reason>; the review did not run on the configured model`, `<reason>` one of `CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set`, `the review ran on <id>`, `the review ran on <id>, not <review_model>`, `<id>` being `unknown` when `Model:` is not shaped like a model id or names none of claude, sonnet, opus, fable and haiku; one line only, the first reason that applies in that order (stderr, and stored as `warning:` in the record; `pr.sh` prints it from there) |
+| `review.sh record` | `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is set, `Model:` is not sonnet, opus or fable, or not the configured family | `landspec: warning: <reason>; the review did not run on the configured model`, `<reason>` one of `CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set`, `the review ran on <id>`, `the review ran on <id>, not <review_model>`, `<id>` being `unknown` when `Model:` is not shaped like a model id or names none of claude, sonnet, opus, fable and haiku; one line only, the first reason that applies in that order (stderr, and stored as `warning:` in the record; `pr.sh` prints it from there) |
 | `next.sh` | other startable `[P]` tasks | `parallel <Tnnn> (<worktree and branch.sh command>)`, before the `DONE=` line |
 | `pr.sh task` | an open PR's body was replaced | `PR body replaced from <file>; edits made on GitHub are gone` |
 | `issues.sh` | a task's issue already exists | `<Tnnn> → #<n> (existing)` |
-| `issues.sh` | the plan review's record has a `warning:` | `jit: warning: <reason>; the review did not run on the configured model` (stderr, exit 0), before the issues are created |
+| `issues.sh` | the plan review's record has a `warning:` | `landspec: warning: <reason>; the review did not run on the configured model` (stderr, exit 0), before the issues are created |
 | `level.sh` `put()` | a managed workflow has a newer pin | `kept newer pin: <action> <version>` |
-| `level.sh` `put()` | an old release's file, `name` | `kept (written by jit-speckit <versions>, no marker): <file> — delete it to get the current one` |
+| `level.sh` `put()` | an old release's file, `name` | `kept (written by landspec <versions>, no marker): <file> — delete it to get the current one` |
 | `level.sh` `put()` | an unmarked `security.yml` | `kept (no marker): .github/workflows/security.yml — delete it to get the current one` |
-| `level.sh` `put()` | a generated file kept after an old hook matched | `kept (written by jit-speckit <versions> or older, no marker): <file> — delete it to get the current one` |
-| `bin/remove.sh` | a file changed since jit wrote it, marked or not, or with no record and jit's scaffold first line (not `.claude/settings.json` or a git hook, whose first line is generic) | `kept (edited): <file>` |
-| `bin/remove.sh` | a kept file holds the record in place (never with `--with-speckit`, which deletes it) | `kept: .specify/jit-files.sha256 (it names the files kept above)` |
+| `level.sh` `put()` | a generated file kept after an old hook matched | `kept (written by landspec <versions> or older, no marker): <file> — delete it to get the current one` |
+| `bin/remove.sh` | a file changed since landspec wrote it, marked or not, or with no record and landspec's scaffold first line (not `.claude/settings.json` or a git hook, whose first line is generic) | `kept (edited): <file>` |
+| `bin/remove.sh` | a kept file holds the record in place (never with `--with-speckit`, which deletes it) | `kept: .specify/landspec-files.sha256 (it names the files kept above)` |
 | `bin/remove.sh --with-speckit` | a constitution existed | `removed: spec-kit (.specify/, .claude/skills/speckit-*); the constitution went with it; specs/ kept` |
-| `bin/remove.sh` | a kept hook still calls jit's scripts | `kept: .githooks still calls jit's scripts, which are gone; edit those lines out, or: git config --unset core.hooksPath` |
+| `bin/remove.sh` | a kept hook still calls landspec's scripts | `kept: .githooks still calls landspec's scripts, which are gone; edit those lines out, or: git config --unset core.hooksPath` |
 | `bin/check-tools.sh` | always | `BEHIND=<n>`; one issue "Tool pins behind" when n > 0 and none is open |
 | `close-linked-issues.yml` | a close failed | `could not close: #<n> …`, job fails |
 
@@ -91,7 +91,7 @@ non-zero); warnings go to stderr with exit 0; results go to stdout.
 - Added by `pr.sh task` when no mutate command is set: `Mutation testing: not run (no mutate
   command in the constitution)`.
 
-## What `/jit-speckit:init` offers (changed)
+## What `/landspec:init` offers (changed)
 
 | Step | Level | Offer |
 |---|---|---|

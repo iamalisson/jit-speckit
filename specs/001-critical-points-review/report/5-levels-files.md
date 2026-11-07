@@ -10,9 +10,9 @@ repositories with a local bare origin for the two `bin/setup.sh` runs. Those nee
 
 | id | promise | verdict | evidence |
 |---|---|---|---|
-| P18 | Levels size the flow, the constitution and the CI; changeable any time; going down never deletes files | holds | `level.sh` only adds (`put`, `level.sh:123-127`) and rewrites the jit block of the constitution (`level.sh:103-112`); section A: up lite → standard → full, then down to lite: 13 files at full, 13 after going down, 0 deleted; `tests/level.test.sh` |
+| P18 | Levels size the flow, the constitution and the CI; changeable any time; going down never deletes files | holds | `level.sh` only adds (`put`, `level.sh:123-127`) and rewrites the landspec block of the constitution (`level.sh:103-112`); section A: up lite → standard → full, then down to lite: 13 files at full, 13 after going down, 0 deleted; `tests/level.test.sh` |
 | P19 | Nothing of the user's is overwritten: managed files carry a marker, unmarked ones are written only when missing | limit | unmarked files are kept (`level.sh:124`, and the upgrade below prints `kept:` for each); an edit inside a marked file is replaced silently (F5.1); files written before the marker existed are kept forever (F5.3) |
-| P20 | `remove` deletes only what still matches what jit wrote | broken | `bin/remove.sh:39-46` deletes every file that still has the marker; section C: a managed file with an uncommitted edit is removed and the edit is gone: F5.2 |
+| P20 | `remove` deletes only what still matches what landspec wrote | broken | `bin/remove.sh:39-46` deletes every file that still has the marker; section C: a managed file with an uncommitted edit is removed and the edit is gone: F5.2 |
 | P21 | `init` refreshes the project's extension copy, keeps the level, changes no code and commits nothing | broken | the extension is refreshed and the level kept (`skills/init/SKILL.md` step 2, upgrade run below); but projects from before 1.4.0 never get their generated files refreshed (F5.3), an older plugin copy downgrades a newer project without a word (F5.4), and since 1.7.1 `init` offers to commit (F5.5) |
 | P22 | No AI attribution lines in commits or PRs by default | holds | `extension/scaffold/lite/.claude/settings.json` is `"attribution": { "commit": "", "pr": "" }`, written by `put` only when the project has no `.claude/settings.json` (`level.sh:316-321`); the upgrade run prints `kept:    .claude/settings.json` for an existing one; `docs/reference.md` "AI attribution" says the same |
 | P24 | Runs on Linux and macOS (bash 3.2, BSD tools) | limit | every PR runs Linux with bash 5 and a bash 3.2 + busybox job (`.github/workflows/test.yml:16,37`); the real macOS job runs only weekly or by hand, and v1.7.2 never ran on it: F5.6 |
@@ -23,30 +23,30 @@ repositories with a local bare origin for the two `bin/setup.sh` runs. Those nee
 - **evidence**: `put` rewrites any file whose first lines still hold the marker (`level.sh:124-127`).
   Section B: a committed `# my own step` line in `.github/workflows/ci.yml` is gone after
   `level.sh standard` (`updated: .github/workflows/ci.yml`, `my line still there: 0`). The docs
-  say so: the marker means "/jit-speckit:level re-creates it while this line stays; delete the
+  say so: the marker means "/landspec:level re-creates it while this line stays; delete the
   line to keep your own edits" (the marker text itself, and `docs/design.md:57-58`). The edit is
   still in git history when it was committed.
 - **reproduction**: section B of the script below.
 - **exposure**: public.
-- **note**: `put` could keep the old content in `.git/jit-backup/<path>` and print where, when the
-  file differs from what jit last wrote.
+- **note**: `put` could keep the old content in `.git/landspec-backup/<path>` and print where, when the
+  file differs from what landspec last wrote.
 
 ### F5.2 · High · P20 · `remove` deletes a managed file the user edited, uncommitted edits included
 
 - **verdict**: broken
-- **evidence**: `docs/reference.md:127-129` says `/jit-speckit:remove` "deletes the files
-  jit-speckit created and you never edited". `remove.sh:39-46` (`ours`) treats any file whose
-  first two lines hold the marker as jit's, whatever is below it, and `rm`s it (`remove.sh:51`).
+- **evidence**: `docs/reference.md:127-129` says `/landspec:remove` "deletes the files
+  landspec created and you never edited". `remove.sh:39-46` (`ours`) treats any file whose
+  first two lines hold the marker as landspec's, whatever is below it, and `rm`s it (`remove.sh:51`).
   Section C: with `# uncommitted step` added to `.github/workflows/ci.yml` (marker kept),
   `remove.sh` prints `removed: .github/workflows/ci.yml`, and the line is in no commit and no stash
   (`0`, `0`). A file whose marker the user deleted is kept, as documented (`security.yml (taken
   over) exists: yes`). The skill does warn: `skills/remove/SKILL.md:15-16` says "Deleted files
   that were never committed cannot be recovered: ask once before running", so through
-  `/jit-speckit:remove` the user is asked once; `bin/remove.sh` itself asks nothing and checks
+  `/landspec:remove` the user is asked once; `bin/remove.sh` itself asks nothing and checks
   nothing.
 - **reproduction**: section C of the script below.
 - **exposure**: public.
-- **fix**: `put()` records the SHA-256 of every file it writes in `.specify/jit-files.sha256`;
+- **fix**: `put()` records the SHA-256 of every file it writes in `.specify/landspec-files.sha256`;
   `bin/remove.sh` deletes a marked file only when its hash matches that record, or, with no record
   (a project set up before the fix), only when it is tracked and `git diff --quiet HEAD` says it
   is unchanged; otherwise it prints `kept (edited): <file>`. Check for `tests/setup.test.sh`: when
@@ -57,27 +57,27 @@ repositories with a local bare origin for the two `bin/setup.sh` runs. Those nee
 ### F5.3 · Medium · P19, P21 · a project set up before 1.4.0 keeps every generated file at its old version, including hooks that let a commit through
 
 - **verdict**: limit (the docs mislead)
-- **evidence**: the marker line arrived in 1.4.0 (`git log -S'jit-speckit: managed file'` →
+- **evidence**: the marker line arrived in 1.4.0 (`git log -S'landspec: managed file'` →
   `75de174 fix: 1.4.0 …`). Files written by an older release have no marker, so `put` treats them
   as the user's. Upgrade run below (v1.3.0's `bin/setup.sh`, then v1.7.2's, both `--level standard`):
   every generated file is `kept:`: `.githooks/pre-commit`, `.githooks/pre-push`,
   `.github/workflows/ci.yml`, `security.yml`, `close-linked-issues.yml`, `.github/dependabot.yml`
-  and `.github/pull_request_template.md`. jit's own old workflows are also taken for the
+  and `.github/pull_request_template.md`. landspec's own old workflows are also taken for the
   project's CI (`already checks pull requests; no ci.yml generated`). The kept 1.3.0 hooks print
   "secret check skipped (CI still checks)" and `exit 0` when the script is missing
   (`v1.3.0:extension/scaffold/lite/.githooks/pre-commit:5`), where 1.7.2's `exit 1`. A probe of
   that case printed `commit with .env: ACCEPTED`; the probe script is kept outside the repository,
-  in `$(git rev-parse --git-common-dir)/jit-repro/t005-upgrade-with-hook-bypass.sh`. The sandbox showed the same
+  in `$(git rev-parse --git-common-dir)/landspec-repro/t005-upgrade-with-hook-bypass.sh`. The sandbox showed the same
   hooks being kept when it went from 1.3.0 to 1.7.2 (its PR #10). `docs/reference.md:16-20` says
   that running `init` once per project is how a project gets the new version.
 - **reproduction**: the upgrade script below.
 - **exposure**: public (it needs the project's own copy of the script to be missing).
 - **fix**: `put` treats a file byte-identical to a hook an earlier release wrote (a list of
-  SHA-256s kept in the extension) as jit's, and names the others it recognizes: `kept (written by jit-speckit <versions>, no marker): <file> — delete it to get
+  SHA-256s kept in the extension) as landspec's, and names the others it recognizes: `kept (written by landspec <versions>, no marker): <file> — delete it to get
   the current one` (and `<versions> or older` for generated files). Check for
   `tests/level.test.sh`, with v1.3.0's hook as a committed fixture, since CI's checkout has no tags: when `.githooks/pre-commit` is v1.3.0's exact file, then `level.sh` replaces it and it carries the marker; and when
   `close-linked-issues.yml` is v1.3.1's exact file, then it is kept and
-  named in a `kept (written by jit-speckit 1.3.1` line (replacing it would
+  named in a `kept (written by landspec 1.3.1` line (replacing it would
   undo a take-over, since 1.4.0+'s copy without its marker has the same bytes). It fails today. (Corrected 2026-11-05 from feature 002's research,
   `specs/002-review-fixes/research.md` C1).
 
@@ -88,15 +88,15 @@ repositories with a local bare origin for the two `bin/setup.sh` runs. Those nee
   script below: a project set up with 1.7.2 (`version: "1.7.2"`), then v1.3.0's `setup.sh`, is at
   `version: "1.3.0"`, `rc=0`, and the log has no warning (the one line that matched the search is
   "PLACEHOLDERS"). The downgrade also removes what 1.3.0 did not have: `review gate after the
-  older setup: review.sh missing; speckit-jit-review skill missing`. So the gate that refuses a PR
+  older setup: review.sh missing; speckit-landspec-review skill missing`. So the gate that refuses a PR
   without a recorded review (P10) is gone, and nothing says so. Ranked High: a gate stops existing
-  without the user being told (FR-009). In this session's own run, on 2026-11-05: Claude Code's `/jit-speckit:init` skill
+  without the user being told (FR-009). In this session's own run, on 2026-11-05: Claude Code's `/landspec:init` skill
   pointed at the 1.7.0 plugin cache while this repository was at 1.7.1, so running it as given
   would have downgraded the repository. The user ran `/reload-plugins` first, which fixed it.
 - **reproduction**: the downgrade script below.
 - **exposure**: public.
 - **fix**: `setup.sh` reads the project's current `version:` from
-  `.specify/extensions/jit/extension.yml` and refuses to go below it without `--downgrade`,
+  `.specify/extensions/landspec/extension.yml` and refuses to go below it without `--downgrade`,
   saying "this plugin copy is <old>, the project is at <new>; run /reload-plugins". Check for
   `tests/setup.test.sh`: when the project's extension is at a newer version than the plugin, then
   `setup.sh` exits non-zero and prints `/reload-plugins`. It fails today.
@@ -109,7 +109,7 @@ repositories with a local bare origin for the two `bin/setup.sh` runs. Those nee
   PR. It asks first, so nothing is committed without a yes, but the README sentence is out of date.
 - **rank**: Low, checked against FR-009 on 2026-11-05 (T011). The sentence is out of date, but it
   cannot lead a user into a commit they did not agree to: step 7 asks one explicit question that
-  names the branch and the PR ("Commit this on `chore/jit-speckit-<version>` and open the PR?"),
+  names the branch and the PR ("Commit this on `chore/landspec-<version>` and open the PR?"),
   and on no it leaves everything uncommitted and says so. The question corrects the sentence at
   the one moment it matters.
 - **reproduction**: read the two lines.
@@ -148,8 +148,8 @@ repositories with a local bare origin for the two `bin/setup.sh` runs. Those nee
 # T005 reproductions, run as: bash t005-repro.sh <v1.7.2 worktree>
 source "$1/tests/helpers.sh"
 fake_gh; new_repo lite
-[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/jit-speckit ] || exit 1
-ln -s "$1/extension/scaffold" .specify/extensions/jit/scaffold 2>/dev/null || true
+[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/landspec ] || exit 1
+ln -s "$1/extension/scaffold" .specify/extensions/landspec/scaffold 2>/dev/null || true
 printf '{"name":"x","version":"1.0.0"}\n' > package.json; printf '{"lockfileVersion":3}\n' > package-lock.json
 L="$SCRIPTS/level.sh"; files() { git ls-files --others --cached --exclude-standard | grep -vE '^(package|specs/)' | sort; }
 echo "== A. up lite -> standard -> full, then down to lite: files before and after going down"
@@ -190,13 +190,13 @@ the uncommitted line anywhere in git: 0; in the stash: 0
 set -u
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 git init -q --bare "$T/origin.git"; git clone -q "$T/origin.git" "$T/repo" 2>/dev/null; cd "$T/repo"
-[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/jit-speckit ] || exit 1
+[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/landspec ] || exit 1
 git config user.email t@t; git config user.name t; git config commit.gpgsign false
 printf '{"name":"x","version":"1.0.0"}\n' > package.json; printf '{"lockfileVersion":3}\n' > package-lock.json
 git add package.json package-lock.json; git commit -q -m init; git branch -M main; git push -q origin main
 echo "== v1.3.0 setup"; bash "$1/bin/setup.sh" . --level standard --no-branches > "$T/old.log" 2>&1; echo "rc=$?"; tail -3 "$T/old.log"
-git add -A >/dev/null 2>&1; git commit -q -m "jit 1.3.0" || true
-echo "== v1.7.2 setup (the refresh /jit-speckit:init runs)"; bash "$2/bin/setup.sh" . --level standard --no-branches > "$T/new.log" 2>&1; echo "rc=$?"
+git add -A >/dev/null 2>&1; git commit -q -m "landspec 1.3.0" || true
+echo "== v1.7.2 setup (the refresh /landspec:init runs)"; bash "$2/bin/setup.sh" . --level standard --no-branches > "$T/new.log" 2>&1; echo "rc=$?"
 grep -E '^kept' "$T/new.log"
 for h in .githooks/pre-commit .githooks/pre-push; do echo "--- $h"; cat "$h"; done
 ```
@@ -204,10 +204,10 @@ for h in .githooks/pre-commit .githooks/pre-push; do echo "--- $h"; cat "$h"; do
 ```text
 == v1.3.0 setup
 rc=0
-  existing code?  /jit-speckit:adopt      (fills the constitution from this repo)
+  existing code?  /landspec:adopt      (fills the constitution from this repo)
   new project?    /speckit-constitution   (fills the [PLACEHOLDERS])
   then per feature: /speckit-specify → /speckit-plan → /speckit-tasks → /speckit-implement T001
-== v1.7.2 setup (the refresh /jit-speckit:init runs)
+== v1.7.2 setup (the refresh /landspec:init runs)
 rc=0
 kept:    .claude/settings.json
 kept:    .githooks/pre-commit
@@ -219,18 +219,18 @@ kept:    .github/workflows/security.yml
 kept:    .github/dependabot.yml
 --- .githooks/pre-commit
 #!/usr/bin/env bash
-# jit-speckit: refuse commits that carry secrets (.env files, keys, tokens). Fast, local.
-# Enabled per clone with: git config core.hooksPath .githooks   (/jit-speckit:init does it)
-s=.specify/extensions/jit/scripts/secrets.sh
-[ -f "$s" ] || { echo "jit: $s missing; secret check skipped (CI still checks)" >&2; exit 0; }
+# landspec: refuse commits that carry secrets (.env files, keys, tokens). Fast, local.
+# Enabled per clone with: git config core.hooksPath .githooks   (/landspec:init does it)
+s=.specify/extensions/landspec/scripts/secrets.sh
+[ -f "$s" ] || { echo "landspec: $s missing; secret check skipped (CI still checks)" >&2; exit 0; }
 exec bash "$s" staged
 --- .githooks/pre-push
 #!/usr/bin/env bash
-# jit-speckit: before anything leaves this machine, re-check every pushed commit for secrets
+# landspec: before anything leaves this machine, re-check every pushed commit for secrets
 # (this also catches commits made with --no-verify), and keep base branches PR-only.
 set -euo pipefail
-s=.specify/extensions/jit/scripts/prepush.sh
-[ -f "$s" ] || { echo "jit: $s missing; push check skipped (CI still checks)" >&2; exit 0; }
+s=.specify/extensions/landspec/scripts/prepush.sh
+[ -f "$s" ] || { echo "landspec: $s missing; push check skipped (CI still checks)" >&2; exit 0; }
 exec bash "$s" "$@"
 ```
 
@@ -244,14 +244,14 @@ exec bash "$s" "$@"
 set -u
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 git init -q --bare "$T/origin.git"; git clone -q "$T/origin.git" "$T/repo" 2>/dev/null; cd "$T/repo"
-[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/jit-speckit ] || exit 1
+[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/landspec ] || exit 1
 git config user.email t@t; git config user.name t; git config commit.gpgsign false
 echo x > README.md; git add README.md; git commit -q -m init; git branch -M main; git push -q origin main
-bash "$2/bin/setup.sh" . --level lite --no-branches >/dev/null 2>&1; echo "after 1.7.2 setup: $(grep -E '^ +version:' .specify/extensions/jit/extension.yml | head -1)"
+bash "$2/bin/setup.sh" . --level lite --no-branches >/dev/null 2>&1; echo "after 1.7.2 setup: $(grep -E '^ +version:' .specify/extensions/landspec/extension.yml | head -1)"
 bash "$1/bin/setup.sh" . --level lite --no-branches > "$T/old.log" 2>&1; echo "older setup rc=$?"
-echo "after the older setup: $(grep -E '^ +version:' .specify/extensions/jit/extension.yml | head -1)"
+echo "after the older setup: $(grep -E '^ +version:' .specify/extensions/landspec/extension.yml | head -1)"
 echo "lines mentioning downgrad|older|newer:"; grep -iE "downgrad|older|newer" "$T/old.log" || echo "(none)"
-echo "review gate after the older setup: review.sh $([ -f .specify/extensions/jit/scripts/review.sh ] && echo present || echo missing); speckit-jit-review skill $([ -d .claude/skills/speckit-jit-review ] && echo present || echo missing)"
+echo "review gate after the older setup: review.sh $([ -f .specify/extensions/landspec/scripts/review.sh ] && echo present || echo missing); speckit-landspec-review skill $([ -d .claude/skills/speckit-landspec-review ] && echo present || echo missing)"
 ```
 
 ```text
@@ -260,7 +260,7 @@ older setup rc=0
 after the older setup:   version: "1.3.0"
 lines mentioning downgrad|older|newer:
   new project?    /speckit-constitution   (fills the [PLACEHOLDERS])
-review gate after the older setup: review.sh missing; speckit-jit-review skill missing
+review gate after the older setup: review.sh missing; speckit-landspec-review skill missing
 ```
 
 </details>

@@ -1,50 +1,50 @@
 installed:
-- jit
+- landspec
 settings:
   auto_execute_hooks: true
 hooks:
   after_tasks:
-  - extension: jit
-    command: speckit.jit.issues
+  - extension: landspec
+    command: speckit.landspec.issues
     enabled: true
     optional: false
     priority: 10
-    prompt: Execute speckit.jit.issues?
+    prompt: Execute speckit.landspec.issues?
     description: Create one GitHub issue per task
     condition: null
   after_converge:
-  - extension: jit
-    command: speckit.jit.issues
+  - extension: landspec
+    command: speckit.landspec.issues
     enabled: true
     optional: false
     priority: 10
-    prompt: Execute speckit.jit.issues?
+    prompt: Execute speckit.landspec.issues?
     description: Create issues for the tasks /speckit-converge added
     condition: null
   after_analyze:
-  - extension: jit
-    command: speckit.jit.analyzed
+  - extension: landspec
+    command: speckit.landspec.analyzed
     enabled: true
     optional: false
     priority: 10
-    prompt: Execute speckit.jit.analyzed?
+    prompt: Execute speckit.landspec.analyzed?
     description: Record that analysis ran (required on level full)
     condition: null
   before_implement:
-  - extension: jit
-    command: speckit.jit.branch
+  - extension: landspec
+    command: speckit.landspec.branch
     enabled: true
     optional: false
     priority: 10
-    prompt: Execute speckit.jit.branch?
+    prompt: Execute speckit.landspec.branch?
     description: Switch to the task's branch
     condition: null
   after_implement:
-  - extension: jit
-    command: speckit.jit.pr
+  - extension: landspec
+    command: speckit.landspec.pr
     enabled: true
     optional: false
     priority: 10
-    prompt: Execute speckit.jit.pr?
+    prompt: Execute speckit.landspec.pr?
     description: Open the task's pull request
     condition: null

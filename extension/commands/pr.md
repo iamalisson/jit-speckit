@@ -4,7 +4,7 @@ description: "Review, commit, push and open the task's pull request"
 
 # Task pull request (after `/speckit-implement`)
 
-1. Read the level: `level:` in `.specify/extensions/jit/jit-config.yml` (default `standard`).
+1. Read the level: `level:` in `.specify/extensions/landspec/landspec-config.yml` (default `standard`).
    - **lite**: ask "Review and open the PR now?" and continue only on yes.
    - **standard** and **full**: continue.
 2. **Checks.** Run the constitution's test command, plus lint and build if they exist. If
@@ -24,16 +24,16 @@ description: "Review, commit, push and open the task's pull request"
 3. **Commit.** Commit the task's changes, and only those. Stage files by name, never
    `git add -A`. Use a Conventional Commit message, `<type>(<scope>): <summary>`, with a body line
    `Refs #<ISSUE>`. Attribution lines (`Co-Authored-By` for Claude, "Generated with") follow the
-   project's `.claude/settings.json`: with jit-speckit's default `"attribution"` block there are
+   project's `.claude/settings.json`: with landspec's default `"attribution"` block there are
    none; if the team removed that block to disclose AI use, keep them. The git pre-commit hook checks for secrets. If it refuses, remove the secret;
    never use `--no-verify`.
 4. **Independent review**, the gate that catches what this session cannot see about its own
-   work. Launch the reviewer exactly as `commands/review.md` (`/speckit-jit-review`) says: one
-   `jit-speckit:reviewer` subagent, with `model` as review.md says, given that file and the facts it lists, and nothing of what you
+   work. Launch the reviewer exactly as `commands/review.md` (`/speckit-landspec-review`) says: one
+   `landspec:reviewer` subagent, with `model` as review.md says, given that file and the facts it lists, and nothing of what you
    think about the code. While it runs, run `/security-review` on the branch.
 
    Save the report as it came to a file outside the repository (`mktemp`) and record it:
-   `bash .specify/extensions/jit/scripts/review.sh record <file>`. Then fix every **High** and
+   `bash .specify/extensions/landspec/scripts/review.sh record <file>`. Then fix every **High** and
    **Medium** finding in the code (a test changes only when the test was wrong: then
    `## Test changes`, step 2). Commit the fixes (same rules), re-run step 2, and check them with a
    **delta**: pass the reviewer the `REVIEWED=` sha and the last report, and record it with
@@ -48,7 +48,7 @@ description: "Review, commit, push and open the task's pull request"
    **After the last commit** (the review's fix rounds included), run what is recorded for the
    exact diff; any later commit means running it again:
    - **Mutation testing proves the tests can fail.** Run
-     `bash .specify/extensions/jit/scripts/mutants.sh` (the constitution's `mutate` command on
+     `bash .specify/extensions/landspec/scripts/mutants.sh` (the constitution's `mutate` command on
      this branch's changes). `ok` goes in *Evidence*. `survivors` means a behavior no test checks:
      for each surviving mutant in the changed lines, add the test that kills it (then commit and
      run it again), or write one line in *Evidence* naming the survivor and why it changes nothing
@@ -56,12 +56,12 @@ description: "Review, commit, push and open the task's pull request"
      ran: install it or fix it in the constitution, then run it again; `pr.sh` refuses it. A wrapper
      such as `uv run` exits otherwise, so a tool missing behind one shows as `survivors`: read the
      log. `missing` means the constitution has no `mutate` command: say
-     so in *Evidence* and suggest `/jit-speckit:adopt`. With a `mutate` command, the script in
+     so in *Evidence* and suggest `/landspec:adopt`. With a `mutate` command, the script in
      step 6 refuses a PR without a `mutants.sh` result for this diff, and refuses `survivors` when
      *Evidence* says nothing about them; without one, it adds "Mutation testing: not run" to the
      body.
    - **The scanners on the changed files.** Run
-     `bash .specify/extensions/jit/scripts/security-scan.sh --changed` (it also scans uncommitted
+     `bash .specify/extensions/landspec/scripts/security-scan.sh --changed` (it also scans uncommitted
      files, so after the last commit). Read every finding and fix the real ones (then commit and
      run it again). List the false positives with the reason, and any `missing` scanner. The
      script in step 6 refuses a PR without a scan for this diff; findings and `missing` scanners
@@ -84,7 +84,7 @@ description: "Review, commit, push and open the task's pull request"
      goes in a collapsible block, one per topic:
      `<details>` / `<summary>Test output</summary>` / blank line / the content / `</details>`;
    - attribution lines only if the project's settings ask for them (see step 3).
-6. Run `bash .specify/extensions/jit/scripts/pr.sh task <TASK_ID> "<commit title>" <body-file>`.
+6. Run `bash .specify/extensions/landspec/scripts/pr.sh task <TASK_ID> "<commit title>" <body-file>`.
    On an open PR it replaces the body from `<body-file>`, so edits made on GitHub are gone.
    It pushes (the pre-push hook re-checks every commit for secrets), adds `Closes #<ISSUE>` and
    prints `PR=<url>`. The `Security` and `CI` workflows then run on the PR; they are the gate.

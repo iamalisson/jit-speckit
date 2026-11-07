@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Set up a project (new or existing) with spec-kit + jit-speckit.
+# Set up a project (new or existing) with spec-kit + landspec.
 # Usage: setup.sh [project-dir] [--level lite|standard|full] [--integration claude] [--no-branches] [--downgrade]
 # Idempotent: re-running updates the extension and preset and re-applies the level.
 set -euo pipefail
@@ -8,7 +8,7 @@ SPECKIT_VERSION="v1.2.5" # the spec-kit release CI tests against
 here="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=../extension/scripts/lib.sh
 source "$here/extension/scripts/lib.sh" # version_newer
-die() { echo "jit: $*" >&2; exit 1; }
+die() { echo "landspec: $*" >&2; exit 1; }
 usage() { sed -n '3p' "$0" | sed 's/^# Usage/Usage/' >&2; exit 2; }
 
 dir="."; level=""; integration="claude"; extra=(); downgrade=false
@@ -19,7 +19,7 @@ while (($#)); do
     --no-branches) extra+=(--no-branches); shift ;;
     --downgrade) downgrade=true; shift ;;
     -h|--help) usage ;;
-    -*) echo "jit: unknown option $1" >&2; usage ;;
+    -*) echo "landspec: unknown option $1" >&2; usage ;;
     *) dir="$1"; shift ;;
   esac
 done
@@ -36,9 +36,9 @@ quiet() {
 
 command -v git >/dev/null || die "git is required"
 command -v specify >/dev/null || die "spec-kit is required: uv tool install specify-cli --from git+https://github.com/github/spec-kit.git@$SPECKIT_VERSION"
-command -v gh >/dev/null || echo "jit: warning: GitHub CLI (gh) not found; issues and PRs need it (https://cli.github.com)" >&2
+command -v gh >/dev/null || echo "landspec: warning: GitHub CLI (gh) not found; issues and PRs need it (https://cli.github.com)" >&2
 if [[ "$integration" == claude ]] && ! command -v claude >/dev/null; then
-  echo "jit: warning: Claude Code CLI not found; install it to use the slash commands (https://claude.com/claude-code)" >&2
+  echo "landspec: warning: Claude Code CLI not found; install it to use the slash commands (https://claude.com/claude-code)" >&2
 fi
 
 mkdir -p "$dir" && cd "$dir"
@@ -47,7 +47,8 @@ git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { git init --quiet -b mai
 # An older plugin copy would take the project back, dropping the gates it has. The indented
 # version: line is the extension's own (not schema_version or speckit_version).
 ext_version() { sed -nE 's/^[[:space:]]+version:[[:space:]]*"?([^" ]*)"?.*/\1/p' "$1" 2>/dev/null | head -1 || true; }
-plugin_v="$(ext_version "$here/extension/extension.yml")"; project_v="$(ext_version .specify/extensions/jit/extension.yml)"
+plugin_v="$(ext_version "$here/extension/extension.yml")"; project_v="$(ext_version .specify/extensions/landspec/extension.yml)"
+[[ -n "$project_v" ]] || project_v="$(ext_version .specify/extensions/jit/extension.yml)"
 if ! $downgrade && version_newer "$project_v" "$plugin_v"; then
   die "this plugin copy is $plugin_v, the project is at $project_v; run /reload-plugins (or setup.sh --downgrade)"
 fi
@@ -58,14 +59,33 @@ if [[ ! -d .specify/templates ]]; then
   echo "spec-kit: initialized ($integration)"
 fi
 
+# A project set up before 2.0.0, when this was jit-speckit: drop the old registration and move what
+# the user owns. The settings are saved first, because removing the extension deletes them, and to
+# a file, so a run that fails below still has them on the next one.
+old_cfg=.specify/landspec-config.moving
+if [[ -d .specify/extensions/jit ]]; then
+  if [[ -f .specify/extensions/jit/jit-config.yml ]]; then cp .specify/extensions/jit/jit-config.yml "$old_cfg"; fi
+  specify preset remove jit >/dev/null 2>&1 || rm -rf .specify/presets/jit
+  specify extension remove jit --force >/dev/null 2>&1 || rm -rf .specify/extensions/jit
+  rm -rf .specify/extensions/.backup/jit .claude/skills/speckit-jit-*
+  if [[ -f .specify/jit-files.sha256 ]]; then mv .specify/jit-files.sha256 .specify/landspec-files.sha256; fi
+  for f in .specify/memory/constitution.md .pre-commit-config.yaml .husky/pre-commit .husky/pre-push .githooks/pre-commit .githooks/pre-push .github/copilot-instructions.md .github/pull_request_template.md; do
+    if [[ -f "$f" ]]; then
+      sed -i.bak -e 's/<!-- jit:/<!-- landspec:/g' -e 's/`jit:start`/`landspec:start`/g' -e 's/`jit:end`/`landspec:end`/g' -e 's#jit-speckit#landspec#g' -e 's/speckit-jit-/speckit-landspec-/g' -e 's#\.specify/extensions/jit/#.specify/extensions/landspec/#g' -e 's/id: jit-secrets/id: landspec-secrets/' -e 's/id: jit-prepush/id: landspec-prepush/' "$f" && rm -f "$f.bak"
+    fi
+  done
+  echo "renamed: jit-speckit is now landspec; settings, hooks and the constitution block moved"
+fi
+
 quiet specify extension add --dev "$here/extension" --force
-echo "spec-kit: extension 'jit' installed"
-specify preset remove jit >/dev/null 2>&1 || true
+if [[ -f "$old_cfg" ]]; then mv "$old_cfg" .specify/extensions/landspec/landspec-config.yml; fi
+echo "spec-kit: extension 'landspec' installed"
+specify preset remove landspec >/dev/null 2>&1 || true
 quiet specify preset add --dev "$here/preset"
-echo "spec-kit: preset 'jit' installed"
+echo "spec-kit: preset 'landspec' installed"
 
 # spec-kit was initialized for another agent before: the hooks would be invisible to Claude Code.
-if [[ "$integration" == claude && ! -d .claude/skills/speckit-jit-branch ]]; then
+if [[ "$integration" == claude && ! -d .claude/skills/speckit-landspec-branch ]]; then
   die "this project's spec-kit is set up for another agent; add Claude with: specify integration add claude"
 fi
 
@@ -74,17 +94,17 @@ const=.specify/memory/constitution.md
 if [[ ! -s "$const" ]] || cmp -s "$const" .specify/templates/constitution-template.md; then
   mkdir -p "$(dirname "$const")"
   cp "$here/preset/templates/constitution-template.md" "$const"
-  echo "constitution: started from the jit template"
+  echo "constitution: started from the landspec template"
 fi
 
-current="$(sed -nE 's/^level:[[:space:]]*([a-z]+).*/\1/p' .specify/extensions/jit/jit-config.yml 2>/dev/null || true)"
+current="$(sed -nE 's/^level:[[:space:]]*([a-z]+).*/\1/p' .specify/extensions/landspec/landspec-config.yml 2>/dev/null || true)"
 level="${level:-${current:-standard}}"
-bash .specify/extensions/jit/scripts/level.sh "$level" ${extra[@]+"${extra[@]}"}
+bash .specify/extensions/landspec/scripts/level.sh "$level" ${extra[@]+"${extra[@]}"}
 
 cat <<EOF
 
 Done. Next:
-  existing code?  /jit-speckit:adopt      (fills the constitution from this repo)
+  existing code?  /landspec:adopt      (fills the constitution from this repo)
   new project?    /speckit-constitution   (fills the [PLACEHOLDERS])
   then per feature: /speckit-specify → /speckit-plan → /speckit-tasks → /speckit-implement T001
 EOF

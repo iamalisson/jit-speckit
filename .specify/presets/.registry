@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0",
   "presets": {
-    "jit": {
-      "version": "1.7.2",
+    "landspec": {
+      "version": "2.0.0",
       "source": "local",
-      "manifest_hash": "sha256:df23eaa714d88f0fddcc8f80f72b73407596498ec27717597db25dd1b18454b2",
+      "manifest_hash": "sha256:a2714177831eff2b89246834b4b38a4e49c72578b065a1c1ba0ec51e4b30ebb0",
       "enabled": true,
       "priority": 10,
       "registered_commands": {
@@ -17,7 +17,7 @@
           "speckit-implement"
         ]
       },
-      "installed_at": "2026-11-05T06:26:38.681260+00:00"
+      "installed_at": "2026-11-07T19:29:31.874011+00:00"
     }
   }
 }

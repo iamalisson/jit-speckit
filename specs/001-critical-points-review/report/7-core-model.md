@@ -10,7 +10,7 @@ promises, and a verdict. The sources were opened on 2026-11-05.
 ### D1 · One task = one issue = one branch = one PR into the base
 
 - **Problem it solves**: small changes get read closely; a failure points at one task; "done" has
-  an outside definition (the issue closed by the merged PR), which is what makes `/jit-speckit:next`
+  an outside definition (the issue closed by the merged PR), which is what makes `/landspec:next`
   resumable and gives the review something to check against (`docs/design.md:6-22`).
 - **Cost per task**: one issue, one claimed branch, one independent review until `ready`, one PR, one
   CI run and one merge (section 6, per-level table). Measured on T001–T005: 5.8 to 24.2 minutes of
@@ -54,7 +54,7 @@ promises, and a verdict. The sources were opened on 2026-11-05.
     there: task PRs are squashed or merged with a merge commit, never rebased (that makes one task
     several commits), and the feature PR is merged with a merge commit only, never squashed (that
     folds every task into one commit) or rebased (that drops the task PRs' merge commits). Then: `git revert <the task's squash commit>`, or `git revert -m 1 <the task PR's merge
-    commit>` (a plain `git revert` refuses a merge commit). jit-speckit sets no merge method today
+    commit>` (a plain `git revert` refuses a merge commit). landspec sets no merge method today
     (no `gh pr merge` or merge setting under `extension/`), so the model has to.
 
   With both, the base gets each feature once, which matches DORA's batches better than ten partial

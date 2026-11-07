@@ -1,10 +1,10 @@
 ---
 name: help
-description: "Explain jit-speckit from its docs: commands, the feature and task loop, levels, configuration, security, and why things work the way they do. Use for /jit-speckit:help or when the user asks how jit-speckit works."
+description: "Explain landspec from its docs: commands, the feature and task loop, levels, configuration, security, and why things work the way they do. Use for /landspec:help or when the user asks how landspec works."
 argument-hint: "[question]"
 ---
 
-# jit-speckit help
+# landspec help
 
 The docs are the source of truth. Read them, don't answer from memory, and read only what the
 question needs:
@@ -20,13 +20,13 @@ question needs:
 
 1. **No argument**: show a short overview.
    - The loop: what you run once per feature, and what you run once per task.
-   - The commands in one table: `/jit-speckit:new`, `init`, `adopt`, `level`, `next`,
+   - The commands in one table: `/landspec:new`, `init`, `adopt`, `level`, `next`,
      `security`, `remove`, `help`, and the spec-kit commands they hook into.
    - The levels in one line each.
-   - The config keys in `.specify/extensions/jit/jit-config.yml`.
-   - If the current directory is a jit project (`.specify/extensions/jit/` exists), add one line
-     about where it stands: its level, and "run `/jit-speckit:next` to see progress".
+   - The config keys in `.specify/extensions/landspec/landspec-config.yml`.
+   - If the current directory is a landspec project (`.specify/extensions/landspec/` exists), add one line
+     about where it stands: its level, and "run `/landspec:next` to see progress".
 2. **With a question**: answer it directly, in a few sentences, from the docs above. Quote the
    command to run when there is one. If the docs don't cover it, say so instead of guessing.
-3. End with: "Worked example: `examples/` in the jit-speckit repo (one feature, from spec to
+3. End with: "Worked example: `examples/` in the landspec repo (one feature, from spec to
    merged PRs)."

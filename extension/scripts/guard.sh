@@ -15,10 +15,10 @@ export LC_ALL=C
 # shellcheck source=lib.sh
 source "$(dirname "$0")/lib.sh"
 # A guard that cannot decide blocks: Claude Code lets the command through on exit 1.
-die() { echo "jit-speckit guard: $*" >&2; exit 2; }
-jit_cd_root
+die() { echo "landspec guard: $*" >&2; exit 2; }
+landspec_cd_root
 
-block() { echo "jit-speckit guard: $1" >&2; exit 2; }
+block() { echo "landspec guard: $1" >&2; exit 2; }
 current="$(git branch --show-current 2>/dev/null || true)"
 # Every branch the chain may be on: a switch/checkout earlier in it adds the branch it moves to.
 branches=" $current "
@@ -137,7 +137,7 @@ check_git() {
       done
       for b in $branches; do
         if is_protected "$b"; then
-          block "committing on '$b' is not allowed; start a task with /speckit-implement Tnnn (or /jit-speckit:next)"
+          block "committing on '$b' is not allowed; start a task with /speckit-implement Tnnn (or /landspec:next)"
         fi
       done ;;
     switch|checkout) switched "$sub" "$@" ;;

@@ -21,7 +21,7 @@ check "then the new branch was pushed to origin at once (the claim)" 'git ls-rem
 git switch --quiet main
 printf '#!/bin/sh\necho "claims refused here" >&2\nexit 1\n' > "$TMP/origin.git/hooks/pre-receive"; chmod +x "$TMP/origin.git/hooks/pre-receive"
 check "when origin refuses the claim push, then branch.sh exits 0 and prints could not claim" \
-  'out="$("$b" T002 2>&1)"; grep -qx "jit: warning: could not claim feat/001-t002-sandbox-schedule on origin: .*claims refused here.*; other clones may start this task" <<<"$out"'
+  'out="$("$b" T002 2>&1)"; grep -qx "landspec: warning: could not claim feat/001-t002-sandbox-schedule on origin: .*claims refused here.*; other clones may start this task" <<<"$out"'
 rm "$TMP/origin.git/hooks/pre-receive"
 git switch --quiet main; git branch --quiet -D feat/001-t002-sandbox-schedule 2>/dev/null || true
 
@@ -52,7 +52,7 @@ check "when the task does not exist, then it refuses" '! "$b" T999'
 check "when the argument is not one task ID, then it refuses" '! "$b" 57 && ! "$b" "T001 T002"'
 
 git switch --quiet main
-sed -i.bak 's/^level: .*/level: lite/' .specify/extensions/jit/jit-config.yml
+sed -i.bak 's/^level: .*/level: lite/' .specify/extensions/landspec/landspec-config.yml
 "$b" T002 >/dev/null || true
 check "when the level is lite, then the base is the default branch" \
   'out="$("$b" T001)"; grep -q "BASE=main" <<<"$out"'
@@ -73,7 +73,7 @@ check "when tasks.md is on the base without the task's line, then it refuses bef
   'fails_with "merge the spec PR first" "$b" T008 && ! git ls-remote --exit-code --heads origin "feat/001-t008-*" && [[ "$(git branch --show-current)" == main ]]'
 git switch --quiet main; git reset --quiet --hard HEAD~1
 
-sed -i.bak 's/^level: .*/level: full/' .specify/extensions/jit/jit-config.yml
+sed -i.bak 's/^level: .*/level: full/' .specify/extensions/landspec/landspec-config.yml
 check "when the level is full and analysis did not run, then it refuses" \
   'fails_with "speckit-analyze" "$b" T001'
 check "when analyzed.sh is run with no report, then it refuses and branch.sh on full still refuses" \
@@ -83,7 +83,7 @@ check "when analyzed.sh is given a file without the analysis headings, then it r
   'fails_with "is not a /speckit-analyze report" "$SCRIPTS/analyzed.sh" "$TMP/not-a-report.md"; fails_with "speckit-analyze" "$b" T001'
 printf '%s\n' '## Specification Analysis Report' '' '**Coverage Summary Table:**' '' '| Requirement | Has Task |' > "$TMP/report.md"
 check "when analyzed.sh is given a real report, then it is accepted and kept next to the marker" \
-  '"$SCRIPTS/analyzed.sh" "$TMP/report.md" && cmp -s "$TMP/report.md" "$(git rev-parse --git-common-dir)/jit-analyzed/001-demo.report.md"'
+  '"$SCRIPTS/analyzed.sh" "$TMP/report.md" && cmp -s "$TMP/report.md" "$(git rev-parse --git-common-dir)/landspec-analyzed/001-demo.report.md"'
 check "when the level is full and analysis ran on the current tasks, then it proceeds" '"$b" T001'
 git switch --quiet main
 printf '%s\n' '- [ ] T009 Added after the analysis in `z` — #90' >> specs/001-demo/tasks.md
@@ -95,9 +95,9 @@ check "when tasks.md changed after the analysis, then it refuses until analysis 
 # repo but has its own git dir, and none of the untracked files (feature.json is one of them).
 git switch --quiet main
 git worktree add --quiet "$TMP/wt" origin/develop 2>/dev/null
-mkdir -p "$TMP/wt/.specify/extensions/jit"
-cp .specify/extensions/jit/jit-config.yml "$TMP/wt/.specify/extensions/jit/" # committed in a real project
-ln -s "$ROOT/extension/scripts" "$TMP/wt/.specify/extensions/jit/scripts"
+mkdir -p "$TMP/wt/.specify/extensions/landspec"
+cp .specify/extensions/landspec/landspec-config.yml "$TMP/wt/.specify/extensions/landspec/" # committed in a real project
+ln -s "$ROOT/extension/scripts" "$TMP/wt/.specify/extensions/landspec/scripts"
 check "when a task starts in a fresh worktree on level full, then the analysis done in the main checkout counts" \
   '(cd "$TMP/wt" && [[ ! -f .specify/feature.json ]] && "$b" T002 | grep -q "TASK=T002")'
 check "then the worktree's own feature.json points spec-kit at the same feature" \
@@ -119,7 +119,7 @@ git -C "$TMP/origin.git" symbolic-ref HEAD refs/heads/master # a remote whose de
 git push --quiet --no-verify origin --delete main
 git fetch --quiet --prune origin
 git branch --quiet -m main master
-sed -i.bak 's/^level: .*/level: lite/' .specify/extensions/jit/jit-config.yml
+sed -i.bak 's/^level: .*/level: lite/' .specify/extensions/landspec/landspec-config.yml
 check "when origin/HEAD is unset and the repo uses master, then master is the base (not a missing main)" \
   'out="$("$b" T001)"; grep -q "BASE=master" <<<"$out"'
 

@@ -6,7 +6,7 @@
 source "$(dirname "$0")/helpers.sh"
 hook="$ROOT/hooks/guard-review.sh"
 # shellcheck disable=SC2034  # used inside the check strings
-S="jit-speckit review: independent reviewer"
+S="landspec review: independent reviewer"
 
 # launch <tool> <subagent_type> <model or ""> <prompt>: the hook's input, as JSON on stdin.
 launch() {
@@ -20,18 +20,18 @@ blocked() { [[ "$(rc_of "$1")" == 2 ]] && grep -qF "$2" "$TMP/err"; }
 allowed() { [[ "$(rc_of "$1")" == 0 ]]; }
 
 for tool in Agent Task; do
-  check "when $tool launches jit-speckit:reviewer with model haiku, then it is blocked and names haiku" \
-    'blocked "$(launch $tool jit-speckit:reviewer haiku "Review the branch.")" "jit: the review must run on sonnet, opus or fable (review_model:), not haiku"'
-  check "when $tool launches jit-speckit:reviewer with no model, then it is blocked and names the session's model" \
-    'blocked "$(launch $tool jit-speckit:reviewer "" "Review the branch.")" "jit: the review must run on sonnet, opus or fable (review_model:), not the session'"'"'s model"'
+  check "when $tool launches landspec:reviewer with model haiku, then it is blocked and names haiku" \
+    'blocked "$(launch $tool landspec:reviewer haiku "Review the branch.")" "landspec: the review must run on sonnet, opus or fable (review_model:), not haiku"'
+  check "when $tool launches landspec:reviewer with no model, then it is blocked and names the session's model" \
+    'blocked "$(launch $tool landspec:reviewer "" "Review the branch.")" "landspec: the review must run on sonnet, opus or fable (review_model:), not the session'"'"'s model"'
   check "when $tool launches general-purpose with the sentinel and model haiku, then it is blocked" \
     'blocked "$(launch $tool general-purpose haiku "Do this.\\n$S\\nReview the branch.")" "not haiku"'
   check "when $tool launches general-purpose with the sentinel and no model, then it is blocked" \
     'blocked "$(launch $tool general-purpose "" "$S\\nReview the branch.")" "not the session'"'"'s model"'
   check "when $tool launches a fork carrying the sentinel on opus, then it is blocked with the fork line" \
-    'blocked "$(launch $tool fork opus "$S\\nReview the branch.")" "jit: the review must run in a fresh agent, not a fork of this session"'
-  check "when $tool launches jit-speckit:reviewer on opus, then it is allowed" \
-    'allowed "$(launch $tool jit-speckit:reviewer opus "$S\\nReview the branch.")"'
+    'blocked "$(launch $tool fork opus "$S\\nReview the branch.")" "landspec: the review must run in a fresh agent, not a fork of this session"'
+  check "when $tool launches landspec:reviewer on opus, then it is allowed" \
+    'allowed "$(launch $tool landspec:reviewer opus "$S\\nReview the branch.")"'
   check "when $tool launches general-purpose with the sentinel on opus, sonnet or fable, then it is allowed" \
     'allowed "$(launch $tool general-purpose opus "$S")" && allowed "$(launch $tool general-purpose sonnet "$S")" && allowed "$(launch $tool general-purpose fable "$S")"'
   check "when $tool launches general-purpose without the sentinel, on haiku or no model, then it is allowed" \
@@ -39,7 +39,7 @@ for tool in Agent Task; do
 done
 
 check "when CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set, then a reviewer launch with no model is allowed, and one on haiku still blocked" \
-  'export CLAUDE_CODE_SUBAGENT_MODEL_FORCE=opus; allowed "$(launch Agent jit-speckit:reviewer "" "x")" && blocked "$(launch Agent jit-speckit:reviewer haiku "x")" "not haiku"'
+  'export CLAUDE_CODE_SUBAGENT_MODEL_FORCE=opus; allowed "$(launch Agent landspec:reviewer "" "x")" && blocked "$(launch Agent landspec:reviewer haiku "x")" "not haiku"'
 
 # A prompt bigger than the pipe buffer (64 KB) is still read whole: the sentinel launch on haiku is blocked.
 # shellcheck disable=SC2034  # used inside the check string
@@ -51,7 +51,7 @@ check "when general-purpose carries the sentinel in a 400 KB prompt with model h
 mkdir -p "$TMP/nopy"
 for t in bash cat sed grep; do ln -sf "$(command -v "$t")" "$TMP/nopy/$t"; done
 check "when python3 is not on PATH, then a reviewer launch on haiku is still blocked and one on opus allowed" \
-  'rc=0; launch Agent jit-speckit:reviewer haiku "x" | PATH="$TMP/nopy" bash "$hook" 2>/dev/null || rc=$?; [[ $rc == 2 ]] && launch Agent jit-speckit:reviewer opus "x" | PATH="$TMP/nopy" bash "$hook"'
+  'rc=0; launch Agent landspec:reviewer haiku "x" | PATH="$TMP/nopy" bash "$hook" 2>/dev/null || rc=$?; [[ $rc == 2 ]] && launch Agent landspec:reviewer opus "x" | PATH="$TMP/nopy" bash "$hook"'
 
 # The bash 3.2 job has no python3: there, the entry from the Agent|Task matcher to its onFailure is read with sed.
 check "when hooks.json is read, then it runs guard-review.sh on the Agent and Task tools with onFailure block" \

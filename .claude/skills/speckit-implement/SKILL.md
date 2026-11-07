@@ -1,12 +1,12 @@
 ---
 name: speckit-implement
-description: 'Implement one task from tasks.md, on its own branch and PR (jit-speckit:
+description: 'Implement one task from tasks.md, on its own branch and PR (landspec:
   one task per run)'
 argument-hint: "Optional implementation guidance or task filter"
 compatibility: Requires spec-kit project structure with .specify/ directory
 metadata:
   author: github-spec-kit
-  source: preset:jit
+  source: preset:landspec
 user-invocable: true
 disable-model-invocation: false
 ---
@@ -232,9 +232,9 @@ Report final status with summary of completed work.
 
 
 
-## jit-speckit: one task per run
+## landspec: one task per run
 
-This project uses jit-speckit (one task = one issue = one branch = one PR). It **overrides** the
+This project uses landspec (one task = one issue = one branch = one PR). It **overrides** the
 instructions above where they differ:
 
 - Implement **only the task given** in the arguments (for example `T003`), never the others,

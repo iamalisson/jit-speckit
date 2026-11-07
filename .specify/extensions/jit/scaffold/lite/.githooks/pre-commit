@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-# jit-speckit: managed file. /jit-speckit:level re-creates it while this line stays; delete the line to keep your own edits.
-# jit-speckit: refuse commits that carry secrets (.env files, keys, tokens). Fast, local.
-# Enabled per clone with: git config core.hooksPath .githooks   (/jit-speckit:init does it)
-s=.specify/extensions/jit/scripts/secrets.sh
-[ -f "$s" ] || { echo "jit: $s missing, so nothing was checked; run /jit-speckit:init to restore it, or git config --unset core.hooksPath to drop these hooks" >&2; exit 1; }
-exec bash "$s" staged

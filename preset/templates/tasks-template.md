@@ -17,11 +17,11 @@ description: "Task list template for feature implementation"
 
 - **[P]**: Can run in parallel (different files, no dependencies)
 - A task that needs another one **merged** first says so on its line: `(depends on T003)`.
-  jit-speckit holds it until T003's issue closes, instead of offering it with a caveat.
+  landspec holds it until T003's issue closes, instead of offering it with a caveat.
 - **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
 - Include exact file paths in descriptions
 - **One task = one issue = one branch = one pull request.** Do not write issue numbers yourself:
-  after this file is generated, every task line gets ` — #N` appended automatically (jit-speckit).
+  after this file is generated, every task line gets ` — #N` appended automatically (landspec).
 - **Tests at the level the behavior demands**, named in *Completed when*: logic (parsing, rules,
   money) gets a unit test; a behavior through the interface (an endpoint, a query, a migration)
   gets an integration test against the real thing (in-memory HTTP, the database the project uses

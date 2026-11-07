@@ -17,10 +17,10 @@ set -euo pipefail
 # shellcheck source=lib.sh
 source "$(dirname "$0")/lib.sh"
 
-jit_cd_root
+landspec_cd_root
 command -v gh >/dev/null || die "the GitHub CLI (gh) is required: https://cli.github.com"
 
-git fetch --quiet origin 2>/dev/null || echo "jit: warning: could not fetch origin; branches and parallel lines may be out of date" >&2
+git fetch --quiet origin 2>/dev/null || echo "landspec: warning: could not fetch origin; branches and parallel lines may be out of date" >&2
 
 # Branches, once: ours (local), checked out in some worktree, on origin, with an open PR.
 cur="$(git branch --show-current)"
@@ -105,7 +105,7 @@ for id in $PAR; do
   [[ "$id" != "$NEXT_ID" ]] || continue
   [[ "$(task_issue "$(grep -m1 -E "^- \[.\] $id " <<<"$on_base" || true)")" == "$(task_issue "$(task_line "$fdir" "$id")")" ]] || continue
   wt="$(printf %q "$PWD-$num-$(tr '[:upper:]' '[:lower:]' <<<"$id")")"
-  echo "parallel $id (git worktree add --quiet --detach $wt origin/$(base_branch) && cd $wt && bash .specify/extensions/jit/scripts/branch.sh $num $id)"
+  echo "parallel $id (git worktree add --quiet --detach $wt origin/$(base_branch) && cd $wt && bash .specify/extensions/landspec/scripts/branch.sh $num $id)"
 done
 echo "FEATURE=$num"
 echo "DONE=$DONE_N/$TOTAL IN_PROGRESS=$BUSY NEXT=$NEXT_ID"

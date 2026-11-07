@@ -10,11 +10,11 @@ report="${1:-}"
 [[ -n "$report" && -f "$report" ]] || die "usage: analyzed.sh <report-file> (the /speckit-analyze report, saved as it came)"
 grep -qF "Specification Analysis Report" "$report" && grep -qF "Coverage Summary Table" "$report" \
   || die "$report is not a /speckit-analyze report (no \"Specification Analysis Report\" or \"Coverage Summary Table\")"
-report="$(cd "$(dirname "$report")" && pwd)/$(basename "$report")" # jit_cd_root changes the directory
+report="$(cd "$(dirname "$report")" && pwd)/$(basename "$report")" # landspec_cd_root changes the directory
 
-jit_cd_root
+landspec_cd_root
 fdir="$(feature_dir)"
-dir="$(git rev-parse --git-common-dir)/jit-analyzed"
+dir="$(git rev-parse --git-common-dir)/landspec-analyzed"
 mkdir -p "$dir"
 cp "$report" "$dir/$(basename "$fdir").report.md"
 sha256 < "$fdir/tasks.md" > "$dir/$(basename "$fdir")"

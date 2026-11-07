@@ -1,4 +1,4 @@
-# jit-speckit: managed file. /jit-speckit:level re-creates it while this line stays; delete the line to keep your own edits.
+# landspec: managed file. /landspec:level re-creates it while this line stays; delete the line to keep your own edits.
 # Push a tag like v1.2.3 to publish a GitHub release with generated notes.
 name: Release
 

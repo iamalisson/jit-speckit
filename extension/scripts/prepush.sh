@@ -7,7 +7,7 @@
 set -euo pipefail
 # shellcheck source=lib.sh
 source "$(dirname "$0")/lib.sh"
-jit_cd_root
+landspec_cd_root
 
 zero="0000000000000000000000000000000000000000"
 status=0
@@ -25,11 +25,11 @@ if [[ -z "$(git ls-remote --heads "$remote" 2>/dev/null)" ]] && git ls-remote "$
 while read -r _local_ref local_sha remote_ref remote_sha; do
   [[ "$local_sha" == "$zero" ]] && continue # deleting a remote branch
   branch="${remote_ref#refs/heads/}"
-  if [[ "$(jit_level)" != lite ]] && is_protected "$branch"; then
+  if [[ "$(landspec_level)" != lite ]] && is_protected "$branch"; then
     if $empty_remote && [[ "$remote_sha" == "$zero" ]]; then
-      echo "jit: first push to an empty repository: '$branch' allowed once; from now on it only changes through pull requests" >&2
+      echo "landspec: first push to an empty repository: '$branch' allowed once; from now on it only changes through pull requests" >&2
     else
-      echo "jit: refusing to push straight to '$branch'; open a pull request instead" >&2
+      echo "landspec: refusing to push straight to '$branch'; open a pull request instead" >&2
       status=1; continue
     fi
   fi

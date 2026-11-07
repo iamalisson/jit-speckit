@@ -29,7 +29,7 @@ check "when the review said ready on this diff, then check passes" '"$r" record 
 # even a body line shaped like a header field (warning:, map-full:, map-fix:).
 printf 'Preamble LEAK-1\n\n- **What changed**: Adds LEAK-2 search.\n- **Findings**:\n  - High: LEAK-3 in src/a.ts:3\n  - Security: LEAK-4 token logged\nwarning: LEAK-5\nmap-full: - deep: LEAK-6\nmap-fix: - deep: LEAK-7\n\n%s\nModel: claude-sonnet-4-7\n\nAssessment: ready\n' "$(range)" > "$TMP/report.md"
 "$r" record "$TMP/report.md" >/dev/null; out="$("$r" report 2>&1)" || true
-id="$(sed -n 's/^state: //p' "$(git rev-parse --git-common-dir)/jit-review/task-$(git branch --show-current | sed 's|/|__|g')" | cut -c1-12)"
+id="$(sed -n 's/^state: //p' "$(git rev-parse --git-common-dir)/landspec-review/task-$(git branch --show-current | sed 's|/|__|g')" | cut -c1-12)"
 check "when a review is recorded, then report prints exactly the patch-id line, the Assessment line and the Model line" \
   '[[ ${#id} == 12 && "$out" == "Independent review recorded for this diff (patch id $id)"$'"'"'\n'"'"'"Assessment: ready"$'"'"'\n'"'"'"Model: claude-sonnet-4-7" ]]'
 check "then report prints nothing from the report body (What changed, findings, the security finding)" \
@@ -75,7 +75,7 @@ check "when a plan report has no Model: line, then record --plan refuses" \
   'fails_with "the report must state Model: <id> for the plan: run the review again" "$r" record --plan "$TMP/plan.md"'
 printf 'Plan read.\n\nModel: ghp_abc123\n\nAssessment: ready\n' > "$TMP/plan.md"
 check "when a plan report's Model: is ghp_abc123, then the plan record stores unknown" \
-  '"$r" record --plan "$TMP/plan.md" >/dev/null 2>&1; grep -qx "model: unknown" "$(git rev-parse --git-common-dir)/jit-review/plan-001-demo"'
+  '"$r" record --plan "$TMP/plan.md" >/dev/null 2>&1; grep -qx "model: unknown" "$(git rev-parse --git-common-dir)/landspec-review/plan-001-demo"'
 
 # ── FR-030/FR-031: the risk map sets the minimum depth ──
 rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"
@@ -146,31 +146,31 @@ check "when a report with a Delta from: line is recorded without --delta, then r
   'fails_with "this is a delta report: record it with --delta, or run a new full review" "$r" record "$TMP/report.md"'
 
 # The model the review ran on: a warning, stored in the record, never a silent downgrade.
-warn() { echo "jit: warning: $1; the review did not run on the configured model"; }
+warn() { echo "landspec: warning: $1; the review did not run on the configured model"; }
 rep ready "${all[@]}"; sed -i.bak 's/^Model: .*/Model: claude-haiku-4-5/' "$TMP/report.md"
 check "when review_model is unset or opus and Model: is claude-haiku-4-5, then record prints exactly one warning, the review ran on <id>" \
   'err="$("$r" record "$TMP/report.md" 2>&1 >/dev/null)"; [[ "$err" == "$(warn "the review ran on claude-haiku-4-5")" ]] \
-   && echo "review_model: opus" >> .specify/extensions/jit/jit-config.yml && err="$("$r" record "$TMP/report.md" 2>&1 >/dev/null)" \
+   && echo "review_model: opus" >> .specify/extensions/landspec/landspec-config.yml && err="$("$r" record "$TMP/report.md" 2>&1 >/dev/null)" \
    && [[ "$err" == "$(warn "the review ran on claude-haiku-4-5")" ]]'
 check "when CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set, then its reason wins over an outside-family model (one line)" \
   'err="$(CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 "$r" record "$TMP/report.md" 2>&1 >/dev/null)"; [[ "$err" == "$(warn "CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set")" ]]'
-sed -i.bak '/^review_model:/d' .specify/extensions/jit/jit-config.yml; echo "review_model: sonnet" >> .specify/extensions/jit/jit-config.yml
+sed -i.bak '/^review_model:/d' .specify/extensions/landspec/landspec-config.yml; echo "review_model: sonnet" >> .specify/extensions/landspec/landspec-config.yml
 rep ready "${all[@]}"; sed -i.bak 's/^Model: .*/Model: claude-opus-4-7/' "$TMP/report.md"
 check "when Model: is opus and review_model is sonnet, then record warns the review ran on <id>, not sonnet" \
   'err="$("$r" record "$TMP/report.md" 2>&1 >/dev/null)"; [[ "$err" == "$(warn "the review ran on claude-opus-4-7, not sonnet")" ]]'
-sed -i.bak '/^review_model:/d' .specify/extensions/jit/jit-config.yml; echo "review_model: haiku" >> .specify/extensions/jit/jit-config.yml
+sed -i.bak '/^review_model:/d' .specify/extensions/landspec/landspec-config.yml; echo "review_model: haiku" >> .specify/extensions/landspec/landspec-config.yml
 check "when review_model is haiku, then record refuses (the config cannot lower the bar)" \
-  'fails_with "jit: review_model must be sonnet, opus or fable" "$r" record "$TMP/report.md"'
-sed -i.bak '/^review_model:/d' .specify/extensions/jit/jit-config.yml
+  'fails_with "landspec: review_model must be sonnet, opus or fable" "$r" record "$TMP/report.md"'
+sed -i.bak '/^review_model:/d' .specify/extensions/landspec/landspec-config.yml
 
 # Model: reaches the PR body, so only something shaped like a model id is stored.
-rec() { echo "$(git rev-parse --git-common-dir)/jit-review/task-$(git branch --show-current | sed 's|/|__|g')"; }
+rec() { echo "$(git rev-parse --git-common-dir)/landspec-review/task-$(git branch --show-current | sed 's|/|__|g')"; }
 model_is() { rep ready "${all[@]}"; sed -i.bak "s/^Model: .*/Model: $1/" "$TMP/report.md"; err="$("$r" record "$TMP/report.md" 2>&1 >/dev/null)"; [[ "$(sed -n 's/^model: //p' "$(rec)" | head -1)" == "$2" ]]; }
-echo "review_model: opus" >> .specify/extensions/jit/jit-config.yml
+echo "review_model: opus" >> .specify/extensions/landspec/landspec-config.yml
 check "when Model: is claude-opus-4-8[1m], then it is kept with no warning" 'model_is "claude-opus-4-8[1m]" "claude-opus-4-8[1m]" && [[ -z "$err" ]]'
 check "when Model: is us.anthropic.claude-opus-4-1-20250805-v1:0, then it is kept with no warning" \
   'model_is us.anthropic.claude-opus-4-1-20250805-v1:0 us.anthropic.claude-opus-4-1-20250805-v1:0 && [[ -z "$err" ]]'
-sed -i.bak '/^review_model:/d' .specify/extensions/jit/jit-config.yml
+sed -i.bak '/^review_model:/d' .specify/extensions/landspec/landspec-config.yml
 check "when Model: is claude-haiku-4-5, then it is kept, with its warning" 'model_is claude-haiku-4-5 claude-haiku-4-5 && [[ "$err" == "$(warn "the review ran on claude-haiku-4-5")" ]]'
 for bad in Token=abc ghp_abc123; do
   check "when Model: is $bad, then unknown is stored in the record and the warning, and the value in neither" \
@@ -196,7 +196,7 @@ check "when Delta from: names another commit than the recorded head, then record
   'fails_with "the delta must review $h1..HEAD (Reviewed: $h1..$(git rev-parse HEAD)): run the delta review again from $h1" "$r" record --delta "$TMP/report.md"'
 drep ready "$h1"; sed -i.bak "s/^Reviewed: [0-9a-f]*\.\./Reviewed: $mb../" "$TMP/report.md"
 check "when a delta's range starts elsewhere, then record --delta prints exactly one refusal line, the delta one" \
-  'err="$("$r" record --delta "$TMP/report.md" 2>&1)" && exit 1; [[ "$err" == "jit: the delta must review $h1..HEAD (Reviewed: $h1..$(git rev-parse HEAD)): run the delta review again from $h1" ]]'
+  'err="$("$r" record --delta "$TMP/report.md" 2>&1)" && exit 1; [[ "$err" == "landspec: the delta must review $h1..HEAD (Reviewed: $h1..$(git rev-parse HEAD)): run the delta review again from $h1" ]]'
 drep ready "$h1"; sed -i.bak '/^Model: /d' "$TMP/report.md"
 check "when a delta report has no Model: line, then record --delta refuses" \
   'fails_with "the report must state Reviewed: <from>..<head> and Model: <id> for $h1..$(git rev-parse HEAD)" "$r" record --delta "$TMP/report.md"'
@@ -308,7 +308,7 @@ git commit --quiet --allow-empty -m one; git commit --quiet --allow-empty -m two
 commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
 "$SCRIPTS/branch.sh" T001 >/dev/null
 echo a > a.txt; git add a.txt; git commit --quiet -m "feat: a"
-task_record() { echo ".git/jit-review/task-$(git branch --show-current | sed 's|/|__|g')"; }
+task_record() { echo ".git/landspec-review/task-$(git branch --show-current | sed 's|/|__|g')"; }
 shallow_repo
 # The range the old fallback accepted: with no merge base, diff_base is HEAD.
 printf 'What changed: x\n\nReviewed: %s..%s\nModel: claude-sonnet-4-7\n\nAssessment: ready\n' "$(git rev-parse HEAD)" "$(git rev-parse HEAD)" > "$TMP/report.md"

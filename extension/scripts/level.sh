@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Set the project's complexity level and apply its defaults.
 # Usage: level.sh <lite|standard|full> [--no-branches]
-#   - stores the level in .specify/extensions/jit/jit-config.yml
+#   - stores the level in .specify/extensions/landspec/landspec-config.yml
 #   - creates the level's long-lived branches (develop, staging) if missing (skip with --no-branches)
-#   - rewrites the jit block of .specify/memory/constitution.md (nothing outside it is touched)
+#   - rewrites the landspec block of .specify/memory/constitution.md (nothing outside it is touched)
 #   - adds the level's scaffold files that do not exist yet, and re-creates those that still carry
 #     the managed-file marker (commit edits first, or delete the marker); other files are kept
 # Safe to re-run; going down a level never deletes files.
@@ -15,20 +15,20 @@ shopt -u patsub_replacement 2>/dev/null || true
 level="${1:-}"; branches=true
 [[ "${2:-}" == --no-branches ]] && branches=false
 case "$level" in lite|standard|full) ;; *) die "usage: level.sh <lite|standard|full> [--no-branches]" ;; esac
-jit_cd_root
+landspec_cd_root
 
-# Never guess where a damaged block ends: replacing from jit:start to EOF would delete the user's
+# Never guess where a damaged block ends: replacing from landspec:start to EOF would delete the user's
 # text. Checked first, before anything is changed.
 const=".specify/memory/constitution.md"
 constitution_markers "$const"
 
 previous="$(cfg level none)"
 cfg_set level "$level"
-grep -qE '^base_branch:' "$JIT_CONFIG" || cfg_set base_branch auto
-grep -qE '^branch_prefix:' "$JIT_CONFIG" || cfg_set branch_prefix feat
-grep -qE '^issue_labels:' "$JIT_CONFIG" || cfg_set issue_labels '"type:task"'
-grep -qE '^milestone:' "$JIT_CONFIG" || cfg_set milestone '""'
-grep -qE '^project:' "$JIT_CONFIG" || cfg_set project '""'
+grep -qE '^base_branch:' "$LANDSPEC_CONFIG" || cfg_set base_branch auto
+grep -qE '^branch_prefix:' "$LANDSPEC_CONFIG" || cfg_set branch_prefix feat
+grep -qE '^issue_labels:' "$LANDSPEC_CONFIG" || cfg_set issue_labels '"type:task"'
+grep -qE '^milestone:' "$LANDSPEC_CONFIG" || cfg_set milestone '""'
+grep -qE '^project:' "$LANDSPEC_CONFIG" || cfg_set project '""'
 echo "level: $previous → $level"
 
 case "$level" in
@@ -45,7 +45,7 @@ if $branches; then
   has_origin=false; git remote get-url origin >/dev/null 2>&1 && has_origin=true
   for b in ${need[@]+"${need[@]}"}; do
     if ! git rev-parse --verify --quiet HEAD >/dev/null; then
-      echo "branch: $b not created yet (no commits); run /jit-speckit:level again after the first commit"
+      echo "branch: $b not created yet (no commits); run /landspec:level again after the first commit"
     elif $has_origin; then
       git fetch --quiet origin 2>/dev/null || true
       if ! git show-ref --verify --quiet "refs/remotes/origin/$b"; then
@@ -55,10 +55,10 @@ if $branches; then
           git push --quiet --no-verify origin "refs/remotes/origin/$(default_branch):refs/heads/$b"
           echo "branch: created origin/$b from origin/$(default_branch)"
           if [[ "$b" == "$(base_branch)" ]]; then
-            echo "branch: task branches start from $b, which has no jit files yet: open its PR with --base $b ($(default_branch) gets it at the next promotion)"
+            echo "branch: task branches start from $b, which has no landspec files yet: open its PR with --base $b ($(default_branch) gets it at the next promotion)"
           fi
         else
-          echo "branch: origin/$b not created yet ($(default_branch) isn't on origin); push $(default_branch) first, then run /jit-speckit:level again"
+          echo "branch: origin/$b not created yet ($(default_branch) isn't on origin); push $(default_branch) first, then run /landspec:level again"
         fi
       fi
     elif ! git show-ref --verify --quiet "refs/heads/$b"; then
@@ -68,7 +68,7 @@ if $branches; then
 fi
 
 # ── Stack facts ──────────────────────────────────────────────────────────────
-stacks=(); while IFS= read -r s; do stacks+=("$s"); done < <(bash "$JIT_EXT_DIR/scripts/detect-stack.sh")
+stacks=(); while IFS= read -r s; do stacks+=("$s"); done < <(bash "$LANDSPEC_EXT_DIR/scripts/detect-stack.sh")
 idioms=""; tests=()
 for s in ${stacks[@]+"${stacks[@]}"}; do
   case "$s" in
@@ -84,12 +84,12 @@ for s in ${stacks[@]+"${stacks[@]}"}; do
           tests+=("go test ./...") ;;
   esac
 done
-[[ -n "$idioms" ]] || idioms=$'- [STACK_IDIOMS: formatter, linter and idioms for this stack; run /jit-speckit:adopt]\n'
+[[ -n "$idioms" ]] || idioms=$'- [STACK_IDIOMS: formatter, linter and idioms for this stack; run /landspec:adopt]\n'
 test_cmd="[TEST_COMMAND]"
 if ((${#tests[@]})); then test_cmd="$(printf '%s && ' "${tests[@]}")"; test_cmd="${test_cmd% && }"; fi
 
-# The constitution's Commands line ("build `x` · test `y` · lint `z`"), filled by /jit-speckit:adopt,
-# wins over the stack defaults in the jit block and in the generated CI. A [PLACEHOLDER] is unset.
+# The constitution's Commands line ("build `x` · test `y` · lint `z`"), filled by /landspec:adopt,
+# wins over the stack defaults in the landspec block and in the generated CI. A [PLACEHOLDER] is unset.
 build_c="$(constitution_cmd build)"; test_c="$(constitution_cmd test)"; lint_c="$(constitution_cmd lint)"
 [[ -z "$test_c" ]] || test_cmd="$test_c"
 
@@ -100,38 +100,39 @@ render() {
   t="${t//\{\{TEST_COMMAND\}\}/$test_cmd}"; t="${t//\{\{STACK_IDIOMS\}\}/${idioms%$'\n'}}"
   printf '%s\n' "$t"
 }
-block="<!-- jit:start (managed by /jit-speckit:level; edit outside this block) -->"$'\n'
-block+="## Defaults (jit-speckit, level: $level)"$'\n'
-for l in "${levels[@]}"; do block+=$'\n'"$(render "$JIT_EXT_DIR/levels/$l.md")"$'\n'; done
-block+="<!-- jit:end -->"
+block="<!-- landspec:start (managed by /landspec:level; edit outside this block) -->"$'\n'
+block+="## Defaults (landspec, level: $level)"$'\n'
+for l in "${levels[@]}"; do block+=$'\n'"$(render "$LANDSPEC_EXT_DIR/levels/$l.md")"$'\n'; done
+block+="<!-- landspec:end -->"
 
 const=".specify/memory/constitution.md"
 mkdir -p "$(dirname "$const")"; touch "$const"
 B="$block" awk '
-  /^<!-- jit:start/ { print ENVIRON["B"]; skip = 1; done = 1; next }
-  /^<!-- jit:end -->/ { skip = 0; next }
+  /^<!-- landspec:start/ { print ENVIRON["B"]; skip = 1; done = 1; next }
+  /^<!-- landspec:end -->/ { skip = 0; next }
   skip { next }
   !done && /^## Governance/ { print ENVIRON["B"]; print ""; done = 1 }
   { print }
   END { if (!done) { print ""; print ENVIRON["B"] } }
 ' "$const" > "$const.tmp" && mv "$const.tmp" "$const"
-echo "constitution: jit block set to '$level' in $const"
+echo "constitution: landspec block set to '$level' in $const"
 
 # ── Scaffold ─────────────────────────────────────────────────────────────────
 # shellcheck source=pins.sh
-source "$JIT_EXT_DIR/scripts/pins.sh"
+source "$LANDSPEC_EXT_DIR/scripts/pins.sh"
 
-MARKER="# jit-speckit: managed file. /jit-speckit:level re-creates it while this line stays; delete the line to keep your own edits."
+MARKER="# landspec: managed file. /landspec:level re-creates it while this line stays; delete the line to keep your own edits."
+OLD_MARKER="# jit-speckit: managed file. /jit-speckit:level re-creates it while this line stays; delete the line to keep your own edits." # the name before 2.0.0
 # Files releases before the marker (1.0.0-1.3.1) wrote byte for byte: "<sha256> <path> <versions> <replace|name>".
-OLD_FILES="$JIT_EXT_DIR/scripts/old-files.sha256"; old_hook=""
+OLD_FILES="$LANDSPEC_EXT_DIR/scripts/old-files.sha256"; old_hook=""
 put() { # put <dest> [generated] (content on stdin): write only if missing, ours (the marker in its first lines) or an old release's hook
-  if [[ -e "$1" ]] && ! head -2 "$1" | grep -qxF "$MARKER"; then
+  if [[ -e "$1" ]] && ! head -2 "$1" | grep -qxF -e "$MARKER" -e "$OLD_MARKER"; then
     local old; old="$(awk -v h="$(sha256 < "$1")" -v p="$1" '$1 == h && $2 == p { print $3, $4 }' "$OLD_FILES")"
     if [[ "$old" == *" replace" ]]; then old_hook="${old% *}" # an old hook: rewritten below, now marked
     else
       cat >/dev/null
-      if [[ -n "$old" ]]; then echo "kept (written by jit-speckit ${old% *}, no marker): $1 — delete it to get the current one"
-      elif [[ -n "${2:-}" && -n "$old_hook" ]]; then echo "kept (written by jit-speckit $old_hook or older, no marker): $1 — delete it to get the current one"
+      if [[ -n "$old" ]]; then echo "kept (written by landspec ${old% *}, no marker): $1 — delete it to get the current one"
+      elif [[ -n "${2:-}" && -n "$old_hook" ]]; then echo "kept (written by landspec $old_hook or older, no marker): $1 — delete it to get the current one"
       elif [[ "$1" == .github/workflows/security.yml ]]; then echo "kept (no marker): $1 — delete it to get the current one"
       else echo "kept:    $1"; fi
       return
@@ -141,10 +142,10 @@ put() { # put <dest> [generated] (content on stdin): write only if missing, ours
   mkdir -p "$(dirname "$1")"; cat > "$1.tmp"
   if [[ $verb == updated ]]; then keep_pins "$1" "$1.tmp"; fi
   mv "$1.tmp" "$1"; echo "$verb: $1"
-  # What jit wrote, so remove.sh can tell an edited file from an untouched one.
+  # What landspec wrote, so remove.sh can tell an edited file from an untouched one.
   { if [[ -f "$RECORD" ]]; then awk -v p="$1" '$2 != p' "$RECORD"; fi; echo "$(sha256 < "$1") $1"; } > "$RECORD.tmp" && mv "$RECORD.tmp" "$RECORD"
 }
-RECORD=.specify/jit-files.sha256
+RECORD=.specify/landspec-files.sha256
 # keep_pins <old file> <new file>: a "uses: <action>@<sha> # <version>" pin in the old file that is
 # newer than the new file's (Dependabot bumped it) is kept. A container.image digest is not a pin here.
 keep_pins() {
@@ -168,7 +169,7 @@ pr_gate() {
   local f
   for f in .github/workflows/*.y*ml; do
     [[ -f "$f" ]] || continue
-    if head -2 "$f" | grep -qxF "$MARKER"; then continue; fi
+    if head -2 "$f" | grep -qxF -e "$MARKER" -e "$OLD_MARKER"; then continue; fi
     if grep -qE '^[[:space:]]*pull_request:' "$f"; then echo "$f"; fi
   done
   return 0
@@ -207,7 +208,7 @@ checkout_step() { printf '      - uses: %s\n        with:\n          persist-cre
 ci_yaml() {
   printf '%s\n# Commands come from the constitution (**Commands** line); stack defaults fill the gaps.\n' "$MARKER"
   printf 'name: CI\n\non:\n  push:\n    branches: [%s]\n  pull_request:\n\npermissions:\n  contents: read\n\njobs:\n' "$(branch_list)"
-  ((${#stacks[@]})) || printf '  checks:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          echo "jit: no stack detected. Replace this job with your lint, test and build commands." && exit 1\n'
+  ((${#stacks[@]})) || printf '  checks:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          echo "landspec: no stack detected. Replace this job with your lint, test and build commands." && exit 1\n'
   for s in ${stacks[@]+"${stacks[@]}"}; do
     case "$s" in
       rust)
@@ -389,7 +390,7 @@ dependabot_yaml() {
 }
 
 for l in "${levels[@]}"; do
-  src="$JIT_EXT_DIR/scaffold/$l"
+  src="$LANDSPEC_EXT_DIR/scaffold/$l"
   [[ -d "$src" ]] || continue
   while IFS= read -r f; do
     put "${f#"$src"/}" < "$f"
@@ -411,8 +412,8 @@ for l in "${levels[@]}"; do
 done
 
 # ── Git hooks ────────────────────────────────────────────────────────────────
-# core.hooksPath is per clone: every teammate's /jit-speckit:init (or this script) sets it.
-# A repo that already runs its hooks through the pre-commit framework or husky gets jit's two
+# core.hooksPath is per clone: every teammate's /landspec:init (or this script) sets it.
+# A repo that already runs its hooks through the pre-commit framework or husky gets landspec's two
 # checks added there, so they really run instead of being left as lines to paste.
 hooks_path="$(git config --get core.hooksPath || true)"
 local_path="$(git config --local --get core.hooksPath || true)"
@@ -430,8 +431,8 @@ hook_status() { # hook_status [<what is wrong>]
     echo "git hooks: enabled ($dir: secret check on commit, secret + branch check on push)"
   else
     echo "git hooks: ${1:-this repo already has its own} ($dir); add these lines to it:"
-    echo "  pre-commit: bash .specify/extensions/jit/scripts/secrets.sh staged"
-    echo "  pre-push:   bash .specify/extensions/jit/scripts/prepush.sh \"\$@\""
+    echo "  pre-commit: bash .specify/extensions/landspec/scripts/secrets.sh staged"
+    echo "  pre-push:   bash .specify/extensions/landspec/scripts/prepush.sh \"\$@\""
   fi
 }
 husky_add() { # husky_add <file> <regex> <line>
@@ -449,8 +450,8 @@ elif [[ -f "$pc_cfg" ]]; then
     ind="$(sed -nE 's/^( *- +)repo:.*/\1/p' "$pc_cfg" | head -1)"; [[ -n "$ind" ]] || ind="-   "
     pad="$(printf '%*s' "${#ind}" '')"
     item="$(echo "${ind}repo: local"; echo "${pad}hooks:"
-      grep -q 'scripts/secrets.sh' "$pc_cfg" || pc_hook "$ind" jit-secrets "jit-speckit secrets (staged)" "bash .specify/extensions/jit/scripts/secrets.sh staged" pre-commit
-      grep -q 'scripts/prepush.sh' "$pc_cfg" || pc_hook "$ind" jit-prepush "jit-speckit push check (secrets in every pushed commit, protected branches)" "bash .specify/extensions/jit/scripts/prepush.sh" pre-push
+      grep -q 'scripts/secrets.sh' "$pc_cfg" || pc_hook "$ind" landspec-secrets "landspec secrets (staged)" "bash .specify/extensions/landspec/scripts/secrets.sh staged" pre-commit
+      grep -q 'scripts/prepush.sh' "$pc_cfg" || pc_hook "$ind" landspec-prepush "landspec push check (secrets in every pushed commit, protected branches)" "bash .specify/extensions/landspec/scripts/prepush.sh" pre-push
     )"
     # After the list's last item, before any top-level key and the comments above it: at the end
     # of the file, a key such as ci: would leave the item outside the list.
@@ -475,8 +476,8 @@ elif [[ -f "$pc_cfg" ]]; then
     || echo "git hooks: not active in this clone yet; run: pre-commit install --hook-type pre-commit --hook-type pre-push"
 elif [[ -d .husky ]]; then
   # husky runs these files as shell scripts, so git's arguments and stdin reach prepush.sh.
-  husky_add .husky/pre-commit 'scripts/secrets\.sh' 'bash .specify/extensions/jit/scripts/secrets.sh staged'
-  husky_add .husky/pre-push 'scripts/prepush\.sh' 'bash .specify/extensions/jit/scripts/prepush.sh "$@"'
+  husky_add .husky/pre-commit 'scripts/secrets\.sh' 'bash .specify/extensions/landspec/scripts/secrets.sh staged'
+  husky_add .husky/pre-push 'scripts/prepush\.sh' 'bash .specify/extensions/landspec/scripts/prepush.sh "$@"'
   chmod +x .husky/pre-commit .husky/pre-push
   echo "git hooks: added to .husky/pre-commit and .husky/pre-push"
   # Compared as real paths: husky 9 uses .husky/_, older ones .husky, and either can be absolute.
@@ -487,7 +488,7 @@ elif [[ -d .husky ]]; then
   esac
 elif [[ -n "$hooks_path" && -z "$local_path" ]]; then
   echo "git hooks: core.hooksPath is machine-wide ($hooks_path), so it stays in charge here"
-  hook_status "those hooks do not run jit's checks"
+  hook_status "those hooks do not run landspec's checks"
 elif [[ -n "$hooks_path" || -n "$(find "$(git rev-parse --git-path hooks)" -mindepth 1 -maxdepth 1 ! -type d ! -name '*.sample' 2>/dev/null)" ]]; then
   hook_status
 else

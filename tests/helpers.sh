@@ -96,7 +96,7 @@ no_scanners() {
 }
 
 # set_cfg <key> <value>: edit a config line in place, as a user would.
-set_cfg() { sed -i.bak "s|^$1:.*|$1: $2|" .specify/extensions/jit/jit-config.yml; }
+set_cfg() { sed -i.bak "s|^$1:.*|$1: $2|" .specify/extensions/landspec/landspec-config.yml; }
 
 # new_repo <level>: repo at $TMP/repo with origin, extension linked, an active feature 001-demo.
 new_repo() {
@@ -105,8 +105,8 @@ new_repo() {
   cd "$TMP/repo"
   git config user.email t@t; git config user.name t; git config commit.gpgsign false
   mkdir -p .specify/extensions specs/001-demo
-  mkdir -p .specify/extensions/jit && ln -s "$ROOT/extension/scripts" .specify/extensions/jit/scripts # as spec-kit installs it
-  printf 'level: %s\nbase_branch: auto\nbranch_prefix: feat\nissue_labels: "type:task"\nmilestone: ""\nproject: ""\n' "$1" > .specify/extensions/jit/jit-config.yml
+  mkdir -p .specify/extensions/landspec && ln -s "$ROOT/extension/scripts" .specify/extensions/landspec/scripts # as spec-kit installs it
+  printf 'level: %s\nbase_branch: auto\nbranch_prefix: feat\nissue_labels: "type:task"\nmilestone: ""\nproject: ""\n' "$1" > .specify/extensions/landspec/landspec-config.yml
   echo '{ "feature_directory": "specs/001-demo" }' > .specify/feature.json
   # Local test state stays out of git so config edits never dirty the tree.
   printf '.specify/\n*.bak\n' > .gitignore

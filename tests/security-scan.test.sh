@@ -25,7 +25,7 @@ out="$(PATH="$TMP/none" bash "$scan")"
 check "when no scanner is installed, then each is reported missing with how to install it" \
   'grep -q "^gitleaks *missing *install:" <<<"$out" && grep -q "^semgrep *missing" <<<"$out" && grep -q "^zizmor *missing" <<<"$out"'
 check "then the report directory lives inside .git, never in the working tree" \
-  'dir="$(sed -n "s/^REPORT_DIR=//p" <<<"$out")"; [[ "$dir" == .git/jit-security/* || "$dir" == */.git/jit-security/* ]] && [[ -z "$(git status --porcelain)" ]]'
+  'dir="$(sed -n "s/^REPORT_DIR=//p" <<<"$out")"; [[ "$dir" == .git/landspec-security/* || "$dir" == */.git/landspec-security/* ]] && [[ -z "$(git status --porcelain)" ]]'
 
 out="$(PATH="$TMP/tools:$PATH" bash "$scan")"
 check "when the scanners are installed and clean, then each reports ok" \
@@ -44,14 +44,14 @@ check "when --changed, then semgrep only scans the files this branch changed" 'g
 
 out="$(PATH="$TMP/none" bash "$scan" --changed)"
 check "when --changed, then its summary lines are recorded for this diff (what pr.sh task requires)" \
-  'rec="$(source "$SCRIPTS/lib.sh" && diff_record jit-security)"; [[ "$(cat "$rec")" == "$(grep -v "^REPORT_DIR=" <<<"$out")" ]] && grep -q "^gitleaks *missing" "$rec"'
+  'rec="$(source "$SCRIPTS/lib.sh" && diff_record landspec-security)"; [[ "$(cat "$rec")" == "$(grep -v "^REPORT_DIR=" <<<"$out")" ]] && grep -q "^gitleaks *missing" "$rec"'
 git switch --quiet -c feat/empty origin/develop
 PATH="$TMP/none" bash "$scan" --changed >/dev/null
 check "when --changed finds no changed file, then that result is recorded for the empty diff too" \
-  '[[ "$(cat .git/jit-security/empty)" == "all skipped no changed files" ]]'
+  '[[ "$(cat .git/landspec-security/empty)" == "all skipped no changed files" ]]'
 
 git switch --quiet feat/x; shallow_repo
 check "on a --depth 1 clone with no merge base, then --changed prints one refusal naming git fetch --unshallow and writes no record" \
-  'one_refusal "git fetch --unshallow" env PATH="$TMP/none" bash "$scan" --changed && [[ -z "$(find .git/jit-security -maxdepth 1 -type f 2>/dev/null)" ]]'
+  'one_refusal "git fetch --unshallow" env PATH="$TMP/none" bash "$scan" --changed && [[ -z "$(find .git/landspec-security -maxdepth 1 -type f 2>/dev/null)" ]]'
 
 exit "$FAIL"

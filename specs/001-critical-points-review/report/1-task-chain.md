@@ -4,8 +4,8 @@ Reviewed at: 172f8c5 (v1.7.2)
 
 Every `file:line` is at tag `v1.7.2`. The local reproductions run in a throwaway repository made by
 `tests/helpers.sh` (`new_repo`, `fake_gh`). The real run is on the private sandbox
-`iamalisson/jit-speckit-sandbox` under feature `099-jit-review`, from its clone, with the guard in
-tasks.md "Rules every task follows". The sandbox's `.specify/extensions/jit/scripts` is identical
+`iamalisson/jit-speckit-sandbox` under feature `099-landspec-review`, from its clone, with the guard in
+tasks.md "Rules every task follows". The sandbox's `.specify/extensions/landspec/scripts` is identical
 to `v1.7.2:extension/scripts` (`diff -r`: no output).
 
 | id | promise | verdict | evidence |
@@ -13,7 +13,7 @@ to `v1.7.2:extension/scripts` (`diff -r`: no output).
 | P01 | Every task gets exactly one GitHub issue; an interrupted run never makes duplicates | limit | an interruption between GitHub creating the issue and the write-back makes a duplicate: F1.7. Otherwise `issues.sh:54-56` writes `— #N` back right after each `gh issue create`, and `:32` skips linked lines; `tests/issues.test.sh:37` ("when run again, then no issue is created twice"); sandbox: first run `T001 → #11`, `T002 → #12`, `CREATED=2 SKIPPED=0`, second run `CREATED=0 SKIPPED=2` |
 | P02 | Every task gets its own branch from the base, refused without one task, an issue, the merged spec and a clean tree; pushed at once as a claim | broken | the refusals hold (`branch.sh:17,22,24,35,50`; `tests/branch.test.sh:38,42-44,57`), but a refused claim push is silent: F1.1 |
 | P03 | Every task gets one PR with `Closes #N`; a task is done when its issue closes | broken | `pr.sh:69` adds `Closes #N`; sandbox PR #14 into `develop` got it and `close-linked-issues.yml` closed #11 within ~10 s ("Closed by #14 (merged into develop)."). But `next` decides "done" by a title search, so a renamed closed issue stays "open": F1.2; and on standard and full a failed close is silent: F1.6 |
-| P04 | `/jit-speckit:next` is resumable, never offers a task in progress twice (worktrees too), holds a task until its dependencies close | broken | resume, in progress, worktrees and blocked hold (`next.sh:39-51`; `tests/next.test.sh:26-63`); sandbox: `next.sh 099` showed `open T001` and `blocked T002`; after #11 closed, `done T001` and T002 went from `blocked` to `open` within ~17 s. Broken through the same title search: F1.2. The dependency hold is in `next` only: F1.3; on a task branch with no argument it asks which feature: F1.9 |
+| P04 | `/landspec:next` is resumable, never offers a task in progress twice (worktrees too), holds a task until its dependencies close | broken | resume, in progress, worktrees and blocked hold (`next.sh:39-51`; `tests/next.test.sh:26-63`); sandbox: `next.sh 099` showed `open T001` and `blocked T002`; after #11 closed, `done T001` and T002 went from `blocked` to `open` within ~17 s. Broken through the same title search: F1.2. The dependency hold is in `next` only: F1.3; on a task branch with no argument it asks which feature: F1.9 |
 | P05 | The spec is its own PR; the spec folder is never lost while switching branches | broken | the local folder holds, but a failed `gh pr list` makes `pr.sh spec` rebuild the spec branch and force-push over a teammate's commit: F1.8. The folder: `pr.sh:84-91` copies the folder out and puts it back on any exit (`trap … EXIT`); `tests/pr.test.sh:121`; real runs: this repository's PR #28 (the untracked folders of features 002 and 003 stayed in place) and sandbox PR #13 |
 | P23 | Never commits or pushes for the user outside the documented flows | holds | every commit or push in the shipped scripts: the claim push `branch.sh:56`, the task push `pr.sh:70`, the spec commit and push `pr.sh:94,97`, `develop`/`staging` creation `level.sh:56` (offered with `--no-branches` in `skills/init/SKILL.md` step 3); the prompts commit only in `extension/commands/pr.md` step 3 and in `skills/init/SKILL.md` step 7, which asks first |
 
@@ -22,7 +22,7 @@ Also checked, no finding:
   command, and a later spec PR starts fresh from the base after a squash-merged one
   (`pr.sh:79-90`, `tests/pr.test.sh:72-74`).
 - `add_meta` (`lib.sh:185-200`): each failed assignee, milestone or project edit prints
-  `jit: warning: could not set …` with `gh`'s own error (`tests/issues.test.sh:57`), so a user can
+  `landspec: warning: could not set …` with `gh`'s own error (`tests/issues.test.sh:57`), so a user can
   tell it never worked (FR-006).
 - The 500-item limit on `gh pr list` (`next.sh:24`): a task beyond it is still seen as in progress
   through its branch on origin (`next.sh:23,43`, `git ls-remote --heads origin`, no limit). Every
@@ -44,7 +44,7 @@ Also checked, no finding:
   and `branch.sh T001` prints `BRANCH=…`, `rc=0`, no `claim:` line, and origin has 0 `feat/`
   branches. A second clone's `next` would offer T001 as `open`.
 - **exposure**: public (the operator's own clone and remote).
-- **fix**: when the push fails, print `jit: warning: could not claim <branch> on origin: <git's
+- **fix**: when the push fails, print `landspec: warning: could not claim <branch> on origin: <git's
   error>; other clones may start this task` to stderr (still exit 0, the work can go on).
   Check for `tests/branch.test.sh`: when origin refuses the claim push, then `branch.sh` still
   exits 0 and its output contains `could not claim`. It fails today (nothing is printed).
@@ -84,7 +84,7 @@ Also checked, no finding:
 
 - **verdict**: limit
 - **evidence**: `branch.sh:50` refuses on any `git status --porcelain` output, untracked files
-  included. Section D below: an untracked `specs/002-draft/` gives `jit: uncommitted changes on
+  included. Section D below: an untracked `specs/002-draft/` gives `landspec: uncommitted changes on
   'main'; commit or stash them first`, `rc=1`. It happened for real on 2026-11-05 starting this task,
   with the drafts of features 002 and 003. The message says "uncommitted changes" and names no file,
   and stashing is the only advice. The refusal is on purpose ("Never carry uncommitted work onto
@@ -176,8 +176,8 @@ Also checked, no finding:
 - **evidence**: `next.sh:62-77`: with no argument, more than one feature with tasks to start means
   `CHOOSE=…`, before the branch is looked at. Sandbox, on `feat/099-t001-add-docs-099-note` right
   after the claim, `next.sh | tail -3` printed `feature 001-tempconv-foundation DONE=1/3
-  IN_PROGRESS=0`, `feature 099-jit-review DONE=0/2 IN_PROGRESS=0`, `CHOOSE=001-tempconv-foundation
-  099-jit-review`. `docs/reference.md:66-68` says both "when more than one feature has tasks to
+  IN_PROGRESS=0`, `feature 099-landspec-review DONE=0/2 IN_PROGRESS=0`, `CHOOSE=001-tempconv-foundation
+  099-landspec-review`. `docs/reference.md:66-68` says both "when more than one feature has tasks to
   start, it lists them and asks" and "On a task branch the branch name decides"; `next` follows the
   first even on a task branch. It fails safe: it asks, and `next 099` serves the branch's feature.
   Ranked Medium because `docs/reference.md:67-68` states a behavior `next` does not have ("On a
@@ -199,7 +199,7 @@ Also checked, no finding:
 # T001 reproductions, run as: bash t001-repro.sh <v1.7.2 worktree>
 source "$1/tests/helpers.sh"
 fake_gh; new_repo standard
-[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/jit-speckit ] || exit 1
+[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/landspec ] || exit 1
 commit_tasks '- [ ] T001 First thing — #1
 - [ ] T002 Second thing (depends on T001) — #2'
 b="$SCRIPTS/branch.sh"; n="$SCRIPTS/next.sh"
@@ -264,7 +264,7 @@ resume T002 #2 Second thing (depends on T001)
 claim: feat/001-t001-first-thing pushed to origin
 BRANCH=feat/001-t001-first-thing ISSUE=1 TASK=T001 BASE=develop
 == D. an untracked draft folder of another feature
-jit: uncommitted changes on 'main'; commit or stash them first
+landspec: uncommitted changes on 'main'; commit or stash them first
 rc=1
 == E. next when origin cannot be listed, with T001 claimed by another clone
 in-progress T001 #1 First thing
@@ -290,7 +290,7 @@ issue create calls for T003: 2
 # T001 reproduction H, run as: bash t001-repro-h.sh <v1.7.2 worktree>
 source "$1/tests/helpers.sh"
 fake_gh; new_repo standard
-[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/jit-speckit ] || exit 1
+[ "$(git rev-parse --show-toplevel)" != /home/admin/Documents/workstation/personal/landspec ] || exit 1
 p="$SCRIPTS/pr.sh"
 echo "== H. pr.sh spec when 'gh pr list' fails while a spec PR is open"
 echo spec > specs/001-demo/spec.md; printf '%s\n' '- [ ] T001 First — #1' > specs/001-demo/tasks.md
@@ -329,14 +329,14 @@ plan-review refusal is left to T003's section, `report/3-review-gate.md` (not wr
 # T001 real run on the sandbox, phase 1. Run from the sandbox clone: bash sandbox-1.sh
 set -u
 [ "$(git remote)" = origin ] && [ "$(gh repo view --json nameWithOwner -q .nameWithOwner)" = iamalisson/jit-speckit-sandbox ] || exit 1
-R="$(git rev-parse --git-common-dir)/jit-repro"; mkdir -p "$R"; REC="$R/t001-created.txt"; touch "$REC"
-X=.specify/extensions/jit/scripts
+R="$(git rev-parse --git-common-dir)/landspec-repro"; mkdir -p "$R"; REC="$R/t001-created.txt"; touch "$REC"
+X=.specify/extensions/landspec/scripts
 git fetch -q origin && git switch -q develop && git merge -q --ff-only origin/develop
 git ls-tree --name-only origin/develop specs/ | grep -q '^specs/099-' && { echo "099 taken"; exit 1; }
-F=specs/099-jit-review; mkdir -p $F
-printf '# 099 jit review (sandbox test of the task chain)\n' > $F/spec.md; cp $F/spec.md $F/plan.md
+F=specs/099-landspec-review; mkdir -p $F
+printf '# 099 landspec review (sandbox test of the task chain)\n' > $F/spec.md; cp $F/spec.md $F/plan.md
 cat > $F/tasks.md <<'T'
-# Tasks: 099 jit review
+# Tasks: 099 landspec review
 
 - [ ] T001 Add docs/099-note.md with one line
   - Completed when: the file exists on develop
@@ -349,7 +349,7 @@ f=$(mktemp); printf 'Sandbox plan for the 001 review, T001.\n\nAssessment: ready
 bash $X/review.sh record --plan $f
 echo "== issues.sh"; bash $X/issues.sh 2>&1 | tee /dev/stderr | sed -n 's/.*→ #\([0-9]*\)$/issue \1/p' >> "$REC"
 echo "== issues.sh again"; bash $X/issues.sh
-echo "== pr.sh spec"; out=$(bash $X/pr.sh spec 2>&1); echo "$out"; echo "branch spec/099-jit-review" >> "$REC"
+echo "== pr.sh spec"; out=$(bash $X/pr.sh spec 2>&1); echo "$out"; echo "branch spec/099-landspec-review" >> "$REC"
 pr=$(sed -n 's#^PR=.*/pull/##p' <<<"$out"); echo "pr $pr" >> "$REC"
 echo "== merge spec PR #$pr"; gh pr merge "$pr" -R iamalisson/jit-speckit-sandbox --squash --delete-branch; echo "rc=$?"
 echo "merged spec PR #$pr (stays)" >> "$REC"; cat "$REC"
@@ -374,7 +374,7 @@ Phase 2, `bash sandbox-2.sh`:
 # T001 real run on the sandbox, phase 2. Run from the sandbox clone: bash sandbox-2.sh
 set -u
 [ "$(git remote)" = origin ] && [ "$(gh repo view --json nameWithOwner -q .nameWithOwner)" = iamalisson/jit-speckit-sandbox ] || exit 1
-REC="$(git rev-parse --git-common-dir)/jit-repro/t001-created.txt"; X=.specify/extensions/jit/scripts
+REC="$(git rev-parse --git-common-dir)/landspec-repro/t001-created.txt"; X=.specify/extensions/landspec/scripts
 git fetch -q origin && git merge -q --ff-only origin/develop
 echo "== next"; bash $X/next.sh 099
 echo "== branch T001"; bash $X/branch.sh T001; b=$(git branch --show-current); echo "branch $b" >> "$REC"
@@ -403,8 +403,8 @@ BRANCH=feat/099-t001-add-docs-099-note ISSUE=11 TASK=T001 BASE=develop
 <sha>	refs/heads/feat/099-t001-add-docs-099-note
 == next after the claim
 feature 001-tempconv-foundation DONE=1/3 IN_PROGRESS=0
-feature 099-jit-review DONE=0/2 IN_PROGRESS=0
-CHOOSE=001-tempconv-foundation 099-jit-review
+feature 099-landspec-review DONE=0/2 IN_PROGRESS=0
+CHOOSE=001-tempconv-foundation 099-landspec-review
 committed
 REVIEW=ready
 == pr.sh task
@@ -438,7 +438,7 @@ Phase 3, the rename (F1.2):
 ```bash
 gh issue edit 12 -R iamalisson/jit-speckit-sandbox --title "Extend the note with a second line"
 gh issue close 12 -R iamalisson/jit-speckit-sandbox --comment "[001 review T001] cleanup: closed after a rename test"
-sleep 20; gh issue view 12 --json state,title -q '"\(.state) \(.title)"'; bash .specify/extensions/jit/scripts/next.sh 099
+sleep 20; gh issue view 12 --json state,title -q '"\(.state) \(.title)"'; bash .specify/extensions/landspec/scripts/next.sh 099
 ```
 
 ```text
@@ -448,7 +448,7 @@ open T002 #12 Extend docs/099-note.md with a second line (depends on T001)
 DONE=1/2 IN_PROGRESS=0 NEXT=T002
 ```
 
-Cleanup: no `099` branch is left on origin and no `099` PR is open; local `spec/099-jit-review` and
+Cleanup: no `099` branch is left on origin and no `099` PR is open; local `spec/099-landspec-review` and
 `feat/099-t001-add-docs-099-note` deleted. Left in place on the sandbox `develop`: spec PR #13 and
 task PR #14 (merged), so the next run uses `098`. Issues #11 and #12 are closed.
 

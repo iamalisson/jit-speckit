@@ -1,4 +1,4 @@
-# Primary references jit-speckit checks before deciding how to build something.
+# Primary references landspec checks before deciding how to build something.
 #
 # Not skills and not reading lists: each entry says WHEN to open it. The agent reads the source
 # whenever a decision touches that topic, especially for anything that changes fast (tool
@@ -30,7 +30,7 @@ practices:
       key: humans first. Added, Changed, Deprecated, Removed, Fixed, Security; an Unreleased section on top.
     - title: Conventional Commits 1.0.0
       url: https://www.conventionalcommits.org/en/v1.0.0/
-      use_when: writing a commit message or PR title (jit-speckit uses this format)
+      use_when: writing a commit message or PR title (landspec uses this format)
       key: type(scope) then a colon and a summary. feat → MINOR, fix → PATCH, "!" or BREAKING CHANGE → MAJOR.
 
   delivery:
@@ -57,7 +57,7 @@ practices:
     - title: Trunk Based Development
       url: https://trunkbaseddevelopment.com/
       use_when: choosing a branching model
-      key: short-lived branches merged at least daily. jit-speckit lite is this; standard/full add develop/staging as promotion gates, not as places where work lives.
+      key: short-lived branches merged at least daily. landspec lite is this; standard/full add develop/staging as promotion gates, not as places where work lives.
     - title: Google SRE book
       url: https://sre.google/sre-book/table-of-contents/
       use_when: designing health checks, alerting, rollouts, error budgets or postmortems

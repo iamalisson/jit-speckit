@@ -1,23 +1,23 @@
-# Shared helpers for jit-speckit scripts. Sourced, not executed.
+# Shared helpers for landspec scripts. Sourced, not executed.
 # shellcheck shell=bash
 
-JIT_CONFIG=".specify/extensions/jit/jit-config.yml"
-# Where this extension's files live (the repo checkout, or .specify/extensions/jit once installed).
+LANDSPEC_CONFIG=".specify/extensions/landspec/landspec-config.yml"
+# Where this extension's files live (the repo checkout, or .specify/extensions/landspec once installed).
 # shellcheck disable=SC2034  # used by the scripts that source this file
-JIT_EXT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+LANDSPEC_EXT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-die() { echo "jit: $*" >&2; exit 1; }
+die() { echo "landspec: $*" >&2; exit 1; }
 
 # Run every script from the repository root.
 # A spec-kit project in a subfolder of a bigger repo is refused, not half-supported: git hooks and
-# CI live at the repository root, so jit's files would land in the wrong place.
-jit_cd_root() {
+# CI live at the repository root, so landspec's files would land in the wrong place.
+landspec_cd_root() {
   local top d s
   top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "not inside a git repository"
   d="$(pwd -P)" # physical, like git's top level (macOS /tmp is a symlink)
   while [[ "$d" != "$top" && "$d" == "$top"/* ]]; do
     if [[ -d "$d/.specify" ]]; then
-      die "spec-kit is set up in ${d#"$top"/}/, a subfolder of the repository; jit-speckit needs it at the repository root ($top)"
+      die "spec-kit is set up in ${d#"$top"/}/, a subfolder of the repository; landspec needs it at the repository root ($top)"
     fi
     d="$(dirname "$d")"
   done
@@ -32,29 +32,29 @@ jit_cd_root() {
 # taken as is ("Sprint #3" or 'Sprint #3'); an unquoted one ends at a ` #` comment.
 cfg() {
   local v=""
-  if [[ -f "$JIT_CONFIG" ]]; then
+  if [[ -f "$LANDSPEC_CONFIG" ]]; then
     v="$(sed -nE "/^$1:/{
       s/^$1:[[:space:]]*//
       /^\"/{ s/^\"([^\"]*)\".*$/\1/; p; q; }
       /^'/{ s/^'([^']*)'.*$/\1/; p; q; }
       s/[[:space:]]+#.*$//; s/[[:space:]]*$//; p; q
-    }" "$JIT_CONFIG")"
+    }" "$LANDSPEC_CONFIG")"
   fi
   echo "${v:-$2}"
 }
 
 # cfg_set <key> <value>: replace or append a key in the config file.
 cfg_set() {
-  mkdir -p "$(dirname "$JIT_CONFIG")"
-  touch "$JIT_CONFIG"
-  if grep -qE "^$1:" "$JIT_CONFIG"; then
-    sed -i.bak -E "s|^$1:.*$|$1: $2|" "$JIT_CONFIG" && rm -f "$JIT_CONFIG.bak"
+  mkdir -p "$(dirname "$LANDSPEC_CONFIG")"
+  touch "$LANDSPEC_CONFIG"
+  if grep -qE "^$1:" "$LANDSPEC_CONFIG"; then
+    sed -i.bak -E "s|^$1:.*$|$1: $2|" "$LANDSPEC_CONFIG" && rm -f "$LANDSPEC_CONFIG.bak"
   else
-    echo "$1: $2" >> "$JIT_CONFIG"
+    echo "$1: $2" >> "$LANDSPEC_CONFIG"
   fi
 }
 
-jit_level() { cfg level standard; }
+landspec_level() { cfg level standard; }
 
 # review_model: the model family the independent review must run on (default sonnet). Any other
 # value dies, so the config can never lower the bar: callers read it with `|| exit 1`.
@@ -63,7 +63,7 @@ review_model() {
   case "$m" in sonnet|opus|fable) echo "$m" ;; *) die "review_model must be sonnet, opus or fable" ;; esac
 }
 
-# Paths that hold tests, across the stacks jit-speckit supports (Django's app/tests.py, SwiftPM's
+# Paths that hold tests, across the stacks landspec supports (Django's app/tests.py, SwiftPM's
 # Tests/, .NET's X.Tests/, Cypress). Case-sensitive: the PascalCase name is anchored on a lowercase
 # letter or digit before it, so Contests.java or Latests.cs stay source. Read it through test_path_re.
 TEST_PATH_RE='(^|/)([Tt]ests?|__tests__|spec|e2e|cypress)/|(^|/)[^/]*\.[Tt]ests?/|[._-]([Tt]est|[Ss]pec|cy)\.[a-zA-Z]+$|(^|/)tests?\.py$|(^|/)test_[^/]*\.py$|[a-z0-9]Tests?\.[a-z]+$'
@@ -90,7 +90,7 @@ base_branch() {
   local b
   b="$(cfg base_branch auto)"
   if [[ "$b" == auto ]]; then
-    if [[ "$(jit_level)" == lite ]]; then default_branch; else echo develop; fi
+    if [[ "$(landspec_level)" == lite ]]; then default_branch; else echo develop; fi
   else
     echo "$b"
   fi
@@ -98,9 +98,9 @@ base_branch() {
 
 # Long-lived branches that only change through pull requests.
 protected_branches() {
-  local level c; level="$(jit_level)"
+  local level c; level="$(landspec_level)"
   echo "$(default_branch) $(base_branch)"
-  # main/master are release branches in every jit flow, whatever the remote calls its default
+  # main/master are release branches in every landspec flow, whatever the remote calls its default
   # (a repo whose first push was develop has GitHub's default set to develop).
   for c in main master; do
     if git show-ref --verify --quiet "refs/heads/$c" || git show-ref --verify --quiet "refs/remotes/origin/$c"; then echo "$c"; fi
@@ -143,12 +143,12 @@ base_ref() {
 diff_base() { git merge-base HEAD "$(base_ref)" 2>/dev/null || git rev-parse HEAD; }
 
 # Every diff whose bytes decide a record: the same text whatever the user's git config says.
-JIT_DIFF_FLAGS=(--no-color --no-ext-diff --no-textconv --ignore-submodules=none --submodule=short -U3 --inter-hunk-context=0 --no-renames --diff-algorithm=myers --src-prefix=a/ --dst-prefix=b/)
-# jit_diff <git diff args>: git diff with those flags, plus the two settings that have no flag.
-jit_diff() { git -c core.quotePath=false -c diff.suppressBlankEmpty=false diff "${JIT_DIFF_FLAGS[@]}" "$@"; }
-# jit_numstat <git diff args>: only the --numstat lines: -U3 adds the patch after a blank line, and
+LANDSPEC_DIFF_FLAGS=(--no-color --no-ext-diff --no-textconv --ignore-submodules=none --submodule=short -U3 --inter-hunk-context=0 --no-renames --diff-algorithm=myers --src-prefix=a/ --dst-prefix=b/)
+# landspec_diff <git diff args>: git diff with those flags, plus the two settings that have no flag.
+landspec_diff() { git -c core.quotePath=false -c diff.suppressBlankEmpty=false diff "${LANDSPEC_DIFF_FLAGS[@]}" "$@"; }
+# landspec_numstat <git diff args>: only the --numstat lines: -U3 adds the patch after a blank line, and
 # --no-patch would also drop the numstat on older git.
-jit_numstat() { jit_diff --numstat "$@" | sed '/^$/,$d'; }
+landspec_numstat() { landspec_diff --numstat "$@" | sed '/^$/,$d'; }
 
 # diff_id: the patch id of the branch against the base (empty for an empty diff). Merging the base
 # in keeps it, any edit changes it. --verbatim keeps whitespace, so a re-indent (Python, YAML,
@@ -157,18 +157,18 @@ jit_numstat() { jit_diff --numstat "$@" | sed '/^$/,$d'; }
 diff_id() {
   local from id ref opt=--verbatim; from="$(diff_base)"; ref="$(base_ref)"
   git patch-id --verbatim </dev/null >/dev/null 2>&1 || opt=--stable # git < 2.39: whitespace-only edits slip
-  id="$(jit_diff "$from" HEAD | git patch-id "$opt" | cut -d' ' -f1)"
+  id="$(landspec_diff "$from" HEAD | git patch-id "$opt" | cut -d' ' -f1)"
   if ! git merge-base HEAD "$ref" >/dev/null 2>&1; then
     if [[ "$(git rev-parse --is-shallow-repository)" == true ]]; then
       die "this shallow clone has no merge base with $ref; run git fetch --unshallow"
     fi
     die "this branch shares no history with $ref, so it has no diff to review"
   fi
-  [[ -n "$id" ]] || jit_diff --quiet "$from" HEAD || die "git patch-id gave no id for this diff against $ref"
+  [[ -n "$id" ]] || landspec_diff --quiet "$from" HEAD || die "git patch-id gave no id for this diff against $ref"
   echo "$id"
 }
 
-# diff_record <kind>: the file that holds this diff's <kind> record (jit-mutants, jit-security),
+# diff_record <kind>: the file that holds this diff's <kind> record (landspec-mutants, landspec-security),
 # under .git so it never dirties the tree; its folder is created. Any commit makes it a new file.
 diff_record() {
   local d id; d="$(git rev-parse --git-common-dir)/$1"; id="$(diff_id)" || exit 1
@@ -184,16 +184,16 @@ resolve_feature() {
   echo "$m"
 }
 
-# constitution_markers <file>: refuse a damaged jit block before anything is changed. Only a marker
+# constitution_markers <file>: refuse a damaged landspec block before anything is changed. Only a marker
 # at the start of a line counts: one mentioned in prose is plain text, and so is a file with none.
 constitution_markers() {
   [[ -f "$1" ]] || return 0
   local s e first_s first_e
-  read -r s e first_s first_e < <(awk '/^<!-- jit:start/ { s++; if (!a) a = NR } /^<!-- jit:end -->/ { e++; if (!b) b = NR }
+  read -r s e first_s first_e < <(awk '/^<!-- landspec:start/ { s++; if (!a) a = NR } /^<!-- landspec:end -->/ { e++; if (!b) b = NR }
     END { print s + 0, e + 0, a + 0, b + 0 }' "$1")
   if ((s == 0 && e == 0)) || ((s == 1 && e == 1 && first_s < first_e)); then return 0; fi
-  if ((s == 1 && e == 0)); then die "$1 has '<!-- jit:start' but no '<!-- jit:end -->'; restore the end marker, then run again"; fi
-  die "$1's jit block is damaged: it needs one '<!-- jit:start' line followed by one '<!-- jit:end -->' line; fix the markers, then run again"
+  if ((s == 1 && e == 0)); then die "$1 has '<!-- landspec:start' but no '<!-- landspec:end -->'; restore the end marker, then run again"; fi
+  die "$1's landspec block is damaged: it needs one '<!-- landspec:start' line followed by one '<!-- landspec:end -->' line; fix the markers, then run again"
 }
 
 # constitution_cmd <build|test|lint|mutate>: that command from the constitution's **Commands**
@@ -300,8 +300,8 @@ add_meta() {
   [[ -n "$p" ]] && a+=(--add-project "$p")
   for ((i = 0; i < ${#a[@]}; i += 2)); do
     if ! err="$(gh "$kind" edit "$url" "${a[i]}" "${a[i+1]}" 2>&1 >/dev/null)"; then
-      echo "jit: warning: could not set ${a[i]#--} '${a[i+1]}' on $url: ${err:-unknown error}" >&2
-      if [[ "${a[i]}" == --add-project ]]; then echo "jit: (project access needs: gh auth refresh -s project)" >&2; fi
+      echo "landspec: warning: could not set ${a[i]#--} '${a[i+1]}' on $url: ${err:-unknown error}" >&2
+      if [[ "${a[i]}" == --add-project ]]; then echo "landspec: (project access needs: gh auth refresh -s project)" >&2; fi
     fi
   done
 }

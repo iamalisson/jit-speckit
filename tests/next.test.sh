@@ -54,7 +54,7 @@ git worktree add --quiet "$TMP/wt3" feat/001-t003-third-in-c 2>/dev/null
 check "when that branch is checked out in another worktree, then it is in progress, not resume" \
   'out="$("$n")"; grep -q "^in-progress T003" <<<"$out" && [[ "$out" == *"NEXT=T001"* ]]'
 check "then from inside that worktree the task is the one to resume" \
-  'out="$(cd "$TMP/wt3" && mkdir -p .specify/extensions/jit && ln -sfn "$ROOT/extension/scripts" .specify/extensions/jit/scripts && cp "$TMP/repo/.specify/extensions/jit/jit-config.yml" .specify/extensions/jit/ && "$n")"; grep -q "^resume T003" <<<"$out" && [[ "$out" == *"NEXT=T003"* ]]'
+  'out="$(cd "$TMP/wt3" && mkdir -p .specify/extensions/landspec && ln -sfn "$ROOT/extension/scripts" .specify/extensions/landspec/scripts && cp "$TMP/repo/.specify/extensions/landspec/landspec-config.yml" .specify/extensions/landspec/ && "$n")"; grep -q "^resume T003" <<<"$out" && [[ "$out" == *"NEXT=T003"* ]]'
 git worktree remove --force "$TMP/wt3"; git branch --quiet -D feat/001-t003-third-in-c
 
 # Dependencies: "(depends on T001)" holds a task until T001's issue is closed.
@@ -98,7 +98,7 @@ commit_tasks "$tasks3"'
 - [ ] T008 Eighth, not [P] itself, in `h` — #11'
 closed; open_prs
 top="$(git rev-parse --show-toplevel)"
-par() { echo "parallel $1 (git worktree add --quiet --detach $top-001-$2 origin/develop && cd $top-001-$2 && bash .specify/extensions/jit/scripts/branch.sh 001 $1)"; }
+par() { echo "parallel $1 (git worktree add --quiet --detach $top-001-$2 origin/develop && cd $top-001-$2 && bash .specify/extensions/landspec/scripts/branch.sh 001 $1)"; }
 check "when open [P] tasks exist besides NEXT, then each gets a parallel line with its worktree and branch.sh command, and DONE= stays last" \
   'out="$("$n")"; grep -qxF "$(par T002 t002)" <<<"$out" && grep -qxF "$(par T007 t007)" <<<"$out" && [[ "$(tail -1 <<<"$out")" == "DONE=0/6 IN_PROGRESS=0 NEXT=T001" ]]'
 check "then NEXT, a blocked [P] task, a task without [P] and one with [P] later in its line get no parallel line" \
@@ -108,7 +108,7 @@ check "when NEXT itself is a [P] task, then it gets no parallel line and the oth
   'out="$("$n")"; [[ "$out" == *"NEXT=T002"* ]] && ! grep -q "^parallel T002 " <<<"$out" && grep -qxF "$(par T007 t007)" <<<"$out"'
 # The test repo git-ignores .specify, so the new worktree runs the scripts from here.
 check "when a printed parallel line is run, then the task is claimed on origin and the next run shows it in progress with no line" \
-  'line="$("$n" | grep "^parallel T007 ")"; cmd="${line#parallel T007 (}"; cmd="${cmd%)}"; (eval "${cmd//bash .specify\/extensions\/jit\/scripts/bash $SCRIPTS}") && git ls-remote --exit-code --heads origin feat/001-t007-seventh && out="$("$n")" && grep -q "^in-progress T007" <<<"$out" && ! grep -q "^parallel T007 " <<<"$out"'
+  'line="$("$n" | grep "^parallel T007 ")"; cmd="${line#parallel T007 (}"; cmd="${cmd%)}"; (eval "${cmd//bash .specify\/extensions\/landspec\/scripts/bash $SCRIPTS}") && git ls-remote --exit-code --heads origin feat/001-t007-seventh && out="$("$n")" && grep -q "^in-progress T007" <<<"$out" && ! grep -q "^parallel T007 " <<<"$out"'
 git worktree remove --force "$top-001-t007" 2>/dev/null || true
 git branch --quiet -D feat/001-t007-seventh 2>/dev/null || true
 git push --quiet origin --delete feat/001-t007-seventh 2>/dev/null || true
@@ -129,7 +129,7 @@ commit_tasks "$tasks3"'
 - [ ] T007 [P] Seventh in `g` — #10'
 git update-ref refs/remotes/origin/develop "$behind"
 check "when origin/develop here is behind origin, then a printed parallel line starts the task" \
-  'line="$("$n" | grep "^parallel T007 ")"; cmd="${line#parallel T007 (}"; cmd="${cmd%)}"; (eval "${cmd//bash .specify\/extensions\/jit\/scripts/bash $SCRIPTS}") && git ls-remote --exit-code --heads origin feat/001-t007-seventh'
+  'line="$("$n" | grep "^parallel T007 ")"; cmd="${line#parallel T007 (}"; cmd="${cmd%)}"; (eval "${cmd//bash .specify\/extensions\/landspec\/scripts/bash $SCRIPTS}") && git ls-remote --exit-code --heads origin feat/001-t007-seventh'
 git worktree remove --force "$top-001-t007" 2>/dev/null || true
 git branch --quiet -D feat/001-t007-seventh 2>/dev/null || true
 git push --quiet origin --delete feat/001-t007-seventh 2>/dev/null || true

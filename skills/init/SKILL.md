@@ -1,14 +1,14 @@
 ---
 name: init
-description: "Set up the current project (new or existing) with spec-kit and jit-speckit: one task = one issue = one branch = one PR, security checks on every commit, push and PR, and best-practice defaults sized by complexity level (lite, standard, full)."
+description: "Set up the current project (new or existing) with spec-kit and landspec: one task = one issue = one branch = one PR, security checks on every commit, push and PR, and best-practice defaults sized by complexity level (lite, standard, full)."
 argument-hint: "[lite|standard|full]"
 disable-model-invocation: true
 ---
 
-# Set up a project with jit-speckit
+# Set up a project with landspec
 
 1. **Tools.** Check `git`, `gh` and `specify`.
-   - If `specify` is missing, offer to install spec-kit (the version jit-speckit is tested with):
+   - If `specify` is missing, offer to install spec-kit (the version landspec is tested with):
      `uv tool install specify-cli --from git+https://github.com/github/spec-kit.git@v1.2.5`.
      If `uv` is missing too, point to https://docs.astral.sh/uv/ and stop.
    - If `gh auth status` fails, ask the user to run `! gh auth login` and stop.
@@ -17,7 +17,7 @@ disable-model-invocation: true
      (`--public` for a public one; `git init -b main` first if there is no git repo). On no, go on
      without steps 4 and 5, and say that `/speckit-tasks` stops at creating the issues until there is one.
 2. **Level.** Use the argument if it is `lite`, `standard` or `full`. If the project already has
-   `.specify/extensions/jit/jit-config.yml`, this is an update: keep its `level:` and skip the
+   `.specify/extensions/landspec/landspec-config.yml`, this is an update: keep its `level:` and skip the
    question. Otherwise ask with these options, recommending one from what the repo shows:
    - **lite**: prototype, solo. `feat/*` → `main`, secret checks on commit and push, core defaults.
    - **standard** (default): a product, maybe a small team. Adds `develop`, CI, a security CI
@@ -58,7 +58,7 @@ disable-model-invocation: true
    branch (`gh run list --branch <base branch>`). The gates read the whole history and every
    lockfile, and `enforce_admins` binds the owner too, so a finding that is already there would
    leave the setup PR red with no way to merge it. Until they are green, skip this step and say
-   that running `/jit-speckit:init` again offers it, and that docs/security.md ("When a gate is
+   that running `/landspec:init` again offers it, and that docs/security.md ("When a gate is
    red") says how to get there. Otherwise explain it in one line, and run it only on yes:
    - Branch protection on the base branches, requiring a pull request and the checks to pass:
      `gh api -X PUT repos/{owner}/{repo}/branches/<branch>/protection` with
@@ -77,7 +77,7 @@ disable-model-invocation: true
 
    On a private repo it needs a paid GitHub plan. If GitHub refuses, say so plainly and continue:
    the local hooks and the CI gate still apply.
-6. **Next.** If the repo already has code, run `/jit-speckit:adopt` now. For a new project, tell
+6. **Next.** If the repo already has code, run `/landspec:adopt` now. For a new project, tell
    the user to run `/speckit-constitution`.
 7. Summarize in four lines: the level, the files created, updated or kept, the GitHub settings
    and protections enabled, and the next command. If the script said the git hooks are "not active in this clone
@@ -85,20 +85,20 @@ disable-model-invocation: true
    where they go: without either, nothing checks commits locally. A machine-wide `core.hooksPath`
    stays in charge: never replace it. If it said a workflow "never runs on a task PR", repeat that
    line: until that branch is added, the project's own CI does not check task PRs.
-8. **Offer to commit it**, in one question: "Commit this on `chore/jit-speckit-<version>` and open
-   the PR into `<base>`?" (the version is `version:` in `.specify/extensions/jit/extension.yml`;
-   `<base>` is `base_branch:` in `jit-config.yml`, or when that is `auto`, `develop` on standard and
+8. **Offer to commit it**, in one question: "Commit this on `chore/landspec-<version>` and open
+   the PR into `<base>`?" (the version is `version:` in `.specify/extensions/landspec/extension.yml`;
+   `<base>` is `base_branch:` in `landspec-config.yml`, or when that is `auto`, `develop` on standard and
    full and the default branch on lite). Task branches start from `<base>` and scripts read the
    level from the tree, so the setup has to land there, on an update too: anywhere else, the next
    branch loses `.specify` and the git hooks, or keeps the old version. The default branch gets it
    at the next promotion. On yes: `git fetch origin`, then `git switch -c <branch> origin/<base>`,
    taking the setup along (if git refuses because the two branches differ in those files, say so,
-   and stop: run `/jit-speckit:init` again from `<base>`). Stage **by name** only what the setup
+   and stop: run `/landspec:init` again from `<base>`). Stage **by name** only what the setup
    wrote (`.specify`, `.claude/skills`, and each file the script listed as created or updated;
-   never `git add -A`), commit `chore: jit-speckit <version> (level <level>)`, push, and open the
+   never `git add -A`), commit `chore: landspec <version> (level <level>)`, push, and open the
    PR with `gh pr create --base <base>` and a two-line body saying what moved and that nothing else
    changed. It is a small fix: no spec, no issue; the hooks and CI still apply. Then
-   `/jit-speckit:adopt` (step 6) runs on that branch. If `origin/<base>` does not exist yet (the
+   `/landspec:adopt` (step 6) runs on that branch. If `origin/<base>` does not exist yet (the
    script said a branch is "not created yet"), there is no PR to open: tell the user to commit, push
-   the default branch and run `/jit-speckit:level <level>`. On no: leave it uncommitted for the user
+   the default branch and run `/landspec:level <level>`. On no: leave it uncommitted for the user
    to review, and say so, and that its PR goes into `<base>`.

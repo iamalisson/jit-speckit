@@ -7,16 +7,16 @@ set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
 dry=false; [[ "${1:-}" == --dry-run ]] && dry=true
-jit_cd_root
+landspec_cd_root
 command -v gh >/dev/null || die "the GitHub CLI (gh) is required: https://cli.github.com"
 
 fdir="$(feature_dir)"
 tasks="$fdir/tasks.md"
 [[ -f "$tasks" ]] || die "$tasks not found; run /speckit-tasks first"
-# The plan review (/speckit-jit-review, plan mode) has to have read this tasks.md: issue bodies
+# The plan review (/speckit-landspec-review, plan mode) has to have read this tasks.md: issue bodies
 # are the task lines, so they are right before any issue exists. Its model warning, if any, is said here too.
 if ! $dry; then
-  bash "$JIT_EXT_DIR/scripts/review.sh" report --plan | sed -n 's/^warning: /jit: warning: /p' >&2
+  bash "$LANDSPEC_EXT_DIR/scripts/review.sh" report --plan | sed -n 's/^warning: /landspec: warning: /p' >&2
 fi
 base="$(base_branch)"
 feature="$(basename "$fdir")"

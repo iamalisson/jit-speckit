@@ -1,7 +1,7 @@
-# Security in jit-speckit
+# Security in landspec
 
 Most security tooling fails one of two ways: it runs too late (a yearly pentest), or it is so noisy
-that people learn to skip it. jit-speckit puts a cheap check where mistakes are made (each commit),
+that people learn to skip it. landspec puts a cheap check where mistakes are made (each commit),
 a stronger one where code is reviewed (each pull request), and a deep one where risk is decided
 (before a release). Every layer catches what the one before it can miss.
 
@@ -26,19 +26,19 @@ access control leads OWASP, and missing authorization jumped to #4 in the CWE li
 |---|---|---|---|
 | Every commit | git `pre-commit` (`.githooks/`, or the repo's pre-commit framework or husky config) | `.env`, keys and credential files; provider tokens and passwords in added lines (Gitleaks too, when installed). Under a second. | locally, `--no-verify` |
 | Every command Claude runs | plugin `PreToolUse` guard (the plugin's own copy; the repo only supplies config) | refuses `--no-verify` (and `commit -n`), hooks switched off with `-c core.hooksPath`, `git add -A`, commits on base branches, pushes to base branches. It sees through chains, `env`/`command`/`VAR=` prefixes, `sh -c '…'`, git's global options and bundled flags; on Claude Code 2.1.295 or newer it also blocks when the guard times out or crashes | best effort: an unusual shell trick can get past it, which is why CI and branch protection back it up |
-| Every review Claude launches | plugin `PreToolUse` hook on the subagent tool (`hooks/guard-review.sh`) | refuses a launch of `jit-speckit:reviewer`, or of any agent whose prompt holds the reviewer line, without `model` set to `sonnet`, `opus` or `fable`, and in a fork of the author's session | only where the plugin is installed; `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` still forces one model (the launch may then leave `model` empty, and the record warns) |
+| Every review Claude launches | plugin `PreToolUse` hook on the subagent tool (`hooks/guard-review.sh`) | refuses a launch of `landspec:reviewer`, or of any agent whose prompt holds the reviewer line, without `model` set to `sonnet`, `opus` or `fable`, and in a fork of the author's session | only where the plugin is installed; `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` still forces one model (the launch may then leave `model` empty, and the record warns) |
 | Every push | git `pre-push` (`.githooks/`, or the repo's pre-commit framework or husky config) | re-scans every commit leaving the machine (catches `--no-verify` commits); base branches are PR-only (standard, full) | locally |
-| Before a PR opens | after `/speckit-implement` | the independent review (`/speckit-jit-review`: a fresh agent, one fast pass on the diff and the code around it), scanners on the changed files (`pr.sh` refuses the PR until `security-scan.sh --changed` ran on its exact diff; a missing scanner is reported, not refused), `/security-review` | — |
+| Before a PR opens | after `/speckit-implement` | the independent review (`/speckit-landspec-review`: a fresh agent, one fast pass on the diff and the code around it), scanners on the changed files (`pr.sh` refuses the PR until `security-scan.sh --changed` ran on its exact diff; a missing scanner is reported, not refused), `/security-review` | — |
 | Every PR, push and week | `security.yml` CI | Gitleaks over the full history, OSV-Scanner on every lockfile, zizmor on workflows; Semgrep with the OWASP rules on full, run from its official image pinned by sha256 digest, its rule sets fetched from the Semgrep registry at run time (their license forbids shipping them; a local `security-scan.sh` fetches them too). Weekly, because new CVEs hit dependencies nobody touched. OSV-Scanner is not a required check: it shows on every PR, but a new advisory never refuses a PR that did not cause it. | **no**, with branch protection (OSV-Scanner reports only) |
-| On demand, before releases | `/jit-speckit:security` | the full audit below | — |
-| On GitHub | offered by `/jit-speckit:init` | every level: rebase merges off (on lite, merge commits off too: squash only), and on a public repo secret scanning with push protection and private vulnerability reporting; standard and full: branch protection requiring CI | **no** |
+| On demand, before releases | `/landspec:security` | the full audit below | — |
+| On GitHub | offered by `/landspec:init` | every level: rebase merges off (on lite, merge commits off too: squash only), and on a public repo secret scanning with push protection and private vulnerability reporting; standard and full: branch protection requiring CI | **no** |
 
 The local layers are fast feedback. **The CI gate plus branch protection is the boundary**: it
 cannot be skipped from a laptop. On lite there is no CI gate: the hooks, the guard and the review
 before each PR are all that check the code, and nothing on GitHub re-checks a push. Move to
-standard (`/jit-speckit:level standard`) when that matters.
+standard (`/landspec:level standard`) when that matters.
 
-The git hooks are enabled only where they really run: `/jit-speckit:level` prints "enabled" only
+The git hooks are enabled only where they really run: `/landspec:level` prints "enabled" only
 when the `pre-commit` and `pre-push` that git will run are executable and call the checks. Otherwise
 it says so. An own `.githooks`, hooks already in `.git/hooks` (`core.hooksPath` is not set) and a
 machine-wide `core.hooksPath` (kept, and named as machine-wide) get the lines to add. Husky gets the
@@ -58,9 +58,9 @@ the PR itself, with a reason for each entry:
 | Trivy | `.trivyignore`: one check ID per line |
 | Semgrep | `.semgrepignore`: paths to skip, or a `# nosemgrep: <rule>` comment on the line |
 
-`/jit-speckit:init` offers branch protection only once these are green.
+`/landspec:init` offers branch protection only once these are green.
 
-## The audit: `/jit-speckit:security`
+## The audit: `/landspec:security`
 
 `quick` checks the current branch's changes, `full` (the default) the whole repository, `deep`
 adds parallel reviewers and adversarial verification.
@@ -101,7 +101,7 @@ adds parallel reviewers and adversarial verification.
 - `actions/checkout` runs with `persist-credentials: false`.
 - Workflows default to `permissions: contents: read`.
 - Every pin lives in [`extension/scripts/pins.sh`](../extension/scripts/pins.sh). Dependabot
-  proposes updates for every pinned action: jit-speckit's own
+  proposes updates for every pinned action: landspec's own
   [`pins.yml`](../.github/workflows/pins.yml) uses each one in a job that never runs, and
   `bin/sync-pins.sh` copies a bump back into `pins.sh`. Dependabot does not see the scanner
   versions, so `pins.yml` checks them weekly against their latest releases (`bin/check-tools.sh`)

@@ -24,7 +24,7 @@ too: "start simple, well done and secure" (`GUIDELINES.md`).
    or pay?
 10. **Lifespan:** a throwaway prototype or a product?
 
-The answers decide the jit-speckit level: money, personal data or many users → `full`; a
+The answers decide the landspec level: money, personal data or many users → `full`; a
 throwaway → `lite`; otherwise `standard`.
 
 ## 2. Stop and confirm
@@ -35,7 +35,7 @@ only on an explicit "yes, I accept this". Record the decision in `plan.md` or
 
 | If you see | Why it matters | Offer instead |
 |---|---|---|
-| Secrets in a tracked file, or `.env` not git-ignored | 23.8M secrets leaked on public GitHub in 2024; 70% of those leaked in 2022 still worked [GG] | environment variables or a secret manager, `.env.example`, gitleaks (jit's hooks do this) |
+| Secrets in a tracked file, or `.env` not git-ignored | 23.8M secrets leaked on public GitHub in 2024; 70% of those leaked in 2022 still worked [GG] | environment variables or a secret manager, `.env.example`, gitleaks (landspec's hooks do this) |
 | Passwords stored in plain text, or hashed with MD5/SHA-1/SHA-256, or a homemade login/JWT/crypto scheme | OWASP A04/A07:2025 [OW] | Argon2id or bcrypt through a maintained library, or an identity provider |
 | SQL, shell or HTML built from input by string concatenation; `eval`; `shell=True` | XSS, SQL injection, command and code injection are 4 of the CWE Top 25 [CWE] | parameterized queries, argument arrays, auto-escaping templates |
 | Personal data, money or multiple tenants with no authorization plan ("auth later") | Broken access control is OWASP #1 [OW]; missing authorization is CWE #4 [CWE] | deny by default, an ownership check on every object, a test that one tenant can't read another's data |
@@ -56,8 +56,8 @@ Apply these unless the person says otherwise. Mention each in a short line so th
 | Tests | no test command, no tests in CI | a test runner and a smoke test on day one, run in CI | 77% of failures in the same study were reproducible with a unit test [YU] |
 | Flaky tests | sleeps, real network, shared databases in unit tests | hermetic tests with fakes at the boundary, plus a few integration tests | about 16% of Google's tests showed some flakiness [GT] |
 | Tests that can't fail | an assertion that accepts two outcomes ("200 or 405"); expected values imported from the code under test; a test loosened, skipped or deleted to get green; only the happy path | both sides of every limit as literals, whole-body comparisons, the error path; mutation testing to prove each test fails when the code is wrong | the same study: most catastrophic failures were in error handling that simple tests would have caught [YU] |
-| Plan not checked against the code | a task deletes something another task's test uses; a quickstart command that runs something else than the step claims; a migration with no named target | ground every task in the repo before review: search each symbol, list the existing tests and guards it trips, read each command | four such findings in a single spec PR during jit-speckit's own testing |
-| New file ignores its siblings | a migration that creates a table unconditionally in a repo whose other migrations guard with `has_table`, because environments are built by `create_all` and stamped; a test that only proves the fresh-database path | before writing a file of a kind that exists, read the newest one and keep its guards; make *Completed when* exercise the real upgrade path | a task PR passed `/code-review` and its own tests, then a second reviewer found it from the neighbouring migration (jit-speckit's own use, Nov 2026) |
+| Plan not checked against the code | a task deletes something another task's test uses; a quickstart command that runs something else than the step claims; a migration with no named target | ground every task in the repo before review: search each symbol, list the existing tests and guards it trips, read each command | four such findings in a single spec PR during landspec's own testing |
+| New file ignores its siblings | a migration that creates a table unconditionally in a repo whose other migrations guard with `has_table`, because environments are built by `create_all` and stamped; a test that only proves the fresh-database path | before writing a file of a kind that exists, read the newest one and keep its guards; make *Completed when* exercise the real upgrade path | a task PR passed `/code-review` and its own tests, then a second reviewer found it from the neighbouring migration (landspec's own use, Nov 2026) |
 | Lockfile | no `Cargo.lock`, `pnpm-lock.yaml` or `uv.lock`; `*` or open ranges | commit the lockfile, install `--locked`/`--frozen-lockfile`, add a release cooldown | OWASP A03:2025 supply chain [OW]; 512,847 malicious packages in a year [SN] |
 | Updates | no Dependabot or Renovate | automated update PRs, gated by tests and the security scan | exploited vulnerabilities were 20% of breach entry points [DBIR] |
 | Dependencies | a package for a few lines of code | the standard library, or a few lines of your own | third parties were involved in 30% of breaches [DBIR] |
