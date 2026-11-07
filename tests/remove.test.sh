@@ -142,6 +142,8 @@ check "when a valid block is followed by a mid-line marker, then everything afte
 const_repo
 awk '/^<!-- jit:end -->/ { next } /^<!-- jit:start/ { print "<!-- jit:end -->" } { print }' "$const" > "$const.tmp"; mv "$const.tmp" "$const"
 echo 'my text after' >> "$const"
+# A failing `specify` sends remove.sh to its rm -rf fallback, so a late refusal would lose the config.
+printf '#!/usr/bin/env bash\nexit 1\n' > "$TMP/bin/specify"
 unchanged() { cmp -s "$const" "$TMP/const.before" && cmp -s "$JIT_CFG" "$TMP/cfg.before" && [[ -f .githooks/pre-commit && -f .specify/jit-files.sha256 ]]; }
 JIT_CFG=.specify/extensions/jit/jit-config.yml; cp "$const" "$TMP/const.before"; cp "$JIT_CFG" "$TMP/cfg.before"
 check "when the markers are reversed, then remove refuses and changes nothing, the scaffold and config included" \
@@ -157,6 +159,18 @@ const_repo
 echo '<!-- jit:start (managed) -->' >> "$const"
 cp "$const" "$TMP/const.before"; cp "$JIT_CFG" "$TMP/cfg.before"
 check "when a second start marker follows the block, then remove refuses and changes nothing" \
+  'fails_with "damaged" "$ROOT/bin/remove.sh" . && unchanged'
+
+const_repo
+echo '<!-- jit:end -->' >> "$const"
+cp "$const" "$TMP/const.before"; cp "$JIT_CFG" "$TMP/cfg.before"
+check "when a second end marker follows the block, then remove refuses and changes nothing" \
+  'fails_with "damaged" "$ROOT/bin/remove.sh" . && unchanged'
+
+const_repo
+sed -i.bak '/^<!-- jit:start/d' "$const"; rm -f "$const.bak"
+cp "$const" "$TMP/const.before"; cp "$JIT_CFG" "$TMP/cfg.before"
+check "when only an end marker is left, then remove refuses and changes nothing" \
   'fails_with "damaged" "$ROOT/bin/remove.sh" . && unchanged'
 
 exit "$FAIL"

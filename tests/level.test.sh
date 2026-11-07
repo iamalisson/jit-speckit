@@ -75,6 +75,12 @@ check "when the markers are reversed, then it refuses before anything changes, t
 { cat "$TMP/const.bak"; echo '<!-- jit:start (managed) -->'; } > .specify/memory/constitution.md; cp .specify/memory/constitution.md "$TMP/const.two"
 check "when a second start marker follows the block, then it refuses before anything changes" \
   'fails_with "damaged" "$l" lite && cmp -s "$TMP/const.two" .specify/memory/constitution.md && cmp -s "$TMP/cfg.bak" "$JIT_CFG"'
+{ cat "$TMP/const.bak"; echo '<!-- jit:end -->'; } > .specify/memory/constitution.md; cp .specify/memory/constitution.md "$TMP/const.two"
+check "when a second end marker follows the block, then it refuses before anything changes" \
+  'fails_with "damaged" "$l" lite && cmp -s "$TMP/const.two" .specify/memory/constitution.md && cmp -s "$TMP/cfg.bak" "$JIT_CFG"'
+sed '/^<!-- jit:start/d' "$TMP/const.bak" > .specify/memory/constitution.md; cp .specify/memory/constitution.md "$TMP/const.two"
+check "when only an end marker is left, then it refuses before anything changes" \
+  'fails_with "damaged" "$l" lite && cmp -s "$TMP/const.two" .specify/memory/constitution.md && cmp -s "$TMP/cfg.bak" "$JIT_CFG"'
 cp "$TMP/const.bak" .specify/memory/constitution.md
 printf 'The marker is written <!-- jit:start like this.\nkeep me\n' >> .specify/memory/constitution.md
 check "when a mid-line marker follows the block, then it is plain text and stays" \
