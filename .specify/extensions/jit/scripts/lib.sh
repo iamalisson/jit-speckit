@@ -66,6 +66,7 @@ TEST_PATH_RE='(^|/)([Tt]ests?|__tests__|spec|e2e|cypress)/|(^|/)[^/]*\.[Tt]ests?
 
 # The skip markers of an added line, matched case-folded: review.sh's gate check and pr.sh's "new
 # tests need no explanation" rule. No `|| true` or `exit` here: new tests use both.
+# shellcheck disable=SC2034  # read by the scripts that source this file
 TEST_SKIP_RE='\.only\(|\.skip\(|xfail|@disabled|@ignore|t\.skip\(|pytest\.mark\.skip'
 
 # The repository's default branch: origin/HEAD when set, otherwise whichever of main/master
