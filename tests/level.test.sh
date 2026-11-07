@@ -180,6 +180,15 @@ check "when packageManager is Yarn 1, then CI keeps the cache and the frozen ins
   'grep -q "cache: yarn" $ci_yml && grep -q "yarn install --frozen-lockfile" $ci_yml && ! grep -q corepack $ci_yml'
 
 ci_repo
+printf '{"scripts":{"test":"x"}}\n' > package.json
+"$l" standard --no-branches >/dev/null
+check "when a project has no lockfile, then setup-node gets no cache, which would fail the first run" \
+  '! grep -q "cache:" $ci_yml && grep -q "run: npm install" $ci_yml'
+: > package-lock.json; rm $ci_yml
+"$l" standard --no-branches >/dev/null
+check "when it has a lockfile, then the cache is kept" 'grep -q "cache: npm" $ci_yml && grep -q "run: npm ci" $ci_yml'
+
+ci_repo
 mkdir -p .specify/memory; cp "$ROOT/preset/templates/constitution-template.md" .specify/memory/constitution.md
 printf '{"scripts":{"test":"x"}}\n' > package.json
 for none in none None N/A -; do

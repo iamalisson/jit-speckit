@@ -228,7 +228,9 @@ ci_yaml() {
         if [[ "$pm" == yarn ]] && grep -qE '"packageManager" *: *"yarn@([2-9]|[1-9][0-9])' package.json; then
           printf '      - run: npm install -g corepack && corepack enable\n      - run: yarn install --immutable\n'
         else
-          printf '          cache: %s\n' "$pm"
+          # setup-node's cache step fails the run when the lockfile it hashes is missing.
+          lock=package-lock.json; case "$pm" in pnpm) lock=pnpm-lock.yaml ;; yarn) lock=yarn.lock ;; esac
+          if [[ -f "$lock" ]]; then printf '          cache: %s\n' "$pm"; fi
           case "$pm" in pnpm) printf '      - run: pnpm install --frozen-lockfile\n' ;;
                         yarn) printf '      - run: yarn install --frozen-lockfile\n' ;;
                         npm) if [[ -f package-lock.json ]]; then printf '      - run: npm ci\n'; else printf '      - run: npm install\n'; fi ;; esac
