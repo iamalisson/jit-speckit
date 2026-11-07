@@ -67,6 +67,12 @@ check "when tasks.md is not on the base yet, then it refuses and says to merge t
 git reset --quiet --hard HEAD~1
 echo '{ "feature_directory": "specs/001-demo" }' > .specify/feature.json
 
+printf '%s\n' '- [ ] T008 Converge thing in `v` — #88' >> specs/001-demo/tasks.md
+git add specs; git commit --quiet -m wip
+check "when tasks.md is on the base without the task's line, then it refuses before the claim push" \
+  'fails_with "merge the spec PR first" "$b" T008 && ! git ls-remote --exit-code --heads origin "feat/001-t008-*" && [[ "$(git branch --show-current)" == main ]]'
+git switch --quiet main; git reset --quiet --hard HEAD~1
+
 sed -i.bak 's/^level: .*/level: full/' .specify/extensions/jit/jit-config.yml
 check "when the level is full and analysis did not run, then it refuses" \
   'fails_with "speckit-analyze" "$b" T001'

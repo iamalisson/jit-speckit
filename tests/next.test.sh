@@ -122,6 +122,66 @@ check "when no task of the feature has an issue, then no issue-state query is ma
   ': > "$GH_LOG"; out="$("$n" 003)"; grep -q "^no-issue T001" <<<"$out" && ! grep -q "^api graphql" "$GH_LOG"'
 rm -rf specs/003-bare; echo '{ "feature_directory": "specs/001-demo" }' > .specify/feature.json
 
+# T015: origin is fetched first, and a parallel line needs its task on the base, with its issue.
+git checkout --quiet -- specs; closed; open_prs
+behind="$(git rev-parse origin/develop)"
+commit_tasks "$tasks3"'
+- [ ] T007 [P] Seventh in `g` — #10'
+git update-ref refs/remotes/origin/develop "$behind"
+check "when origin/develop here is behind origin, then a printed parallel line starts the task" \
+  'line="$("$n" | grep "^parallel T007 ")"; cmd="${line#parallel T007 (}"; cmd="${cmd%)}"; (eval "${cmd//bash .specify\/extensions\/jit\/scripts/bash $SCRIPTS}") && git ls-remote --exit-code --heads origin feat/001-t007-seventh'
+git worktree remove --force "$top-001-t007" 2>/dev/null || true
+git branch --quiet -D feat/001-t007-seventh 2>/dev/null || true
+git push --quiet origin --delete feat/001-t007-seventh 2>/dev/null || true
+
+url="$(git remote get-url origin)"; git remote set-url origin "$TMP/gone.git"
+check "when the fetch fails, then next warns and still answers" \
+  'out="$("$n" 2>"$TMP/err")"; grep -q "warning: could not fetch origin" "$TMP/err" && [[ "$(tail -1 <<<"$out")" == *"NEXT=T001"* ]]'
+git remote set-url origin "$url"
+
+# A first spec PR: the feature exists only on its spec branch.
+git switch --quiet -c spec/002-new
+mkdir -p specs/002-new; printf '%s\n' '- [ ] T001 [P] New in `n` — #40' '- [ ] T002 [P] Newer in `o` — #41' > specs/002-new/tasks.md
+git add specs; git commit --quiet -m "docs: 002"
+check "when a first spec PR is open, then its unmerged tasks get no parallel line" \
+  'out="$("$n" 002)"; [[ "$out" == *"NEXT=T001"* ]] && ! grep -q "^parallel " <<<"$out"'
+check "then starting NEXT refuses and pushes no branch" \
+  'fails_with "merge the spec PR first" "$SCRIPTS/branch.sh" 002 T001 && ! git ls-remote --exit-code --heads origin "feat/002-*"'
+git switch --quiet main; git branch --quiet -D spec/002-new; echo '{ "feature_directory": "specs/001-demo" }' > .specify/feature.json
+
+# A converge spec PR on a base that has tasks.md: its new tasks, and an issue added to a task the base has without one.
+commit_tasks "$tasks3"'
+- [ ] T007 [P] Seventh in `g` — #10
+- [ ] T011 [P] Eleventh in `k`'
+closed 1 3
+git switch --quiet -c spec/001-converge
+sed -i.bak 's/^\(- \[ \] T011 .*\)$/\1 — #21/' specs/001-demo/tasks.md
+printf '%s\n' '- [ ] T009 [P] Ninth in `i` — #20' '- [ ] T010 [P] Tenth in `j` — #22' >> specs/001-demo/tasks.md
+git add specs; git commit --quiet -m "docs: converge"
+check "when a converge spec PR is open, then a merged task keeps its parallel line and the unmerged ones get none" \
+  'out="$("$n")"; grep -q "^parallel T007 " <<<"$out" && ! grep -qE "^parallel (T009|T010) " <<<"$out"'
+check "then a task whose line on the base has no issue gets no parallel line" \
+  'out="$("$n")"; grep -q "^open T011 #21" <<<"$out" && ! grep -q "^parallel T011 " <<<"$out"'
+closed 1 2 3 10 21
+check "then starting NEXT refuses and pushes no branch" \
+  '[[ "$("$n" | tail -1)" == *"NEXT=T009" ]] && fails_with "merge the spec PR first" "$SCRIPTS/branch.sh" 001 T009 && ! git ls-remote --exit-code --heads origin "feat/001-t009-*"'
+git switch --quiet main; git branch --quiet -D spec/001-converge
+
+# A named feature beats the task branch: FEATURE= carries it to the start.
+closed 1 2 3 10
+mkdir -p specs/002-reports; printf '%s\n' '- [ ] T001 Report in `r` — #30' > specs/002-reports/tasks.md
+git add specs; git commit --quiet -m "docs: 002"; git push --quiet origin main; git push --quiet origin main:develop
+active="$(cat .specify/feature.json)"
+check "when one other feature is startable, then next serves it, prints FEATURE= and leaves feature.json alone" \
+  'out="$("$n")"; grep -qx "FEATURE=002" <<<"$out" && [[ "$(tail -1 <<<"$out")" == *"NEXT=T001" ]] && [[ "$(cat .specify/feature.json)" == "$active" ]]'
+git switch --quiet -c feat/001-t001-first-in-a
+check "when next 002 runs on a 001 task branch, then its FEATURE= and NEXT= start 002's task" \
+  'out="$("$n" 002)"; "$SCRIPTS/branch.sh" "$(sed -n "s/^FEATURE=//p" <<<"$out")" "${out##*NEXT=}" && [[ "$(git branch --show-current)" == feat/002-t001-report ]]'
+git switch --quiet main; git branch --quiet -D feat/001-t001-first-in-a feat/002-t001-report; git push --quiet origin --delete feat/002-t001-report
+check "then the next skill starts <FEATURE> <NEXT> and makes the feature active before suggesting issues" \
+  'grep -qF "Run \`/speckit-implement <FEATURE> <NEXT>\`" "$ROOT/skills/next/SKILL.md" && grep -qF "next.sh <FEATURE>\` first" "$ROOT/skills/next/SKILL.md"'
+rm -rf specs/002-reports; echo '{ "feature_directory": "specs/001-demo" }' > .specify/feature.json
+
 mkdir -p "$TMP/mono/apps/web/.specify" && git -C "$TMP/mono" init --quiet
 check "when spec-kit lives in a subfolder of the repo, then scripts refuse instead of writing into the parent" \
   '(cd "$TMP/mono/apps/web" && fails_with "a subfolder of the repository" "$SCRIPTS/next.sh") && [[ ! -e "$TMP/mono/.specify" ]]'
