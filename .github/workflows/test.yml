@@ -25,6 +25,8 @@ jobs:
       - name: Validate the Claude Code plugin manifest
         run: python3 -c "import json; [json.load(open(f)) for f in ('.claude-plugin/plugin.json', '.claude-plugin/marketplace.json', 'hooks/hooks.json')]"
       - name: Tests
+        env:
+          REQUIRE_SPECIFY: "1"
         run: |
           git config --global user.email ci@example.com
           git config --global user.name ci

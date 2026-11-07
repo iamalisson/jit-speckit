@@ -10,6 +10,27 @@ harness="$(FAIL=0; check "a failing first step" 'false; true'; check "an exit in
 check "the test harness fails a check whose first step fails (not only its last)" 'grep -q "^FAIL - a failing first step" <<<"$harness"'
 check "an exit inside a check ends only that check, never the test file" 'grep -q "^still running$" <<<"$harness"'
 
+# The runner: exit codes alone would miss a FAIL line in a file that lost its last line.
+mkdir -p "$TMP/suite"; cp tests/run.sh "$TMP/suite/run.sh"
+suite() { printf '%b' "$1" > "$TMP/suite/a.test.sh"; bash "$TMP/suite/run.sh"; }
+check "when a test file passes and ends in its exit line, then run.sh passes" 'suite "FAIL=0\nexit \"\$FAIL\"\n"'
+check "when a test file prints a FAIL line and still exits 0, then run.sh fails" '! suite "FAIL=0\necho \"FAIL - x\"\nexit \"\$FAIL\"\n"'
+check "when a test file loses its last line, then run.sh fails and names it" 'fails_with "a.test.sh" suite "FAIL=0\necho fine\n"'
+
+# The real spec-kit job cannot skip setup.test.sh's second half.
+check "when the Linux job runs the tests, then it sets REQUIRE_SPECIFY" \
+  'sed -n "/^  linux:/,/^  bash32:/p" .github/workflows/test.yml | grep -q "REQUIRE_SPECIFY: \"1\""'
+no_scanners; rm -f "$TMP/none/specify"
+check "when REQUIRE_SPECIFY is set and specify is missing, then setup.test.sh fails" \
+  'PATH="$TMP/none" REQUIRE_SPECIFY=1 fails_with "REQUIRE_SPECIFY" bash tests/setup.test.sh'
+check "when it is not set, then setup.test.sh skips the rest and says so" \
+  'PATH="$TMP/none" bash tests/setup.test.sh | grep -q "^skip - the rest needs the specify CLI"'
+
+# The Bash guard stays registered. The bash 3.2 job has no python3: there, the entry is read with sed.
+check "when hooks.json is read, then it runs guard-git.sh on the Bash tool with onFailure block" \
+  'if ! command -v python3 >/dev/null; then e="$(sed -n "/\"matcher\": *\"Bash\"/,/^      }/p" hooks/hooks.json)"; [[ "$e" == *guard-git.sh* && "$e" == *"\"onFailure\": \"block\""* ]]; exit; fi
+  python3 -c "import json,sys; h=[e for e in json.load(open(sys.argv[1]))[\"hooks\"][\"PreToolUse\"] if \"guard-git.sh\" in e[\"hooks\"][0][\"command\"]]; sys.exit(0 if h[0][\"matcher\"]==\"Bash\" and h[0][\"hooks\"][0][\"onFailure\"]==\"block\" else 1)" hooks/hooks.json'
+
 workflows="$(find .github/workflows extension/scaffold -name '*.yml' -path '*workflows*')"
 
 check "every action in every workflow is pinned to a full commit SHA" \

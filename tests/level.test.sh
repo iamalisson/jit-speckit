@@ -249,6 +249,17 @@ check "when core.hooksPath reaches .husky, then it says added, with no not-activ
 printf 'const t = "%s";\n' "$tok" > app.js; git add app.js
 check "then a real commit through the active husky hook is refused by the check" 'fails_with "app.js:1: possible GitHub token" git commit -m token'
 
+# The checks through git itself: a hook replaced by `exit 0` turns these red.
+hook_repo
+"$l" lite --no-branches >/dev/null
+printf 'const t = "%s";\n' "$tok" > app.js; git add app.js
+head_before="$(git rev-parse HEAD)"
+check "when level.sh set the hooks, then a real git commit of a sample token is refused" \
+  'fails_with "app.js:1: possible GitHub token" git commit -m token && [[ "$(git rev-parse HEAD)" == "$head_before" ]]'
+git switch --quiet -c feat/token; git commit --quiet --no-verify -m token
+check "then a real git push of that commit to origin is refused" \
+  'fails_with "app.js:1: possible GitHub token" git push origin feat/token && [[ -z "$(git ls-remote --heads origin feat/token)" ]]'
+
 # ── CI from the constitution's commands, managed files, existing PR gates ──
 rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"
 new_repo standard
