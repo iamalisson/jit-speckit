@@ -62,10 +62,20 @@ rm -rf Dockerfile services terraform
 check "when going up to full, then staging is created on origin" 'git ls-remote --exit-code origin staging'
 check "then SECURITY.md, CODEOWNERS and the release workflow exist" '[[ -f SECURITY.md && -f .github/CODEOWNERS && -f .github/workflows/release.yml ]]'
 
-cp .specify/memory/constitution.md "$TMP/const.bak"
+cp .specify/memory/constitution.md "$TMP/const.bak"; JIT_CFG=.specify/extensions/jit/jit-config.yml
 sed -i.bak '/<!-- jit:end -->/d' .specify/memory/constitution.md; echo "my own principle" >> .specify/memory/constitution.md
 check "when the jit:end marker is missing, then it refuses and keeps the user's text" \
   'fails_with "no '"'"'<!-- jit:end -->'"'"'" "$l" lite && grep -q "my own principle" .specify/memory/constitution.md'
+cp "$TMP/const.bak" .specify/memory/constitution.md
+
+awk '/^<!-- jit:end -->/ { next } /^<!-- jit:start/ { print "<!-- jit:end -->" } { print }' .specify/memory/constitution.md > "$TMP/const.rev"
+echo '<!-- jit:start (managed) -->' >> "$TMP/const.rev"; cp "$TMP/const.rev" .specify/memory/constitution.md; cp "$JIT_CFG" "$TMP/cfg.bak"
+check "when the markers are reversed, then it refuses before anything changes, the level included" \
+  'fails_with "damaged" "$l" lite && cmp -s "$TMP/const.rev" .specify/memory/constitution.md && cmp -s "$TMP/cfg.bak" "$JIT_CFG"'
+cp "$TMP/const.bak" .specify/memory/constitution.md
+printf 'The marker is written <!-- jit:start like this.\nkeep me\n' >> .specify/memory/constitution.md
+check "when a mid-line marker follows the block, then it is plain text and stays" \
+  '"$l" full >/dev/null && grep -q "keep me" .specify/memory/constitution.md && grep -q "written <!-- jit:start" .specify/memory/constitution.md'
 cp "$TMP/const.bak" .specify/memory/constitution.md
 
 out="$("$l" lite)"

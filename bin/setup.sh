@@ -71,7 +71,7 @@ fi
 
 # A fresh project still has spec-kit's blank constitution; start from ours instead.
 const=.specify/memory/constitution.md
-if [[ ! -s "$const" ]] || grep -q '\[PRINCIPLE_1_NAME\]' "$const"; then
+if [[ ! -s "$const" ]] || cmp -s "$const" .specify/templates/constitution-template.md; then
   mkdir -p "$(dirname "$const")"
   cp "$here/preset/templates/constitution-template.md" "$const"
   echo "constitution: started from the jit template"

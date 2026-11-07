@@ -20,7 +20,8 @@ check "when an untracked managed file differs from its recorded SHA-256, then it
   '[[ -f .github/dependabot.yml ]] && grep -qxF "kept (edited): .github/dependabot.yml" <<<"$out"'
 check "when a managed file is unchanged, then it is still removed" \
   '[[ ! -e .github/workflows/ci.yml ]] && grep -qxF "removed: .github/workflows/ci.yml" <<<"$out"'
-check "then the written-file record is removed too" '[[ ! -e .specify/jit-files.sha256 ]]'
+check "then the record names only the kept files, and says so" \
+  '[[ "$(awk "{ print \$2 }" .specify/jit-files.sha256 | sort | tr "\n" " ")" == ".github/dependabot.yml .github/workflows/security.yml " ]] && grep -q "^kept: .specify/jit-files.sha256" <<<"$out"'
 
 # A project set up before the record existed: only a tracked, unchanged marked file is removed.
 rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"
@@ -34,5 +35,87 @@ check "when there is no record, then a tracked unchanged marked file is removed 
   '[[ ! -e .github/workflows/security.yml && -f .github/dependabot.yml ]] && grep -qxF "kept (edited): .github/dependabot.yml" <<<"$out"'
 check "when there is no record and a tracked marked file is edited and not committed, then it is kept and prints kept (edited)" \
   '[[ -f .github/workflows/ci.yml ]] && grep -qxF "kept (edited): .github/workflows/ci.yml" <<<"$out"'
+
+# A second run must not delete what the first kept, once the edit is committed.
+rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"
+new_repo standard
+"$SCRIPTS/level.sh" standard --no-branches >/dev/null
+echo "# my step" >> .github/workflows/security.yml
+git add .github/workflows/security.yml; git commit --quiet -m "my step"
+rm_out >/dev/null
+out="$(rm_out)"
+check "when remove runs twice, then the file the first run kept is kept again, its edit committed in between" \
+  '[[ -f .github/workflows/security.yml ]] && grep -qxF "kept (edited): .github/workflows/security.yml" <<<"$out"'
+
+# Nothing kept: nothing of jit's stays behind, a deleted file's line included.
+rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"
+new_repo standard
+"$SCRIPTS/level.sh" standard --no-branches >/dev/null
+rm .github/dependabot.yml
+rm_out >/dev/null
+check "when nothing is kept, then no record remains, even with a line for a file the user deleted" '[[ ! -e .specify/jit-files.sha256 ]]'
+
+# CODEOWNERS and SECURITY.md carry no marker: the record decides, or their shape when there is none.
+full_repo() { rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"; new_repo full; "$SCRIPTS/level.sh" full --no-branches >/dev/null; }
+full_repo
+sed -i.bak '2s/.*/* @acme\/platform-team/' .github/CODEOWNERS; echo "my policy" >> SECURITY.md; rm -f .github/CODEOWNERS.bak
+out="$(rm_out)"
+check "when CODEOWNERS and SECURITY.md are edited and the record names them, then both are kept and named" \
+  'grep -q "acme" .github/CODEOWNERS && grep -q "my policy" SECURITY.md && grep -qxF "kept (edited): .github/CODEOWNERS" <<<"$out" && grep -qxF "kept (edited): SECURITY.md" <<<"$out"'
+
+full_repo
+sed -i.bak '2s/.*/* @acme\/platform-team/' .github/CODEOWNERS; echo "my policy" >> SECURITY.md; rm -f .github/CODEOWNERS.bak
+rm -f .specify/jit-files.sha256
+out="$(rm_out)"
+check "when they are edited and no record exists (set up before 1.8.0), then both are kept and named" \
+  'grep -q "acme" .github/CODEOWNERS && grep -q "my policy" SECURITY.md && grep -qxF "kept (edited): .github/CODEOWNERS" <<<"$out" && grep -qxF "kept (edited): SECURITY.md" <<<"$out"'
+
+full_repo
+rm -f .specify/jit-files.sha256
+out="$(rm_out)"
+check "when CODEOWNERS is untouched and no record exists, then it is still removed" '[[ ! -e .github/CODEOWNERS ]] && grep -qxF "removed: .github/CODEOWNERS" <<<"$out"'
+
+rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"
+new_repo lite
+mkdir -p .claude; printf '{ "mine": true }\n' > .claude/settings.json
+"$SCRIPTS/level.sh" lite --no-branches >/dev/null
+out="$(rm_out)"
+check "when the user's own .claude/settings.json was there first, then it is kept and not called edited" \
+  'grep -q mine .claude/settings.json && ! grep -q "kept (edited): .claude/settings.json" <<<"$out"'
+
+# A hook kept because it was edited still calls scripts that are gone: say so.
+rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"
+new_repo lite
+"$SCRIPTS/level.sh" lite --no-branches >/dev/null
+echo "# my line" >> .githooks/pre-commit
+out="$(rm_out)"
+check "when a git hook is kept, then one line says it still calls jit's scripts and how to stop that" \
+  '[[ -f .githooks/pre-commit ]] && grep -q "^kept: .githooks still calls jit.s scripts" <<<"$out"'
+
+# The constitution: only an untouched template is deleted, and markers are read at line start.
+const=.specify/memory/constitution.md
+const_repo() { rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"; new_repo lite; mkdir -p .specify/memory; cp "$ROOT/preset/templates/constitution-template.md" "$const"; "$SCRIPTS/level.sh" lite --no-branches >/dev/null; }
+const_repo
+out="$(rm_out)"
+check "when the constitution is jit's untouched template, then remove deletes it" '[[ ! -e "$const" ]] && grep -q "never filled in" <<<"$out"'
+
+const_repo
+sed -i.bak 's/^## Project$/## Project\n\nmy real text/' "$const"; rm -f "$const.bak"
+rm_out >/dev/null
+check "when it is filled in but keeps the title placeholder, then remove keeps the text and strips the block" \
+  'grep -q "my real text" "$const" && ! grep -q "^<!-- jit:start" "$const"'
+
+const_repo
+printf 'The marker is written <!-- jit:start like this.\n\n## After\nkeep me\n' >> "$const"
+sed -i.bak '1s/.*/# App Constitution/' "$const"; rm -f "$const.bak"
+rm_out >/dev/null
+check "when a valid block is followed by a mid-line marker, then everything after the block stays" \
+  'grep -q "keep me" "$const" && grep -q "written <!-- jit:start" "$const" && ! grep -q "^<!-- jit:start" "$const"'
+
+const_repo
+awk '/^<!-- jit:end -->/ { next } /^<!-- jit:start/ { print "<!-- jit:end -->" } { print }' "$const" > "$const.tmp"; mv "$const.tmp" "$const"
+echo '<!-- jit:start (managed) -->' >> "$const"; cp "$const" "$TMP/const.before"
+check "when the markers are reversed, then remove refuses and changes nothing, the scaffold included" \
+  'fails_with "damaged" "$ROOT/bin/remove.sh" . && cmp -s "$const" "$TMP/const.before" && [[ -f .githooks/pre-commit && -f .specify/jit-files.sha256 ]]'
 
 exit "$FAIL"

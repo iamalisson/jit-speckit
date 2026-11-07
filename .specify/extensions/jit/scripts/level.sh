@@ -19,9 +19,7 @@ jit_cd_root
 # Never guess where a damaged block ends: replacing from jit:start to EOF would delete the user's
 # text. Checked first, before anything is changed.
 const=".specify/memory/constitution.md"
-if [[ -f "$const" ]] && grep -q '<!-- jit:start' "$const" && ! grep -q '<!-- jit:end -->' "$const"; then
-  die "$const has '<!-- jit:start' but no '<!-- jit:end -->'; restore the end marker, then run again"
-fi
+constitution_markers "$const"
 
 previous="$(cfg level none)"
 cfg_set level "$level"
@@ -106,8 +104,8 @@ block+="<!-- jit:end -->"
 const=".specify/memory/constitution.md"
 mkdir -p "$(dirname "$const")"; touch "$const"
 B="$block" awk '
-  /<!-- jit:start/ { print ENVIRON["B"]; skip = 1; done = 1; next }
-  /<!-- jit:end -->/ { skip = 0; next }
+  /^<!-- jit:start/ { print ENVIRON["B"]; skip = 1; done = 1; next }
+  /^<!-- jit:end -->/ { skip = 0; next }
   skip { next }
   !done && /^## Governance/ { print ENVIRON["B"]; print ""; done = 1 }
   { print }
