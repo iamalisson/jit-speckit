@@ -53,6 +53,9 @@ if $branches; then
           # nothing new (and nothing unscanned) leaves the machine.
           git push --quiet --no-verify origin "refs/remotes/origin/$(default_branch):refs/heads/$b"
           echo "branch: created origin/$b from origin/$(default_branch)"
+          if [[ "$b" == "$(base_branch)" ]]; then
+            echo "branch: task branches start from $b, which has no jit files yet: open its PR with --base $b ($(default_branch) gets it at the next promotion)"
+          fi
         else
           echo "branch: origin/$b not created yet ($(default_branch) isn't on origin); push $(default_branch) first, then run /jit-speckit:level again"
         fi
@@ -168,6 +171,27 @@ pr_gate() {
   done
   return 0
 }
+# pr_branches <workflow>: the patterns of on.pull_request.branches, one per line; none = every branch.
+# shortcut: branches-ignore and a one-line `pull_request: {branches: [...]}` are not read, so those workflows get no warning; read them when a repo needs it
+pr_branches() {
+  awk '
+    /^[[:space:]]*(#|$)/ { next }
+    { sub(/[[:space:]]+#.*/, ""); match($0, /^ */); i = RLENGTH }
+    !pr { if (/^ *pull_request:/) { pr = 1; top = i }; next }
+    i <= top { exit }
+    list && i >= key && /^ *- / { sub(/^ *- */, ""); print; next }
+    { list = 0 }
+    /^ *branches:/ { key = i; sub(/^ *branches: */, ""); if ($0 == "") list = 1; gsub(/[][]/, ""); gsub(/, */, "\n"); if ($0 != "") print }
+  ' "$1" | tr -d "\"' "
+}
+pr_skips_base() { # pr_skips_base <workflow>: its pull_request filter has no pattern for the base branch
+  local p b list; b="$(base_branch)"; list="$(pr_branches "$1")"
+  [[ -n "$list" ]] || return 1
+  while IFS= read -r p; do
+    # shellcheck disable=SC2053  # the pattern is a glob on purpose
+    if [[ "$b" == $p ]]; then return 1; fi
+  done <<<"$list"
+}
 run_steps() { local v; for v in "$@"; do if [[ -n "$v" ]]; then printf '      - run: %s\n' "$v"; fi; done; }
 
 branch_list() { # the long-lived branches workflows run on
@@ -191,13 +215,26 @@ ci_yaml() {
         run_steps "${lint_c:-cargo fmt --all -- --check && cargo clippy --all-targets -- -D warnings}" "${test_c:-cargo test --all}" "$build_c" ;;
       node:*) pm="${s#node:}"
         printf '  node:\n    runs-on: ubuntu-latest\n    steps:\n'; checkout_step
-        if [[ "$pm" == pnpm ]]; then printf '      - uses: %s\n' "$PIN_PNPM"; fi
+        if [[ "$pm" == pnpm ]]; then
+          printf '      - uses: %s\n' "$PIN_PNPM"
+          # The action fails with no version at all, and refuses one next to a pnpm packageManager field.
+          if ! grep -qE '"packageManager" *: *"pnpm@' package.json; then printf '        with:\n          version: latest\n'; fi
+        fi
         # The project's pinned Node, else the current LTS (never a hard-coded major that goes EOL).
         nv="node-version: lts/*"; for f in .node-version .nvmrc; do if [[ -f $f ]]; then nv="node-version-file: $f"; break; fi; done
-        printf '      - uses: %s\n        with:\n          %s\n          cache: %s\n' "$PIN_SETUP_NODE" "$nv" "$pm"
-        case "$pm" in pnpm) printf '      - run: pnpm install --frozen-lockfile\n' ;;
-                      yarn) printf '      - run: yarn install --frozen-lockfile\n' ;;
-                      npm) if [[ -f package-lock.json ]]; then printf '      - run: npm ci\n'; else printf '      - run: npm install\n'; fi ;; esac
+        printf '      - uses: %s\n        with:\n          %s\n' "$PIN_SETUP_NODE" "$nv"
+        # Yarn 2+: setup-node's cache step runs the runner's Yarn 1, which refuses the project, and
+        # current Node ships no corepack.
+        if [[ "$pm" == yarn ]] && grep -qE '"packageManager" *: *"yarn@([2-9]|[1-9][0-9])' package.json; then
+          printf '      - run: npm install -g corepack && corepack enable\n      - run: yarn install --immutable\n'
+        else
+          # setup-node's cache step fails the run when the lockfile it hashes is missing.
+          lock=package-lock.json; case "$pm" in pnpm) lock=pnpm-lock.yaml ;; yarn) lock=yarn.lock ;; esac
+          if [[ -f "$lock" ]]; then printf '          cache: %s\n' "$pm"; fi
+          case "$pm" in pnpm) printf '      - run: pnpm install --frozen-lockfile\n' ;;
+                        yarn) printf '      - run: yarn install --frozen-lockfile\n' ;;
+                        npm) if [[ -f package-lock.json ]]; then printf '      - run: npm ci\n'; else printf '      - run: npm install\n'; fi ;; esac
+        fi
         nl=""; nb=""
         for script in lint typecheck; do if grep -qE "\"$script\" *:" package.json; then nl+="$pm run $script && "; fi; done
         if grep -qE '"build" *:' package.json; then nb="$pm run build"; fi
@@ -358,7 +395,11 @@ for l in "${levels[@]}"; do
   case "$l" in
     lite) chmod +x .githooks/* ;;
     standard) gate="$(pr_gate)"
-              if [[ -n "$gate" ]]; then echo "kept:    $(tr '\n' ' ' <<<"$gate")(already checks pull requests; no ci.yml generated)"
+              if [[ -n "$gate" ]]; then
+                echo "kept:    $(tr '\n' ' ' <<<"$gate")(already checks pull requests; no ci.yml generated)"
+                while IFS= read -r w; do
+                  if pr_skips_base "$w"; then echo "warning: $w never runs on a task PR into $(base_branch): add $(base_branch) to its pull_request branches"; fi
+                done <<<"$gate"
               else ci_yaml | put .github/workflows/ci.yml generated; fi
               security_yaml | put .github/workflows/security.yml generated
               dependabot_yaml | put .github/dependabot.yml generated ;;
@@ -372,14 +413,32 @@ done
 # A repo that already runs its hooks through the pre-commit framework or husky gets jit's two
 # checks added there, so they really run instead of being left as lines to paste.
 hooks_path="$(git config --get core.hooksPath || true)"
+local_path="$(git config --local --get core.hooksPath || true)"
 pc_cfg=.pre-commit-config.yaml
 pc_hook() { # pc_hook <indent of "- "> <id> <name> <entry> <stage>
   local pad; pad="$(printf '%*s' "${#1}" '')"
   printf '%s%sid: %s\n%s%sname: %s\n%s%sentry: %s\n%s%slanguage: system\n%s%spass_filenames: false\n%s%salways_run: true\n%s%sstages: [%s]\n' \
     "$pad" "$1" "$2" "$pad" "$pad" "$3" "$pad" "$pad" "$4" "$pad" "$pad" "$pad" "$pad" "$pad" "$pad" "$pad" "$pad" "$5"
 }
-if [[ "$hooks_path" == .githooks ]]; then
-  echo "git hooks: enabled (.githooks)"
+hook_calls() { grep -qsE "^[^#]*$2" "$1"; } # hook_calls <file> <regex>: outside a comment
+# Where git really runs hooks from says "enabled" only when both files run; else what to add.
+hook_status() { # hook_status [<what is wrong>]
+  local dir; dir="$(git rev-parse --git-path hooks)"
+  if [[ -x "$dir/pre-commit" && -x "$dir/pre-push" ]] && hook_calls "$dir/pre-commit" 'secrets\.sh' && hook_calls "$dir/pre-push" 'prepush\.sh'; then
+    echo "git hooks: enabled ($dir: secret check on commit, secret + branch check on push)"
+  else
+    echo "git hooks: ${1:-this repo already has its own} ($dir); add these lines to it:"
+    echo "  pre-commit: bash .specify/extensions/jit/scripts/secrets.sh staged"
+    echo "  pre-push:   bash .specify/extensions/jit/scripts/prepush.sh \"\$@\""
+  fi
+}
+husky_add() { # husky_add <file> <regex> <line>
+  hook_calls "$1" "$2" && return
+  [[ ! -s "$1" || -z "$(tail -c1 "$1")" ]] || echo >> "$1"
+  echo "$3" >> "$1"
+}
+if [[ "$local_path" == .githooks ]]; then
+  hook_status
 elif [[ -f "$pc_cfg" ]]; then
   if grep -q 'scripts/secrets.sh' "$pc_cfg" && grep -q 'scripts/prepush.sh' "$pc_cfg"; then
     echo "git hooks: already in $pc_cfg"
@@ -387,27 +446,51 @@ elif [[ -f "$pc_cfg" ]]; then
     # The same list indentation as the file's own items, so the appended item stays valid YAML.
     ind="$(sed -nE 's/^( *- +)repo:.*/\1/p' "$pc_cfg" | head -1)"; [[ -n "$ind" ]] || ind="-   "
     pad="$(printf '%*s' "${#ind}" '')"
-    grep -q '^repos:' "$pc_cfg" || echo "repos:" >> "$pc_cfg"
-    { echo "${ind}repo: local"; echo "${pad}hooks:"
+    item="$(echo "${ind}repo: local"; echo "${pad}hooks:"
       grep -q 'scripts/secrets.sh' "$pc_cfg" || pc_hook "$ind" jit-secrets "jit-speckit secrets (staged)" "bash .specify/extensions/jit/scripts/secrets.sh staged" pre-commit
       grep -q 'scripts/prepush.sh' "$pc_cfg" || pc_hook "$ind" jit-prepush "jit-speckit push check (secrets in every pushed commit, protected branches)" "bash .specify/extensions/jit/scripts/prepush.sh" pre-push
-    } >> "$pc_cfg"
-    echo "git hooks: added to $pc_cfg (pre-commit framework)"
+    )"
+    # After the list's last item, before any top-level key and the comments above it: at the end
+    # of the file, a key such as ci: would leave the item outside the list.
+    { cat "$pc_cfg"; grep -q '^repos:' "$pc_cfg" || printf '\nrepos:\n'; } | B="$item" awk '
+      repos && /^[^[:space:]#-]/ { print ENVIRON["B"]; repos = 0 }
+      repos && /^[[:space:]]*(#|$)/ { held = held $0 "\n"; next }
+      { printf "%s", held; held = ""; print }
+      /^repos:/ { repos = 1 }
+      END { if (repos) print ENVIRON["B"]; printf "%s", held }
+    ' > "$pc_cfg.tmp"
+    # A list written inline (repos: []) takes no item below it.
+    if grep -qE '^repos:[[:space:]]*[^[:space:]#]' "$pc_cfg" || { command -v pre-commit >/dev/null && ! pre-commit validate-config "$pc_cfg.tmp" >/dev/null 2>&1; }; then
+      rm -f "$pc_cfg.tmp"
+      echo "git hooks: $pc_cfg would not stay valid, so it was left as it is; add these lines to it:"
+      echo "$item"
+    else
+      mv "$pc_cfg.tmp" "$pc_cfg"
+      echo "git hooks: added to $pc_cfg (pre-commit framework)"
+    fi
   fi
   [[ -f "$(git rev-parse --git-path hooks)/pre-push" ]] \
     || echo "git hooks: not active in this clone yet; run: pre-commit install --hook-type pre-commit --hook-type pre-push"
 elif [[ -d .husky ]]; then
   # husky runs these files as shell scripts, so git's arguments and stdin reach prepush.sh.
-  grep -qs 'scripts/secrets.sh' .husky/pre-commit || echo 'bash .specify/extensions/jit/scripts/secrets.sh staged' >> .husky/pre-commit
-  grep -qs 'scripts/prepush.sh' .husky/pre-push || echo 'bash .specify/extensions/jit/scripts/prepush.sh "$@"' >> .husky/pre-push
+  husky_add .husky/pre-commit 'scripts/secrets\.sh' 'bash .specify/extensions/jit/scripts/secrets.sh staged'
+  husky_add .husky/pre-push 'scripts/prepush\.sh' 'bash .specify/extensions/jit/scripts/prepush.sh "$@"'
+  chmod +x .husky/pre-commit .husky/pre-push
   echo "git hooks: added to .husky/pre-commit and .husky/pre-push"
-elif [[ -z "$hooks_path" ]]; then
-  git config core.hooksPath .githooks
-  echo "git hooks: enabled (.githooks: secret check on commit, secret + branch check on push)"
+  # Compared as real paths: husky 9 uses .husky/_, older ones .husky, and either can be absolute.
+  real_hooks="$(cd "$(git rev-parse --git-path hooks)" 2>/dev/null && pwd -P || true)"
+  case "$real_hooks/" in
+    "$(cd .husky && pwd -P)"/*) ;;
+    *) echo "git hooks: not active in this clone yet; run: npx husky (or: git config core.hooksPath .husky)" ;;
+  esac
+elif [[ -n "$hooks_path" && -z "$local_path" ]]; then
+  echo "git hooks: core.hooksPath is machine-wide ($hooks_path), so it stays in charge here"
+  hook_status "those hooks do not run jit's checks"
+elif [[ -n "$hooks_path" || -n "$(find "$(git rev-parse --git-path hooks)" -mindepth 1 -maxdepth 1 ! -type d ! -name '*.sample' 2>/dev/null)" ]]; then
+  hook_status
 else
-  echo "git hooks: this repo already has its own ($hooks_path); add these lines to it:"
-  echo "  pre-commit: bash .specify/extensions/jit/scripts/secrets.sh staged"
-  echo "  pre-push:   bash .specify/extensions/jit/scripts/prepush.sh \"\$@\""
+  git config core.hooksPath .githooks
+  hook_status
 fi
 
 if [[ "$previous" == full && "$level" != full ]] || [[ "$previous" == standard && "$level" == lite ]]; then

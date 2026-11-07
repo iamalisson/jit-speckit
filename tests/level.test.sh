@@ -156,6 +156,81 @@ check "when the default branch isn't on origin yet, then setup pushes nothing an
   'out="$("$l" standard 2>&1)" && grep -q "origin/develop not created yet" <<<"$out" && [[ -z "$(git ls-remote --heads origin)" ]]'
 
 
+# ── Generated CI on its first run ──
+ci_repo() { rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"; new_repo lite; }
+ci_yml=.github/workflows/ci.yml
+ci_repo
+printf '{"scripts":{"test":"x"}}\n' > package.json; : > pnpm-lock.yaml
+"$l" standard --no-branches >/dev/null
+check "when a pnpm project has no packageManager field, then CI gives pnpm/action-setup a version" \
+  'grep -A2 "pnpm/action-setup@" $ci_yml | grep -q "^          version: latest$"'
+printf '{"packageManager" : "pnpm@9.0.0","scripts":{"test":"x"}}\n' > package.json; rm $ci_yml
+"$l" standard --no-branches >/dev/null
+check "when packageManager names pnpm, then CI gives no version (the action refuses two)" \
+  'grep -q "pnpm/action-setup@" $ci_yml && ! grep -q "version: latest" $ci_yml'
+
+ci_repo
+printf '{"packageManager":"yarn@4.5.0","scripts":{"test":"x"}}\n' > package.json; : > yarn.lock
+"$l" standard --no-branches >/dev/null
+check "when packageManager is Yarn 2+, then setup-node has no cache (it would run the runner's Yarn 1) and corepack comes before the install" \
+  '! grep -q "cache:" $ci_yml && [[ "$(grep -A1 -F "npm install -g corepack && corepack enable" $ci_yml | tail -1)" == "      - run: yarn install --immutable" ]] && ! grep -q "frozen-lockfile" $ci_yml'
+printf '{"packageManager":"yarn@1.22.22","scripts":{"test":"x"}}\n' > package.json; rm $ci_yml
+"$l" standard --no-branches >/dev/null
+check "when packageManager is Yarn 1, then CI keeps the cache and the frozen install, with no corepack" \
+  'grep -q "cache: yarn" $ci_yml && grep -q "yarn install --frozen-lockfile" $ci_yml && ! grep -q corepack $ci_yml'
+
+ci_repo
+printf '{"scripts":{"test":"x"}}\n' > package.json
+"$l" standard --no-branches >/dev/null
+check "when a project has no lockfile, then setup-node gets no cache, which would fail the first run" \
+  '! grep -q "cache:" $ci_yml && grep -q "run: npm install" $ci_yml'
+: > package-lock.json; rm $ci_yml
+"$l" standard --no-branches >/dev/null
+check "when it has a lockfile, then the cache is kept" 'grep -q "cache: npm" $ci_yml && grep -q "run: npm ci" $ci_yml'
+
+ci_repo
+mkdir -p .specify/memory; cp "$ROOT/preset/templates/constitution-template.md" .specify/memory/constitution.md
+printf '{"scripts":{"test":"x"}}\n' > package.json
+for none in none None N/A -; do
+  sed -i.bak -E "s#^\*\*Commands\*\*.*#**Commands**: build \`$none\` · test \`make check\` · lint \`$none\` · mutate \`$none\`#" .specify/memory/constitution.md
+  rm -f $ci_yml; "$l" standard --no-branches >/dev/null
+  check "when the Commands line says build \`$none\`, then it is unset: no such step in CI and no such mutate command" \
+    '! grep -qF -- "run: $none" $ci_yml && grep -q "run: make check" $ci_yml && (source "$SCRIPTS/lib.sh"; [[ -z "$(constitution_cmd mutate)" ]])'
+done
+
+# A kept workflow filtered to other branches never runs on a task PR.
+gate_repo() { # gate_repo <the workflow's on: block> [<level>]
+  rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"; new_repo lite; mkdir -p .github/workflows
+  printf 'name: Tests\non:\n%b\njobs:\n  t:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo branches\n' "$1" > .github/workflows/tests.yml
+  out="$("$l" "${2:-standard}" --no-branches)"
+}
+says_skipped='warning: .github/workflows/tests.yml never runs on a task PR into develop'
+gate_repo '  pull_request:\n    branches: [master]'
+check "when kept CI is filtered to master (inline list), then it names the workflow and the branch to add" \
+  'grep -qF "$says_skipped" <<<"$out" && grep -qF "add develop to its pull_request branches" <<<"$out" && [[ ! -f .github/workflows/ci.yml ]]'
+gate_repo "  push:\n    branches: [develop]\n  pull_request:\n    branches:\n      - main # release\n      - 'release/**'\n  schedule:\n    - cron: '1 1 * * 1'"
+check "when kept CI is filtered to main (block list, with a develop filter under push), then it says so too" \
+  'grep -qF "$says_skipped" <<<"$out"'
+gate_repo '  pull_request:\n    branches:\n    - main' full
+check "when the list sits at the key's own indent, at full, then it says so too" 'grep -qF "$says_skipped" <<<"$out"'
+gate_repo '  pull_request:\n    branches: [main, develop]'
+check "when the filter lists the base branch, then nothing is said" '! grep -q "^warning:" <<<"$out"'
+gate_repo "  pull_request:\n    branches: ['dev*']"
+check "when a glob in the filter matches the base branch, then nothing is said" '! grep -q "^warning:" <<<"$out"'
+gate_repo '  pull_request:\n  push:\n    branches: [main]'
+check "when pull_request has no filter, then a push filter does not count and nothing is said" '! grep -q "^warning:" <<<"$out"'
+gate_repo '  pull_request:\n    branches: [main]'; set_cfg base_branch main
+check "when base_branch names the branch in the filter, then nothing is said" 'out="$("$l" standard --no-branches)"; ! grep -q "^warning:" <<<"$out"'
+
+# Task branches start from the base branch, so that is where the setup has to land.
+rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"; new_repo lite
+git push --quiet origin --delete develop; git fetch --quiet --prune origin
+out="$("$l" full)"
+check "when level.sh creates the base branch, then it says the setup goes there and the default branch gets it at the next promotion" \
+  'git ls-remote --exit-code origin develop && grep -qF "open its PR with --base develop" <<<"$out" && grep -qF "main gets it at the next promotion" <<<"$out"'
+check "then it says so once, for the base branch and not for staging" '[[ "$(grep -c -- "--base" <<<"$out")" == 1 ]]'
+check "when the branch already exists, then it says nothing" '! "$l" full | grep -q -- "--base"'
+
 # ── Hooks in repos that already use the pre-commit framework or husky ──
 rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"
 new_repo lite
@@ -172,7 +247,7 @@ if python3 -c "import yaml" 2>/dev/null; then
 else
   echo "skip - pre-commit config YAML check (python3 with PyYAML not available here)"
 fi
-printf 'repos:\n-   repo: local\n    hooks:\n    -   id: jit-secrets\n        entry: bash .specify/extensions/jit/scripts/secrets.sh staged\n        language: system\n' > .pre-commit-config.yaml
+printf 'repos:\n-   repo: local\n    hooks:\n    -   id: jit-secrets\n        name: secrets\n        entry: bash .specify/extensions/jit/scripts/secrets.sh staged\n        language: system\n' > .pre-commit-config.yaml
 "$l" lite --no-branches >/dev/null
 check "when only the commit hook was added by hand (4-space style), then only the push hook is appended, in that style" \
   '[[ "$(grep -c "scripts/secrets.sh" .pre-commit-config.yaml)" == 1 ]] && grep -q "^    -   id: jit-prepush$" .pre-commit-config.yaml && grep -q "^        entry: bash .specify/extensions/jit/scripts/prepush.sh$" .pre-commit-config.yaml'
@@ -180,6 +255,121 @@ rm .pre-commit-config.yaml; mkdir -p .husky; echo "npm test" > .husky/pre-commit
 "$l" lite --no-branches >/dev/null
 check "when the repo uses husky, then the checks are appended to its hook files and the existing line is kept" \
   '[[ "$(head -1 .husky/pre-commit)" == "npm test" ]] && grep -q "secrets.sh staged" .husky/pre-commit && grep -qF "prepush.sh \"\$@\"" .husky/pre-push && [[ -z "$(git config core.hooksPath)" ]]'
+
+# A top-level key after repos: must stay after jit's item, or the file stops parsing.
+pc_valid() { # the repos list has the two jit hooks, and every key the file had is still at the top level
+  ! python3 -c "import yaml" 2>/dev/null || python3 -c "
+import yaml,sys
+d=yaml.safe_load(open('.pre-commit-config.yaml'))
+ids=[h['id'] for r in d['repos'] if r['repo']=='local' for h in r['hooks']]
+sys.exit(0 if ids==['jit-secrets','jit-prepush'] and set(d)>=set(sys.argv[1:]) else 1)" "$@"
+}
+before_key() { awk -v k="$1" '/repo: local$/ { r = NR } index($0, k) == 1 { c = NR } END { exit !(r && c && r < c) }' .pre-commit-config.yaml; }
+pc_repo() { rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"; new_repo lite; printf "$1" > .pre-commit-config.yaml; }
+pc_repo 'repos:\n  - repo: https://github.com/x/y\n    rev: v1\n    hooks:\n      - id: a\n\n# pre-commit.ci\nci:\n  autofix_prs: false\n'
+"$l" lite --no-branches >/dev/null
+check "when a top-level key follows repos:, then jit's item goes in the list, before that key and its comment" \
+  'before_key "ci:" && before_key "# pre-commit.ci" && pc_valid ci repos'
+pc_repo 'default_stages: [pre-commit]\nrepos:\n- repo: https://github.com/x/y\n  rev: v1\n  hooks:\n  - id: a\nexclude: ^vendor/\nfail_fast: true\n'
+"$l" lite --no-branches >/dev/null
+check "when the list items sit at column 0, then they stay in the list and jit's item joins them before the next key" \
+  'before_key "exclude:" && [[ "$(grep "^- repo:" .pre-commit-config.yaml | tail -1)" == "- repo: local" ]] && pc_valid default_stages exclude fail_fast repos'
+pc_repo 'repos:\n  - repo: https://github.com/x/y\n    rev: v1\n    hooks:\n      - id: a'
+"$l" lite --no-branches >/dev/null
+check "when the file has no newline at its end, then the last line stays whole" \
+  'grep -qx "      - id: a" .pre-commit-config.yaml && grep -q "^  - repo: local$" .pre-commit-config.yaml && pc_valid repos'
+pc_repo 'exclude: ^vendor/'
+"$l" lite --no-branches >/dev/null
+check "when the file has no repos: key, then it gains one holding jit's item" 'grep -qx "repos:" .pre-commit-config.yaml && pc_valid exclude repos'
+pc_repo 'repos:\n  - repo: https://github.com/x/y\n    rev: v1\n    hooks:\n      - id: a\n'; cp .pre-commit-config.yaml "$TMP/pc.orig"
+mkdir -p "$TMP/pc-bad"; printf '#!/bin/sh\nexit 1\n' > "$TMP/pc-bad/pre-commit"; chmod +x "$TMP/pc-bad/pre-commit"
+out="$(PATH="$TMP/pc-bad:$PATH" "$l" lite --no-branches)"
+check "when pre-commit refuses the result, then the file stays as it was and it gives the lines to add, not a success" \
+  'cmp -s "$TMP/pc.orig" .pre-commit-config.yaml && [[ ! -e .pre-commit-config.yaml.tmp ]] && grep -qF "add these lines to it" <<<"$out" && grep -qF "id: jit-secrets" <<<"$out" && ! grep -q "added to .pre-commit-config" <<<"$out"'
+pc_repo 'repos: []\n'; cp .pre-commit-config.yaml "$TMP/pc.orig"
+printf '#!/bin/sh\nexit 0\n' > "$TMP/pc-bad/pre-commit"
+out="$(PATH="$TMP/pc-bad:$PATH" "$l" lite --no-branches)"
+check "when the list is written inline, then the file stays as it was even with a pre-commit that would pass it" \
+  'cmp -s "$TMP/pc.orig" .pre-commit-config.yaml && grep -qF "add these lines to it" <<<"$out"'
+
+# ── What the hook lines say: the checks run, or they are not claimed to ──
+hook_repo() { rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"; new_repo lite; }
+tok="ghp_$(printf 'a%.0s' {1..36})" # built here, so this file holds no token
+add_lines="add these lines to it"
+
+hook_repo
+mkdir .githooks; printf '#!/bin/sh\n# run secrets.sh here one day\n' > .githooks/pre-commit
+git config core.hooksPath .githooks
+out="$("$l" lite --no-branches)"
+check "when an own .githooks/pre-commit does not call secrets.sh, then it prints the add-these-lines message and not enabled" \
+  'grep -q "(.githooks); $add_lines" <<<"$out" && ! grep -q "enabled" <<<"$out"'
+hook_repo
+mkdir .githooks; printf '#!/bin/sh\necho mine\n' > .githooks/pre-push
+out="$("$l" lite --no-branches)"
+check "when an own .githooks/pre-push does not call prepush.sh, on a first run too, then it prints the same message and not enabled" \
+  'grep -q "(.githooks); $add_lines" <<<"$out" && ! grep -q "enabled" <<<"$out"'
+
+hook_repo
+touch .git/hooks/pre-commit.sample
+out="$("$l" lite --no-branches)"
+check "when .git/hooks holds only samples, then .githooks is enabled and says so" \
+  '[[ "$(git config core.hooksPath)" == .githooks ]] && grep -q "^git hooks: enabled (.githooks" <<<"$out"'
+hook_repo
+printf '#!/bin/sh\necho mine\n' > .git/hooks/pre-commit; chmod +x .git/hooks/pre-commit
+out="$("$l" lite --no-branches)"
+check "when .git/hooks already has hooks, then core.hooksPath is not set and the message names .git/hooks, not enabled" \
+  '[[ -z "$(git config core.hooksPath)" ]] && grep -q "(.git/hooks); $add_lines" <<<"$out" && ! grep -q "enabled" <<<"$out"'
+printf '#!/bin/sh\nbash .specify/extensions/jit/scripts/secrets.sh staged\n' > .git/hooks/pre-commit
+printf '#!/bin/sh\nbash .specify/extensions/jit/scripts/prepush.sh "$@"\n' > .git/hooks/pre-push
+out="$("$l" lite --no-branches)"
+check "when a .git/hooks file calling the check is not executable, then it is not called enabled" \
+  'grep -q "(.git/hooks); $add_lines" <<<"$out" && ! grep -q "enabled" <<<"$out"'
+chmod +x .git/hooks/pre-push; out="$("$l" lite --no-branches)"
+check "when the lines were added there, then it says so instead of asking again" \
+  '[[ -z "$(git config core.hooksPath)" ]] && grep -q "^git hooks: enabled (.git/hooks" <<<"$out" && ! grep -q "$add_lines" <<<"$out"'
+
+hook_repo
+mkdir -p "$TMP/home" "$TMP/wide"
+printf '#!/bin/sh\ntouch "%s/wide-ran"\n' "$TMP" > "$TMP/wide/pre-commit"; chmod +x "$TMP/wide/pre-commit"
+git config --file "$TMP/home/.gitconfig" core.hooksPath "$TMP/wide"
+wide() { HOME="$TMP/home" XDG_CONFIG_HOME="$TMP/home" "$@"; }
+out="$(wide "$l" lite --no-branches)"
+check "when core.hooksPath is machine-wide, then it says so, not that it is the repo's own, and not enabled" \
+  'grep -q "machine-wide" <<<"$out" && grep -q "$add_lines" <<<"$out" && ! grep -q "this repo already has its own" <<<"$out" && ! grep -q "enabled" <<<"$out"'
+check "then no repo setting takes over and a real commit still runs the machine-wide hook" \
+  '[[ -z "$(git config --local --get core.hooksPath)" ]] && git add -A && wide git commit --quiet --allow-empty -m wide && [[ -f "$TMP/wide-ran" ]]'
+
+hook_repo
+mkdir .husky; printf 'true' > .husky/pre-commit
+out="$("$l" lite --no-branches)"
+check "when a husky file ends without a newline, then the check starts on its own line" \
+  '[[ "$(sed -n 1p .husky/pre-commit)" == true && "$(sed -n 2p .husky/pre-commit)" == "bash .specify/extensions/jit/scripts/secrets.sh staged" ]]'
+check "then both husky files are executable" '[[ -x .husky/pre-commit && -x .husky/pre-push ]]'
+check "when core.hooksPath does not reach .husky, then it prints not active in this clone yet and not enabled" \
+  'grep -q "not active in this clone yet" <<<"$out" && ! grep -q "enabled" <<<"$out"'
+git config core.hooksPath .husky/_
+check "when core.hooksPath names a .husky folder that does not exist, then it is not active either" \
+  '"$l" lite --no-branches | grep -q "not active in this clone yet"'
+git config --unset core.hooksPath
+check "when a machine-wide core.hooksPath is in charge, then husky is not active either" \
+  'wide "$l" lite --no-branches | grep -q "not active in this clone yet"'
+git config core.hooksPath .husky
+out="$("$l" lite --no-branches)"
+check "when core.hooksPath reaches .husky, then it says added, with no not-active line, and appends nothing twice" \
+  'grep -q "^git hooks: added to .husky" <<<"$out" && ! grep -q "not active" <<<"$out" && [[ "$(grep -c "secrets.sh" .husky/pre-commit)" == 1 ]]'
+printf 'const t = "%s";\n' "$tok" > app.js; git add app.js
+check "then a real commit through the active husky hook is refused by the check" 'fails_with "app.js:1: possible GitHub token" git commit -m token'
+
+# The checks through git itself: a hook replaced by `exit 0` turns these red.
+hook_repo
+"$l" lite --no-branches >/dev/null
+printf 'const t = "%s";\n' "$tok" > app.js; git add app.js
+head_before="$(git rev-parse HEAD)"
+check "when level.sh set the hooks, then a real git commit of a sample token is refused" \
+  'fails_with "app.js:1: possible GitHub token" git commit -m token && [[ "$(git rev-parse HEAD)" == "$head_before" ]]'
+git switch --quiet -c feat/token; git commit --quiet --no-verify -m token
+check "then a real git push of that commit to origin is refused" \
+  'fails_with "app.js:1: possible GitHub token" git push origin feat/token && [[ -z "$(git ls-remote --heads origin feat/token)" ]]'
 
 # ── CI from the constitution's commands, managed files, existing PR gates ──
 rm -rf "$TMP/repo" "$TMP/origin.git"; cd "$TMP"

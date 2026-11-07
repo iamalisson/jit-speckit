@@ -17,7 +17,8 @@ Inside a Claude Code session, the same line with a `!` in front runs it there. T
 `/jit-speckit:init` once**: each project keeps its own copy of the extension (hooks, scripts,
 review method, scaffold) under `.specify/`, and only `init` refreshes it. It keeps the project's
 level and touches nothing else. Skip it and the project keeps running the old version, whatever
-the plugin says.
+the plugin says. Its commit goes to the base branch (`develop` on standard and full, through the
+PR `init` offers), because that is where task branches start.
 
 From 1.8.0 on, `init` refuses to take a project back to an older version (`this plugin copy is
 <plugin>, the project is at <project>; run /reload-plugins (or setup.sh --downgrade)`), for
@@ -57,7 +58,8 @@ limits, a health check, tests at three levels). It follows three short files:
 Your stack (Rust, Node with npm/pnpm/yarn, Python with uv/pip, Go) is detected and shapes the CI
 and the constitution; the constitution's **Commands** line, once `/jit-speckit:adopt` fills it,
 is what the generated CI runs. A repo whose workflows already check pull requests gets no second
-CI. Your files are never overwritten: the ones jit-speckit generates carry a
+CI; one whose `pull_request` filter leaves out the base branch is named
+("never runs on a task PR"), so you can add that branch. Your files are never overwritten: the ones jit-speckit generates carry a
 `# jit-speckit: managed file` first line and are re-created on `/jit-speckit:level`; delete that
 line to make one yours. Repos that run hooks through the pre-commit framework or husky get jit's
 two checks added there.

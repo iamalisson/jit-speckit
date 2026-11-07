@@ -77,4 +77,25 @@ printf '%s\n' '- [ ] T008 Brand new summary in `n`' >> specs/001-demo/tasks.md; 
 check "when an open issue has the same [NNN] Tnnn: prefix but another summary, then a new issue is created" \
   'out="$("$i")"; [[ "$(grep -c "^issue create" "$GH_LOG")" == "$((creates + 1))" ]] && ! grep -q "#$((lost + 50))" specs/001-demo/tasks.md && grep -q "T008 Brand new summary in \`n\` — #[0-9]*$" specs/001-demo/tasks.md'
 
+# gh picks upstream, then github, before origin, while every push goes to origin.
+slug_of() { (git remote set-url origin "$1"; source "$SCRIPTS/lib.sh"; origin_slug); }
+check "when origin is on github.com, then its owner/name is read from any URL form, dots in the name kept" \
+  '[[ "$(slug_of git@github.com:acme/app.git)" == acme/app && "$(slug_of https://github.com/acme/my.app.git)" == acme/my.app && "$(slug_of https://github.com/acme/my.app)" == acme/my.app && "$(slug_of ssh://git@github.com/acme/app.git)" == acme/app ]]'
+check "when origin is elsewhere, then nothing is read" \
+  '[[ -z "$(slug_of https://gitlab.com/acme/app.git)" && -z "$(slug_of https://notgithub.com/acme/app.git)" && -z "$(slug_of /tmp/origin.git)" ]]'
+keep_url="$(git remote get-url origin)"
+git remote add upstream https://github.com/their/template.git
+git remote set-url origin git@github.com:acme/app.git
+printf -- '- [ ] T100 Land on origin in `o`\n' >> specs/001-demo/tasks.md; plan_reviewed
+rm -f "$GH_LOG.repo"; "$i" >/dev/null
+check "when another remote exists, then every gh call of issues.sh goes to origin's repository" \
+  'grep -q "^acme/app label create" "$GH_LOG.repo" && grep -q "^acme/app issue create" "$GH_LOG.repo" && grep -q "^acme/app issue list" "$GH_LOG.repo" && grep -q "^acme/app issue edit" "$GH_LOG.repo" && ! grep -qv "^acme/app " "$GH_LOG.repo"'
+printf -- '- [ ] T101 Stay where the user said in `o`\n' >> specs/001-demo/tasks.md; plan_reviewed
+rm -f "$GH_LOG.repo"; GH_REPO=mine/own "$i" >/dev/null
+check "when the user set GH_REPO, then it stays" 'grep -q "^mine/own issue create" "$GH_LOG.repo" && ! grep -q "^acme/app " "$GH_LOG.repo"'
+mkdir -p "$TMP/gh-up"; printf '#!/bin/sh\necho their/template\n' > "$TMP/gh-up/gh"; chmod +x "$TMP/gh-up/gh"
+check "then repo_slug names origin too, whatever gh repo view says" \
+  '[[ "$(PATH="$TMP/gh-up:$PATH"; source "$SCRIPTS/lib.sh"; repo_slug)" == acme/app ]]'
+git remote remove upstream; git remote set-url origin "$keep_url"
+
 exit "$FAIL"

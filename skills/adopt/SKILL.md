@@ -18,6 +18,7 @@ description: "Adopt jit-speckit in an existing codebase: read the repo and fill 
    - `[PROJECT_NAME]`, `[PROJECT_PURPOSE]` (one paragraph);
    - `[STACK]`, with versions from the manifests;
    - `[BUILD_COMMAND]` / `[TEST_COMMAND]` / `[LINT_COMMAND]`: the commands that really work here;
+     when the project has no such step (no build, say), leave its placeholder, so CI does not run it;
    - `[MUTATE_COMMAND]`: the project's mutation-testing tool (cargo-mutants, mutmut, StrykerJS,
      gremlins; see `references.yaml`), scoped to the change where the tool allows it through
      `$JIT_DIFF_FILE` (a diff against the base) or `$JIT_CHANGED_FILES` (changed sources, space

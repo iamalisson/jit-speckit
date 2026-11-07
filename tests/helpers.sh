@@ -1,5 +1,6 @@
 # Test helpers: a throwaway repo with a local bare "origin" and a fake `gh` on PATH.
 # shellcheck shell=bash disable=SC2034  # SCRIPTS and FAIL are used by the test files
+unset GH_REPO # pr.sh exports it for gh; a test starts from none, as a fresh shell does
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -39,6 +40,7 @@ fake_gh() {
   cat > "$TMP/bin/gh" <<'EOF'
 #!/usr/bin/env bash
 echo "$*" >> "$GH_LOG"
+echo "${GH_REPO:-(unset)} $1 $2" >> "$GH_LOG.repo"
 case "$1 $2" in
   "api graphql") # next.sh's issue-state query: prints, as its --jq does, the asked numbers in $GH_CLOSED
                  if [[ -n "${GH_FAIL_GRAPHQL:-}" ]]; then echo "gh: Could not resolve to an Issue with the number of $GH_FAIL_GRAPHQL." >&2; exit 1; fi

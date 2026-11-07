@@ -10,6 +10,27 @@ harness="$(FAIL=0; check "a failing first step" 'false; true'; check "an exit in
 check "the test harness fails a check whose first step fails (not only its last)" 'grep -q "^FAIL - a failing first step" <<<"$harness"'
 check "an exit inside a check ends only that check, never the test file" 'grep -q "^still running$" <<<"$harness"'
 
+# The runner: exit codes alone would miss a FAIL line in a file that lost its last line.
+mkdir -p "$TMP/suite"; cp tests/run.sh "$TMP/suite/run.sh"
+suite() { printf '%b' "$1" > "$TMP/suite/a.test.sh"; bash "$TMP/suite/run.sh"; }
+check "when a test file passes and ends in its exit line, then run.sh passes" 'suite "FAIL=0\nexit \"\$FAIL\"\n"'
+check "when a test file prints a FAIL line and still exits 0, then run.sh fails" '! suite "FAIL=0\necho \"FAIL - x\"\nexit \"\$FAIL\"\n"'
+check "when a test file loses its last line, then run.sh fails and names it" 'fails_with "a.test.sh" suite "FAIL=0\necho fine\n"'
+
+# The real spec-kit job cannot skip setup.test.sh's second half.
+check "when the Linux job runs the tests, then it sets REQUIRE_SPECIFY" \
+  'grep -q "REQUIRE_SPECIFY: \"1\"" <<<"$(sed -n "/^  linux:/,/^  bash32:/p" .github/workflows/test.yml)"'
+no_scanners; rm -f "$TMP/none/specify"
+check "when REQUIRE_SPECIFY is set and specify is missing, then setup.test.sh fails" \
+  'PATH="$TMP/none" REQUIRE_SPECIFY=1 fails_with "REQUIRE_SPECIFY" bash tests/setup.test.sh'
+check "when it is not set, then setup.test.sh skips the rest and says so" \
+  'PATH="$TMP/none" REQUIRE_SPECIFY= bash tests/setup.test.sh | grep -q "^skip - the rest needs the specify CLI"'
+
+# The Bash guard stays registered. The bash 3.2 job has no python3: there, the entry is read with sed.
+check "when hooks.json is read, then it runs guard-git.sh on the Bash tool with onFailure block" \
+  'if ! command -v python3 >/dev/null; then e="$(sed -n "/\"matcher\": *\"Bash\"/,/^      }/p" hooks/hooks.json)"; [[ "$e" == *guard-git.sh* && "$e" == *"\"onFailure\": \"block\""* ]]; exit; fi
+  python3 -c "import json,sys; h=[e for e in json.load(open(sys.argv[1]))[\"hooks\"][\"PreToolUse\"] if \"guard-git.sh\" in e[\"hooks\"][0][\"command\"]]; sys.exit(0 if h[0][\"matcher\"]==\"Bash\" and h[0][\"hooks\"][0][\"onFailure\"]==\"block\" else 1)" hooks/hooks.json'
+
 workflows="$(find .github/workflows extension/scaffold -name '*.yml' -path '*workflows*')"
 
 check "every action in every workflow is pinned to a full commit SHA" \
@@ -122,6 +143,37 @@ check "then for a PUBLIC repo it offers secret scanning with push protection and
   'grep -q "PUBLIC" <<<"$init_gh" && grep -q "secret_scanning_push_protection" <<<"$init_gh" && grep -q "private-vulnerability-reporting" <<<"$init_gh" && grep -q "^5\. \*\*Branch protection\*\* (standard and full)" skills/init/SKILL.md'
 check "when the docs are read, then the README CI row names (standard and full), the security doc says lite has no CI gate, and the design doc ties the one-revert promise to one commit per task PR" \
   'grep -E "^\| \*\*every PR, and weekly\*\* \|" README.md | grep -qF "(standard and full)" && grep -q "On lite there is no CI gate" docs/security.md && sed -n "/^## One task = one issue/,/^## /p" docs/design.md | grep -q "one commit per task PR"'
+
+# Generated CI's first run: required jobs must have a way out, and a new advisory must not stop unrelated PRs.
+init_bp="$(sed -n '/^5\. \*\*Branch protection\*\*/,/^6\. /p' skills/init/SKILL.md)"
+check "when init's step 5 is read, then protection waits for green checks, and running init again offers it" \
+  'tr "\n" " " <<<"$init_bp" | grep -qE "Offer it only once .*green" && grep -qF "gh run list --branch <base branch>" <<<"$init_bp" && tr "\n" " " <<<"$init_bp" | grep -qF "/jit-speckit:init\` again"'
+check "then the osv-scanner job is left out of the required checks, and the security doc says so" \
+  'tr "\n" " " <<<"$init_bp" | grep -qE "Leave +\`Dependencies \(osv-scanner\)\` +out" && grep -qF "OSV-Scanner is not a required check" docs/security.md'
+gate_doc="$(sed -n '/^## When a gate is red/,/^## /p' docs/security.md)"
+check "when the security doc is read, then it says how to accept what each gate already finds" \
+  'for f in .gitleaksignore osv-scanner.toml zizmor.yml .trivyignore .semgrepignore; do grep -qF "\`$f\`" <<<"$gate_doc"; done'
+check "then the constitution template and adopt say to keep the placeholder when there is no such step" \
+  'grep -q "keep its \[PLACEHOLDER\]" preset/templates/constitution-template.md && grep -q "leave its placeholder" skills/adopt/SKILL.md'
+
+check "when init's summary is read, then it repeats a warning that a kept workflow never runs on task PRs, and the reference names it" \
+  'grep -qF "never runs on a task PR" <<<"$(sed -n "/^7\. Summarize/,/^8\. /p" skills/init/SKILL.md)" && grep -qF "never runs on a task PR" docs/reference.md'
+
+# The setup commit has to reach the base branch: task branches start there, and scripts read the level from the tree.
+init_commit="$(sed -n '/^8\. \*\*Offer to commit it/,$p' skills/init/SKILL.md)"
+check "when init's step 8 is read, then the setup branch starts from origin/<base> and the PR names that base, on yes and on no" \
+  'grep -qF "git switch -c <branch> origin/<base>" <<<"$init_commit" && grep -qF "gh pr create --base <base>" <<<"$init_commit" && tr "\n" " " <<<"$init_commit" | grep -qE "On no: .*into +\`<base>\`" && grep -q "next promotion" <<<"$init_commit"'
+check "when the level skill is read, then a level change goes to the base branch too" \
+  'grep -qF "gh pr create --base <base branch>" skills/level/SKILL.md'
+check "when the docs are read, then the README Start and the reference Update say the setup goes to the base branch" \
+  'grep -q "base branch" <<<"$(sed -n "/^## Start/,/^## The loop/p" README.md)" && grep -q "base branch" <<<"$(sed -n "/^## Update/,/^## What/p" docs/reference.md)"'
+
+# A new project needs a GitHub repo before the foundation spec, and develop after its first push.
+new_jit="$(sed -n '/^7\. \*\*Set up jit-speckit/,$p' skills/new/SKILL.md)"
+check "when new's steps 7 and 8 are read, then it offers gh repo create before setup, and the next step is commit, push and level, before the spec" \
+  'tr "\n" " " <<<"$new_jit" | grep -qE "gh repo create .*--source \. --remote origin.*bin/setup\.sh" && tr "\n" " " <<<"$new_jit" | grep -qE "commit the setup.*git push -u origin.*/jit-speckit:level <level>.*/speckit-specify"'
+check "when init's step 1 is read, then it checks for a GitHub repository and offers to create one" \
+  'grep -qE "gh repo view.*gh repo create .*--source \. --remote origin" <<<"$(sed -n "/^1\. \*\*Tools/,/^2\. /p" skills/init/SKILL.md | tr "\n" " ")"'
 
 # review.sh record compares against the merge-base with origin's base (lib.sh base_ref): the prompt names the same one.
 check "the review prompt takes the range's start from origin/<base>, as review.sh record does" \

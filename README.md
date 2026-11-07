@@ -65,7 +65,8 @@ each project keeps its own copy of the extension under `.specify/`, and only `in
 
 `init` asks one question: how serious the project is (**lite**, **standard** or **full**, see
 [Levels](#levels)). It changes nothing in your code and commits nothing; you review the setup and
-commit it. What `new` asks and sets up: [docs/reference.md](docs/reference.md#what-new-does).
+commit it to the base branch (`develop` on standard and full; `init` offers that PR), because task
+branches start there. What `new` asks and sets up: [docs/reference.md](docs/reference.md#what-new-does).
 
 ## The loop
 
