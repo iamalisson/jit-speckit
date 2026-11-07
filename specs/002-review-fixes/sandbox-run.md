@@ -247,3 +247,17 @@ run created is left open.
 - **O4.** On full, `pr.sh spec` opens the spec PR before an analysis is recorded; `branch.sh`
   enforces it at task start, and the docs only ask the agent to wait.
 - **O5.** `issues.sh` cuts a title at its first comma (`… the package version,`).
+
+## Second pass: two real steps on #72's head (T009)
+
+Run on 2026-11-07 against the same sandbox, with the scripts of `21e3888`, in fresh clones. The tests
+fake these two steps, so they were repeated for real. Mutation and the scanners recorded `missing`
+there, and the review report was marked as a sandbox run.
+
+| Task | What ran | Result |
+|---|---|---|
+| T018 | `pr.sh task T001` opened sandbox PR #26; a second run with a changed body file printed `PR body replaced from …; edits made on GitHub are gone`, and `gh pr view 26` showed the new text with `Closes #25` and the review block carried over | holds |
+| T015 | in a clone behind origin, `next.sh 097` printed `parallel T003 …`, a task only origin's base had, and the clone's `origin/<base>` moved to origin's commit | holds; no run with the fetch disabled was made |
+
+Afterwards: PR #26 and issues #25, #27 and #28 closed, the throwaway branches deleted, and nothing
+changed on `develop` or `master`.
