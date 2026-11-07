@@ -22,8 +22,10 @@ argument-hint: "[feature]"
    - **resume** is a task whose branch you started in this clone; it is picked first.
    - **in-progress** tasks are being done elsewhere (a branch on origin, another worktree, an
      open PR) and are never picked; they finish when their PR merges.
-   - **parallel**: an open `[P]` task that can start now in its own worktree, beside NEXT.
-   - If tasks have **no issue**, say so and suggest `/speckit-jit-issues`.
+   - **parallel**: an open `[P]` task that can start now in its own worktree, beside NEXT. A task
+     of an unmerged spec PR has no such line, and starting it refuses until that PR merges.
+   - If tasks have **no issue**, say so, run `bash .specify/extensions/jit/scripts/next.sh <FEATURE>` first
+     (`issues.sh` takes no feature, so this makes it the active one), and suggest `/speckit-jit-issues`.
    - If `NEXT` is empty and `IN_PROGRESS` is not 0, nothing is left to start: list the open PRs
      to merge, and stop.
    - If `NEXT` is empty and `IN_PROGRESS=0`, every task's issue is closed. Before calling the feature done, suggest
@@ -41,5 +43,6 @@ argument-hint: "[feature]"
    task started, but other clones may start it too; say so. Then list, per started task: open a
    Claude Code session in the path after `--detach` and run `/speckit-implement <feature> <id>`
    (install dependencies there first: a new worktree has no git-ignored files).
-5. Run `/speckit-implement <NEXT>`. It switches to the task's branch, implements it, runs the
+5. Run `/speckit-implement <FEATURE> <NEXT>`, with the printed `FEATURE=`, so a named feature beats
+   the current task branch. It switches to the task's branch, implements it, runs the
    pre-PR checks and opens the PR.

@@ -69,8 +69,13 @@ creates carries its number: issues `[001] T003: ...`, branches `feat/001-t003-..
 `spec/001-login`. They never collide. The **active feature** is per clone (`.specify/feature.json`,
 git-ignored): `/speckit-specify` sets it to the new feature, and `/jit-speckit:next 002` or
 `/speckit-implement 002 T001` set it explicitly. With no argument, `next` serves the active
-feature; when more than one feature has tasks to start, it lists them and asks. On a task branch
-the branch name decides, for `next` too, so a worktree never follows the main checkout. A task is
+feature; when more than one feature has tasks to start, it lists them and asks, and when only one
+does, it serves that one without changing the active feature. On a task branch the branch name
+decides, for `next` too, so a worktree never follows the main checkout. `next` prints `FEATURE=` and
+starts `/speckit-implement <FEATURE> <NEXT>`, so `next 002` on a 001 task branch starts 002's task.
+It fetches origin first (a failed fetch warns), and prints a `parallel` line only for a task whose
+line is on `origin/<base>` with its issue: a task of an unmerged spec PR, converge ones included,
+gets no line, and `branch.sh` refuses it with "merge the spec PR first" before any claim. A task is
 done when the issue number on its line is closed: `next` reads every task's issue by number in one
 query per feature, so a renamed issue still counts, and a number it cannot read stops it with
 GitHub's error. GitHub closes a PR's `Closes #N` issues only on a merge into the default branch;

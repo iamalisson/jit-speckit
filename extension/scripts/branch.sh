@@ -30,9 +30,11 @@ elif git show-ref --verify --quiet "refs/heads/$base"; then from="$base"
 else die "base branch '$base' does not exist; run /jit-speckit:level to set up the branch flow"
 fi
 
-# Task branches start from the base, so the spec has to be merged there first.
-git cat-file -e "$from:$fdir/tasks.md" 2>/dev/null \
+# Task branches start from the base, so the spec, with this task's line, has to be merged there first.
+on_base="$(git show "$from:$fdir/tasks.md" 2>/dev/null)" \
   || die "$fdir/tasks.md is not on '$base' yet; merge the spec PR first"
+grep -qE "^- \[.\] $task " <<<"$on_base" \
+  || die "$task is not in $fdir/tasks.md on '$base' yet; merge the spec PR first"
 
 if [[ "$(jit_level)" == full ]]; then
   marker="$(git rev-parse --git-common-dir)/jit-analyzed/$(basename "$fdir")"

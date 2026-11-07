@@ -6,9 +6,10 @@
 # this clone is yours to resume, and is picked first. A task whose line says "depends on T003" is
 # blocked until T003's issue is closed.
 # Prints a line per task ("done|resume|in-progress|blocked|open|no-issue Tnnn #N description"), then
-# a "parallel <Tnnn> (<command>)" line for each other open task marked [P] right after its id (the
-# command makes its worktree beside the repo and claims the task), then DONE=x/y IN_PROGRESS=n
-# NEXT=<Tnnn> (NEXT empty when nothing is left to start).
+# a "parallel <Tnnn> (<command>)" line for each other open task marked [P] right after its id whose
+# line is on origin's base branch with its issue (the command makes its worktree beside the repo
+# and claims the task), then FEATURE=<num>, then DONE=x/y IN_PROGRESS=n NEXT=<Tnnn> (NEXT empty when
+# nothing is left to start).
 # With no argument on a task branch (<prefix>/NNN-tNNN-...), it serves that branch's feature.
 # Otherwise, with several features that have tasks to start, it prints one "feature <name>
 # DONE=x/y" line each and CHOOSE=<names>; run it again with the chosen one.
@@ -19,11 +20,13 @@ source "$(dirname "$0")/lib.sh"
 jit_cd_root
 command -v gh >/dev/null || die "the GitHub CLI (gh) is required: https://cli.github.com"
 
+git fetch --quiet origin 2>/dev/null || echo "jit: warning: could not fetch origin; branches and parallel lines may be out of date" >&2
+
 # Branches, once: ours (local), checked out in some worktree, on origin, with an open PR.
 cur="$(git branch --show-current)"
 local_b=" $(git for-each-ref --format='%(refname:short)' refs/heads/ | tr '\n' ' ') "
 checked_out=" $(git worktree list --porcelain | sed -n 's#^branch refs/heads/##p' | tr '\n' ' ') "
-remote_b=" $(git ls-remote --heads origin 2>/dev/null | sed 's#.*refs/heads/##' | tr '\n' ' ') "
+remote_b=" $({ git ls-remote --heads origin 2>/dev/null || true; } | sed 's#.*refs/heads/##' | tr '\n' ' ') "
 pr_heads=" $(gh pr list --state open --limit 500 --json headRefName --jq '.[].headRefName' 2>/dev/null | tr '\n' ' ') "
 
 # scan <feature dir> <print>: one line per task when print=true; sets DONE_N TOTAL BUSY NEXT_ID PAR
@@ -87,7 +90,6 @@ else
     printf '%s' "$summary"; echo "CHOOSE=${startable[*]}"; exit 0
   elif ((${#startable[@]} == 1)); then
     fdir="specs/${startable[0]}"
-    mkdir -p .specify; printf '{ "feature_directory": "%s" }\n' "$fdir" > .specify/feature.json
   else
     fdir="$(feature_dir)"
   fi
@@ -96,10 +98,14 @@ fi
 
 scan "$fdir" true
 # Every other startable [P] task: one line that makes its worktree and claims it, run one at a time.
+# The worktree is origin's base, so a task of an unmerged spec PR has no line: it could not start.
 num="$(feature_key "$fdir")"
+on_base="$(git show "origin/$(base_branch):$fdir/tasks.md" 2>/dev/null || true)"
 for id in $PAR; do
   [[ "$id" != "$NEXT_ID" ]] || continue
+  [[ "$(task_issue "$(grep -m1 -E "^- \[.\] $id " <<<"$on_base" || true)")" == "$(task_issue "$(task_line "$fdir" "$id")")" ]] || continue
   wt="$(printf %q "$PWD-$num-$(tr '[:upper:]' '[:lower:]' <<<"$id")")"
   echo "parallel $id (git worktree add --quiet --detach $wt origin/$(base_branch) && cd $wt && bash .specify/extensions/jit/scripts/branch.sh $num $id)"
 done
+echo "FEATURE=$num"
 echo "DONE=$DONE_N/$TOTAL IN_PROGRESS=$BUSY NEXT=$NEXT_ID"
