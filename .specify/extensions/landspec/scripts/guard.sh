@@ -33,8 +33,8 @@ resolve() {
   [[ -n "$1" ]] || { echo ""; return; }
   case "$p" in
     *'$'*|*'`'*|*'*'*|*'?'*|-) echo ""; return ;;
-    '~') p="$HOME" ;;
-    '~/'*) p="$HOME/${p#\~/}" ;;
+    \~) p="$HOME" ;; # a literal ~: the command text was never expanded
+    \~/*) p="$HOME/${p#\~/}" ;;
     /*) ;;
     *) p="$1/$p" ;;
   esac
