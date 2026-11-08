@@ -5,6 +5,8 @@
 #        core.hooksPath or SKIP=, no `git add -A/--all/.`, no commit on a protected branch, no push
 #        to a protected branch (counting every branch a switch/checkout earlier in the chain may
 #        have moved to).
+# Each git command is checked against the repository it runs in: the hook's directory, moved by a
+# `cd`/`pushd` earlier in the chain or by `git -C`. A repository without landspec is not checked.
 # Best effort: it catches the usual forms (chains, env/command/VAR= prefixes, sh -c '...', git
 # global options, bundled flags), not every possible shell trick. The real boundary is CI plus
 # branch protection. People are not affected; their git hooks still apply.
@@ -16,12 +18,39 @@ export LC_ALL=C
 source "$(dirname "$0")/lib.sh"
 # A guard that cannot decide blocks: Claude Code lets the command through on exit 1.
 die() { echo "landspec guard: $*" >&2; exit 2; }
-landspec_cd_root
 
 block() { echo "landspec guard: $1" >&2; exit 2; }
-current="$(git branch --show-current 2>/dev/null || true)"
-# Every branch the chain may be on: a switch/checkout earlier in it adds the branch it moves to.
-branches=" $current "
+start="$(pwd -P)"
+# Where the next command runs; "" when a cd went somewhere it can't tell ($VAR, cd -).
+dir="$start"
+# Every branch the chain may be on in repository $btop: a switch/checkout earlier in it adds the
+# branch it moves to. Reset when a command targets another repository.
+btop="" branches=""
+
+# resolve <base> <path>: the physical directory <path> names from <base>, or "" when it can't tell.
+resolve() {
+  local p="$2"
+  [[ -n "$1" ]] || { echo ""; return; }
+  case "$p" in
+    *'$'*|*'`'*|*'*'*|*'?'*|-) echo ""; return ;;
+    \~) p="$HOME" ;; # a literal ~: the command text was never expanded
+    \~/*) p="$HOME/${p#\~/}" ;;
+    /*) ;;
+    *) p="$1/$p" ;;
+  esac
+  (cd "$p" 2>/dev/null && pwd -P) || echo ""
+}
+
+# enter_repo <dir>: cd to the top of the landspec repository a git command runs in. Fails (the
+# command is not checked) when <dir> is not in a repository or the repository has no landspec.
+enter_repo() {
+  local top
+  cd "$1" 2>/dev/null || return 1
+  top="$(git rev-parse --show-toplevel 2>/dev/null)" || return 1
+  [[ -d "$top/.specify/extensions/landspec" || -d "$top/.specify/extensions/jit" ]] || return 1 # jit: the name before 2.0.0
+  landspec_cd_root
+  if [[ "$top" != "$btop" ]]; then btop="$top"; branches=" $(git branch --show-current 2>/dev/null || true) "; fi
+}
 
 # no_verify <word>: --no-verify or any prefix of it from 3 characters (git takes unique prefixes).
 no_verify() { ((${#1} >= 3)) && [[ "--no-verify" == "$1"* ]]; }
@@ -105,17 +134,19 @@ no_hooks() { block "switching git hooks off skips the secret checks"; }
 
 # check_git <args...>: the words after `git`.
 check_git() {
-  local sub="" w
-  # Global options before the subcommand; -C and -c take a value.
+  local sub="" w gdir="${dir:-$start}"
+  # Global options before the subcommand; -C and -c take a value. Each -C moves on from the last.
   while (($#)); do
     case "$1" in
       -c|--config-env) if hookspath "${2:-}"; then no_hooks; fi; shift 2 ;;
       -c*|--config-env=*) if hookspath "$1"; then no_hooks; fi; shift ;;
-      -C|--git-dir|--work-tree|--namespace) shift 2 ;;
+      -C) gdir="$(resolve "$gdir" "${2:-}")"; [[ -n "$gdir" ]] || gdir="$start"; shift 2 ;;
+      --git-dir|--work-tree|--namespace) shift 2 ;;
       -*) shift ;;
       *) sub="$1"; shift; break ;;
     esac
   done
+  enter_repo "$gdir" || return 0
   # pre-commit's SKIP= only matters where hooks run; `SKIP=x git status` is fine.
   case "$sub" in commit|push|merge|rebase|am|cherry-pick|revert)
     if $skip_env; then block "SKIP= turns pre-commit hooks off; fix what the hook reports instead"; fi ;;
@@ -216,6 +247,10 @@ check_words() {
   done
   (($#)) || return 0
   case "$1" in
+    cd|pushd)
+      shift
+      while [[ "${1:-}" == -?* ]]; do shift; done
+      dir="$(resolve "${dir:-$start}" "${1:-~}")" ;;
     git|*/git) shift; check_git "$@" ;;
     sh|bash|zsh|*/sh|*/bash|*/zsh)
       shift

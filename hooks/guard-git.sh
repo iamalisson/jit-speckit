@@ -17,7 +17,12 @@ field() { # field <name>: a string field from the hook's JSON input
 cmd="$(field command)"
 [[ "$cmd" == *git* ]] || exit 0
 cwd="$(field cwd)"
-root="$(git -C "${cwd:-.}" rev-parse --show-toplevel 2>/dev/null)" || exit 0
-[[ -d "$root/.specify/extensions/landspec" || -d "$root/.specify/extensions/jit" ]] || exit 0 # jit: the name before 2.0.0
+cd "${cwd:-.}" 2>/dev/null || exit 0
+# Fast path: no cd/pushd/-C, so every git command runs here; nothing to check outside landspec.
+if [[ ! "$cmd" =~ (^|[^[:alnum:]_-])(cd|pushd)[[:space:]]|[[:space:]]-C[[:space:]] ]]; then
+  root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+  [[ -d "$root/.specify/extensions/landspec" || -d "$root/.specify/extensions/jit" ]] || exit 0 # jit: the name before 2.0.0
+fi
+# The guard follows cd and git -C itself, and checks each git command in its own repository.
 guard="$(cd "$(dirname "$0")/.." && pwd)/extension/scripts/guard.sh"
-cd "$root" && exec bash "$guard" "$cmd"
+exec bash "$guard" "$cmd"
