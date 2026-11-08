@@ -39,6 +39,13 @@ description: "Task list template for feature implementation"
   base branch and the later PR lands in an environment the earlier one changed. A task under
   about 30 lines joins its neighbor. A task whose diff, tests included, would pass about 400
   lines is split by behavior (a defect found per line drops sharply past that size).
+- **Every task is safe to reach production alone.** Others promote the base branch while the
+  feature is half built, so no task makes an unfinished feature visible to users. A feature with
+  more than one task that users can see ships dark: the first task that adds something visible (a
+  screen, route, menu entry, endpoint other clients call) puts it behind a flag, off by default,
+  and the **last task** turns the flag on, depending on every other task of the feature. A
+  migration stays backward compatible with the code already in production (add, never rename or
+  drop in the same release).
 - Under each task, add these sub-bullets (they become the issue body):
   - `  - Comes from: <FR-/SC-/story IDs or plan section>`
   - `  - Impact: <existing code, tests, docs, data files and guards this task must update, found by

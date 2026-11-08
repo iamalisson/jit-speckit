@@ -26,7 +26,9 @@ Design decisions, each with its reason. The what is in the [README](../README.md
 
 The cost is real: a CI run, a review round and a merge per task. It pays off when tasks are
 **vertical slices**, one observable behavior with its test, and not layers. The tasks template
-says so, and the plan review flags layer-shaped tasks before any issue exists.
+says so, and the plan review flags layer-shaped tasks before any issue exists. Since other people
+promote the base branch while a feature is half built, each task must also be safe in production
+alone: a visible feature ships behind a flag that is off by default, and its last task turns it on.
 
 ## The spec is its own PR
 
