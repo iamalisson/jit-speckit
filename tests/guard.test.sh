@@ -105,6 +105,18 @@ check "when Claude pushes with no refspec while on main, then it is blocked" 'bl
 check "when pushing HEAD or @ while on main, then it is blocked" 'blocked "git push origin HEAD" && blocked "git push origin @"'
 check "when the command is not git, then it is allowed" '"$g" "ls -la && echo done"'
 
+# Commands aimed at another repository (cd / pushd / git -C) are checked there, not here.
+mkdir -p "$TMP/other" && git -C "$TMP/other" init --quiet -b main
+cp -R "$TMP/repo" "$TMP/second" && git -C "$TMP/second" switch --quiet -c feat/001-t009-other
+check "when the commit goes to a repository without landspec through cd or -C, then it is allowed" \
+  '"$g" "cd $TMP/other && git commit -m x" && "$g" "git -C $TMP/other commit -m x" && "$g" "pushd $TMP/other && git push origin main"'
+check "when the commit goes to another landspec repository on a task branch, then it is allowed" \
+  '"$g" "cd $TMP/second && git commit -m x" && "$g" "git -C $TMP/second commit -m x" && "$g" "cd .. && cd second && git commit -m x"'
+check "when the chain moves back into this repository on main, then the commit is blocked again" \
+  'blocked "cd $TMP/other && cd $TMP/repo && git commit -m x" && blocked "git -C $TMP/other -C ../repo commit -m x"'
+check "when the cd target can not be told (a variable, cd -), then it is checked here" \
+  'blocked "cd \$X && git commit -m x" && blocked "cd - && git commit -m x"'
+
 # The plugin hook shim: JSON in, guard decision out; silent outside landspec projects.
 shim="$ROOT/hooks/guard-git.sh"
 json() { printf '{"tool_name":"Bash","cwd":"%s","tool_input":{"command":"%s"}}' "$1" "$2"; }
@@ -116,6 +128,10 @@ check "when a project still has the old jit folder, then the hook still guards i
 mkdir -p "$TMP/plain" && git -C "$TMP/plain" init --quiet
 check "when the project does not use landspec, then the hook allows everything" \
   'json "$TMP/plain" "git push origin main" | bash "$shim"'
+check "when the session is outside landspec but the command cds into a landspec repo on main, then it exits 2" \
+  'rc=0; json "$TMP/plain" "cd $TMP/repo && git commit -m x" | bash "$shim" 2>/dev/null || rc=$?; [[ $rc == 2 ]]'
+check "when the session is in a landspec repo on main but the commit targets another repo, then the hook allows it" \
+  'json "$TMP/repo" "git -C $TMP/other commit -m x" | bash "$shim"'
 
 
 mkdir -p "$TMP/plain/.specify/extensions/landspec/scripts"; echo 'exit 0' > "$TMP/plain/.specify/extensions/landspec/scripts/guard.sh"
