@@ -68,7 +68,11 @@ path (what the caller gets, the one log line, who is refused), and no task is a 
 handling", "logging" or "hardening" layer; no task deletes what another task still uses. **Shape:** a task is a vertical slice with an observable result. A
 task that is one layer of a behavior another task completes (a model here, its migration there,
 the endpoint in a third) is a finding: name the tasks to merge. So is a task whose diff would
-clearly pass about 400 lines with its tests: name the behaviors to split it by.
+clearly pass about 400 lines with its tests: name the behaviors to split it by. **Ships dark:**
+each task is safe to reach production alone; a task that makes the feature visible to users
+before its last task (a tab, route or menu entry with no flag off by default), a feature with no
+last task that turns the flag on, or a migration the production code can't run against, is a
+finding.
 
 ## Report
 
