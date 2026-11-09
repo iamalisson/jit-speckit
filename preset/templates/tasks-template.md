@@ -38,7 +38,8 @@ description: "Task list template for feature implementation"
   repository, endpoint, UI) are **one task**, never four: merged apart they leave dead code on the
   base branch and the later PR lands in an environment the earlier one changed. A task under
   about 30 lines joins its neighbor. A task whose diff, tests included, would pass about 400
-  lines is split by behavior (a defect found per line drops sharply past that size).
+  lines is split by behavior (a defect found per line drops sharply past that size). Generated
+  files, lockfiles, and markup or data copied as is from an existing file do not count.
 - **Every task is safe to reach production alone.** Others promote the base branch while the
   feature is half built, so no task makes an unfinished feature visible to users. A feature with
   more than one task that users can see ships dark: the first task that adds something visible (a
@@ -54,7 +55,11 @@ description: "Task list template for feature implementation"
 - **Ground every task in the real code, not in memory.** Before writing a task, search the repo
   for what it touches. If a task removes or renames something, list every reference to it,
   including in tests and in the other tasks. Copy a test's expected values in as literals, never
-  imported from the code under test, or the test moves with the bug. A step that writes data
+  imported from the code under test, or the test moves with the bug. Every input a task reads (a
+  file, data, a URL) is on the base branch, in the spec folder, or written in the task: a file
+  that exists only untracked in your tree is missing for whoever starts the task from a clean
+  clone. A command in *Completed when* runs from any clone (`gh --repo <owner>/<repo>`, paths from
+  the repository root). A step that writes data
   (migrations, scripts) names its target environment and how it refuses production.
 - **A new file of a kind the repo already has** (a migration, a workflow, an endpoint, a model)
   names the newest existing one in *Impact* as the pattern to follow, guards included (for a

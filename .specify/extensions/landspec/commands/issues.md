@@ -20,9 +20,15 @@ or one with another summary never matches.
      later or earlier task still uses.
    - **Guards:** find the existing tests and checks the change trips over, for example a test that
      lists every table, a schema snapshot, or a docs-vs-code check. Name them in *Impact*.
+   - **Inputs:** every file, data set, URL or credential a task reads is on the base branch, in
+     the spec folder, or written out in the task itself. Whoever starts the task has a clean clone
+     of the base, not your tree: a file that is only untracked here (`git ls-files --others
+     --exclude-standard`) is missing for them. Move it into the spec folder or put its content in
+     the task. `pr.sh spec` refuses a `tasks.md` that names an untracked file.
    - **Commands:** for every command in *Completed when* and in `quickstart.md`, read what it
      really runs (the `justfile`/`Makefile`/script, its default arguments, what it logs) and
-     confirm it shows what the step claims.
+     confirm it shows what the step claims, run from any clone and directory: `gh` names its
+     `--repo`, paths start at the repository root.
    - **Writes:** every step that writes data names its target and refuses production (an
      explicit dev config, a check of the database name or host).
    - **Independent tests:** expected values are literals in the test, never imported from the
@@ -44,6 +50,10 @@ or one with another summary never matches.
    - If it fails (no `gh`, not logged in, no remote), show its message and stop. Do not create
      issues any other way.
    - Show the `Tnnn → #N` lines it printed.
+   - When a run follows a fix to tasks that already have issues (a review round, a comment on the
+     spec PR), run it with `--sync`: each open issue's body is rewritten from its task's current
+     sub-bullets (edits made on GitHub are lost; closed issues stay as they are). Never edit the
+     issue by hand instead.
 4. Read the level: `level:` in `.specify/extensions/landspec/landspec-config.yml` (default `standard`).
 5. Open the spec PR, so the tasks reach the base branch where task branches start from:
    - **lite**: ask "Open the spec PR now?"; on yes run

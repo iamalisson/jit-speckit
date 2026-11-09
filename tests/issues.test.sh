@@ -37,6 +37,10 @@ check "when no milestone or project is configured, then none is set" '! grep -qE
 
 out="$("$i")"
 check "when run again, then no issue is created twice" '[[ "$out" == *"CREATED=0 SKIPPED=3"* && "$(grep -c "^issue create" "$GH_LOG")" == 2 ]]'
+check "when --sync, then each open linked issue gets its body rewritten from tasks.md, and nothing is created" \
+  'out="$("$i" --sync)"; [[ "$out" == *"CREATED=0 SKIPPED=0 UPDATED=3"* && "$(grep -c "^issue edit [0-9]* --body \*\*Feature:\*\*" "$GH_LOG")" == 3 && "$(grep -c "^issue create" "$GH_LOG")" == 2 ]]'
+check "when --sync and the issues are closed, then they are left alone" \
+  'out="$(GH_VIEW_STATE=CLOSED "$i" --sync)"; [[ "$out" == *"SKIPPED=3 UPDATED=0"* && "$(grep -c "^issue edit [0-9]* --body" "$GH_LOG")" == 3 ]]'
 
 printf '%s\n' '- [ ] T004 Dry task in `x`' >> specs/001-demo/tasks.md
 check "when a task was added since the plan review, then it refuses until the plan is reviewed again" 'fails_with "changed since" "$i"'

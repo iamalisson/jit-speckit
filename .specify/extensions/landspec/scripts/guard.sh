@@ -173,8 +173,11 @@ check_git() {
       done ;;
     switch|checkout) switched "$sub" "$@" ;;
     config)
-      local w2 reading=false
+      local w2 reading=false keys=0
       for w2 in "$@"; do case "$w2" in --get|--get-all|--get-regexp|--list|-l|get) reading=true ;; esac; done
+      # `git config core.hooksPath` (a key and no value, no other action) only reads it.
+      for w2 in "$@"; do case "$w2" in --local|--global|--system|--worktree|--show-origin|--show-scope) ;; -*) keys=9 ;; *) keys=$((keys + 1)) ;; esac; done
+      ((keys == 1)) && reading=true
       for w2 in "$@"; do
         if hookspath "$w2" && ! $reading; then no_hooks; fi
       done ;;

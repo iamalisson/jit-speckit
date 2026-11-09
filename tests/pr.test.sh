@@ -89,6 +89,10 @@ printf '%s\n' '- [ ] T001 Thing in `a` — #11' '- [ ] T002 Other in `b` — #12
 echo '{ "feature_directory": "specs/002-new" }' > .specify/feature.json
 set_cfg milestone v2; set_cfg project Board
 printf 'Plan read.\n\nModel: claude-haiku-4-5\n\nAssessment: ready\n' > "$TMP/plan.md"; "$SCRIPTS/review.sh" record --plan "$TMP/plan.md" >/dev/null 2>&1
+echo "local data" > a
+check "when tasks.md names a file that is only untracked here, then the spec PR is refused before any switch" \
+  'fails_with "not in git: a" "$p" spec && [[ "$(git branch --show-current)" == main ]]'
+rm a
 out="$("$p" spec)"
 check "when the plan review's record has a model warning, then the spec PR body carries it" \
   'grep -qxF "**Plan review:** the review ran on claude-haiku-4-5; the review did not run on the configured model" "$GH_LOG"'

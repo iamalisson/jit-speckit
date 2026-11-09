@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # Create one GitHub issue per task in the active feature's tasks.md and append "— #N" to its line.
-# Idempotent: tasks that already end in "— #N" are skipped.
-# Usage: issues.sh [--dry-run]
+# Idempotent: tasks that already end in "— #N" are skipped. With --sync, the open issue of each such
+# task gets its body rewritten from the task's current sub-bullets (edits made on GitHub are lost).
+# Usage: issues.sh [--dry-run|--sync]
 set -euo pipefail
 # shellcheck source=lib.sh
 source "$(dirname "$0")/lib.sh"
 
-dry=false; [[ "${1:-}" == --dry-run ]] && dry=true
+dry=false sync=false
+case "${1:-}" in --dry-run) dry=true ;; --sync) sync=true ;; "") ;; *) die "usage: issues.sh [--dry-run|--sync]" ;; esac
 landspec_cd_root
 command -v gh >/dev/null || die "the GitHub CLI (gh) is required: https://cli.github.com"
 
@@ -44,10 +46,11 @@ link() {
     "$tasks" > "$tasks.tmp" && mv "$tasks.tmp" "$tasks"
 }
 
-created=0; skipped=0
+created=0; skipped=0; updated=0
 while IFS= read -r line; do
   id="$(sed -E 's/^- \[.\] (T[0-9]{3,}) .*/\1/' <<<"$line")"
-  if [[ -n "$(task_issue "$line")" ]]; then skipped=$((skipped + 1)); continue; fi
+  linked="$(task_issue "$line")"
+  if [[ -n "$linked" ]] && ! $sync; then skipped=$((skipped + 1)); continue; fi
 
   desc="$(task_desc "$line")"
   title="[$num] $id: $(task_summary "$line")"
@@ -66,6 +69,15 @@ while IFS= read -r line; do
   body+=$'\n\n'"**Completed when:** $done_when"
   body+=$'\n\n---\n'"**Done** = closed by the merged PR (\`Closes #N\`). Start it with \`/speckit-implement $id\`."
 
+  if [[ -n "$linked" ]]; then
+    # --sync: closed issues are history and stay as they are.
+    cur="$(gh issue view "$linked" --json state,body --jq '.state + "\n" + .body')" || die "cannot read issue #$linked"
+    if [[ "${cur%%$'\n'*}" == OPEN && "${cur#*$'\n'}" != "$body" ]]; then
+      gh issue edit "$linked" --body "$body" >/dev/null || die "cannot update issue #$linked"
+      echo "$id → #$linked (updated)"; updated=$((updated + 1))
+    else skipped=$((skipped + 1)); fi
+    continue
+  fi
   if $dry; then echo "would create: $title"; created=$((created + 1)); continue; fi
   n="$(T="$title" awk '{ n = $1; sub(/^[^ ]+ /, ""); if ($0 == ENVIRON["T"]) { print n; exit } }' <<<"$existing")"
   if [[ -n "$n" ]]; then
@@ -80,4 +92,4 @@ while IFS= read -r line; do
   created=$((created + 1))
 done < <(grep -E '^- \[.\] T[0-9]{3,} ' "$tasks")
 
-echo "CREATED=$created SKIPPED=$skipped"
+echo "CREATED=$created SKIPPED=$skipped UPDATED=$updated"
