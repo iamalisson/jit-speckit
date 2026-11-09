@@ -10,6 +10,13 @@
 - No secret, token or password in the repository, in logs, or in client-side code. Configuration
   comes from the environment; `.env` files are git-ignored and an `.env.example` documents the keys.
 
+### Accessibility (when the project has a user interface)
+
+- What people see meets WCAG 2.2 AA: text contrast at least 4.5:1 against its background (3:1
+  for large text, 24 px or 18.7 px bold, and for icons, borders and focus indicators), a visible
+  focus on every control, an accessible name on every control and image. A colour copied from an
+  existing page is checked too: the old page may already fail.
+
 ### Tests
 
 - Every piece of logic (parsing, validation, money, permissions, sorting) has a test, written as
