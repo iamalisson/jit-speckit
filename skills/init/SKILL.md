@@ -84,7 +84,10 @@ disable-model-invocation: true
    yet", repeat the command it gave; if it said "add these lines to it", repeat those lines and
    where they go: without either, nothing checks commits locally. A machine-wide `core.hooksPath`
    stays in charge: never replace it. If it said a workflow "never runs on a task PR", repeat that
-   line: until that branch is added, the project's own CI does not check task PRs.
+   line: until that branch is added, the project's own CI does not check task PRs. If the script
+   created `.claude/settings.json`, say in one line that its `"attribution"` block removes Claude's
+   commit and PR attribution lines for everyone who clones the repo, and that deleting the block
+   keeps them (docs/reference.md, "AI attribution").
 8. **Offer to commit it**, in one question: "Commit this on `chore/landspec-<version>` and open
    the PR into `<base>`?" (the version is `version:` in `.specify/extensions/landspec/extension.yml`;
    `<base>` is `base_branch:` in `landspec-config.yml`, or when that is `auto`, `develop` on standard and

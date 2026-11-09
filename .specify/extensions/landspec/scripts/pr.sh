@@ -116,6 +116,14 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
     ;;
   spec)
     bash "$LANDSPEC_EXT_DIR/scripts/review.sh" check --plan >/dev/null
+    # A file tasks.md names that is only untracked here never reaches the base: whoever starts the
+    # task from a clean clone has nothing to read.
+    missing=""
+    while IFS= read -r f; do
+      [[ -n "$f" && "$f" != "$fdir"/* ]] || continue
+      if grep -qF -- "\`$f\`" "$fdir/tasks.md"; then missing+=" $f"; fi # a path the tasks name, in backticks
+    done < <(git ls-files --others --exclude-standard)
+    [[ -z "$missing" ]] || die "tasks.md names files that are not in git:$missing. Move each into $fdir/ (it lands with the spec) or write what the task needs into the task, then run again"
     feature="$(basename "$fdir")"
     branch="spec/$feature"
     # An open spec PR is updated in place. Otherwise (first time, or a later run such as after
@@ -134,7 +142,11 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
       # changes), the folder comes back as it was, instead of surviving only in a temp dir.
       trap 'restore; echo "landspec: the spec folder was put back as it was" >&2' EXIT
       git checkout --quiet -- "$fdir" 2>/dev/null || true; git clean -fdq -- "$fdir"
-      if [[ -n "$open" ]]; then git switch --quiet "$branch"; else git switch --quiet --no-track -C "$branch" "$ref"; fresh=true; fi
+      if [[ -n "$open" ]]; then sw=(git switch --quiet "$branch"); else sw=(git switch --quiet --no-track -C "$branch" "$ref"); fresh=true; fi
+      if ! err="$("${sw[@]}" 2>&1)"; then
+        echo "$err" >&2
+        die "cannot switch to $branch: local changes outside $fdir conflict with it. Commit or stash them (git stash push -- <file>), then run again"
+      fi
       restore; trap - EXIT
     fi
     git add -- "$fdir"

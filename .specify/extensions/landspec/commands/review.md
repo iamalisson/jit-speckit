@@ -18,12 +18,14 @@ value, print `landspec: review_model must be sonnet, opus or fable` and stop.
 Never run the review on `haiku`, and never in a fork of this session. If the call refuses the type `landspec:reviewer`
 (the plugin is not installed), launch a `general-purpose` subagent with the same prompt and the
 same `model`. The plugin's hook blocks a review launch without one of those models, or in a fork.
-Wait for its report, save it as it came to a file outside the repository (`mktemp`), and record it:
+Wait for its report. The reviewer writes it to a file itself and names it on its first line,
+`Report file: <path>`: record that file as it is, never a copy you typed or edited:
 `bash .specify/extensions/landspec/scripts/review.sh record <file>` (`record --plan <file>` for a plan
 review, `record --delta <file>` for a fix round). The record is tied to the exact diff (or `tasks.md`): `pr.sh` and `issues.sh` refuse to
 open anything without a recorded review that said `ready` for the current state, at every level,
-so a commit after the review means another review. If you are that subagent: follow the method
-and return only the report.
+so a commit after the review means another review. If you are that subagent: follow the method,
+write the report to a new file outside the repository (`mktemp`), and return `Report file: <path>`
+on the first line, then the report exactly as written there.
 
 Facts the author passes:
 - the base branch and the branch under review, or, for a plan review, the feature folder
@@ -32,7 +34,9 @@ Facts the author passes:
 - the path of the PR body draft, if there is one;
 - the project's test command (the constitution's **Commands** line or its landspec block);
 - for a fix round (a **delta**): the `REVIEWED=<sha>` the last `record` printed and the path of
-  that round's report.
+  that round's report;
+- for a plan review after a `changes needed` round: the path of that round's report and the
+  author's one-line answer to each of its findings.
 
 **A delta** reads `git diff <sha>..HEAD` only: it checks that each previous finding is fixed and
 applies step 2 to the fix commits alone, and it never widens. A bug it notices outside those
@@ -66,7 +70,15 @@ path (what the caller gets, the one log line, who is refused), and no task is a 
 handling", "logging" or "hardening" layer; no task deletes what another task still uses. **Shape:** a task is a vertical slice with an observable result. A
 task that is one layer of a behavior another task completes (a model here, its migration there,
 the endpoint in a third) is a finding: name the tasks to merge. So is a task whose diff would
-clearly pass about 400 lines with its tests: name the behaviors to split it by. **Ships dark:**
+clearly pass about 400 lines with its tests: name the behaviors to split it by (generated files,
+lockfiles, and markup or data copied as is from an existing file do not count). **Inputs:** every
+file, data set, URL or credential a task reads exists on `origin/<base>` (`git cat-file -e
+origin/<base>:<path>`), in the spec folder, or in the task text; one that exists only in the
+author's working tree (untracked, ignored) is a finding, since the next person starts from a
+clean clone. **Commands** in *Completed when* run from any clone and directory: a `gh` call
+without `--repo`, or a path relative to somewhere other than the repository root, is a finding.
+**Earlier round:** when the author passes the last round's report, a finding it raised keeps its
+severity unless the text it was about changed or you name a fact that round did not have. **Ships dark:**
 each task is safe to reach production alone; a task that makes the feature visible to users
 before its last task (a tab, route or menu entry with no flag off by default), a feature with no
 last task that turns the flag on, or a migration the production code can't run against, is a

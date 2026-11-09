@@ -114,6 +114,11 @@ check "when the commit goes to another landspec repository on a task branch, the
   '"$g" "cd $TMP/second && git commit -m x" && "$g" "git -C $TMP/second commit -m x" && "$g" "cd .. && cd second && git commit -m x"'
 check "when the chain moves back into this repository on main, then the commit is blocked again" \
   'blocked "cd $TMP/other && cd $TMP/repo && git commit -m x" && blocked "git -C $TMP/other -C ../repo commit -m x"'
+git -C "$TMP/repo" worktree add --quiet -b feat/001-t010-wt "$TMP/wt" 2>/dev/null
+check "when the commit goes into a worktree of this repository on a task branch, then it is allowed" \
+  '"$g" "cd $TMP/wt && git commit -m x" && "$g" "git -C $TMP/wt commit -m x"'
+check "when git config only reads core.hooksPath, then it is allowed; setting or unsetting it is not" \
+  '"$g" "git config core.hooksPath" && "$g" "git config --local core.hooksPath" && blocked "git config core.hooksPath /dev/null" && blocked "git config --unset core.hooksPath"'
 check "when the cd target can not be told (a variable, cd -), then it is checked here" \
   'blocked "cd \$X && git commit -m x" && blocked "cd - && git commit -m x"'
 
