@@ -45,8 +45,22 @@ In Claude Code:
 
 <sub>Needs Claude Code 2.1.295 or newer: from that version the command guard blocks a command when it times out or crashes.</sub>
 
-You also need `git` and the [GitHub CLI](https://cli.github.com), logged in. `/landspec:init`
-installs spec-kit for you if it's missing.
+That one command is the whole install. Don't run `specify init` yourself: `/landspec:init` sets
+up [spec-kit](https://github.com/github/spec-kit) in your project, for Claude, at the version
+landspec is tested with.
+
+What your machine needs first:
+
+| Tool | Why | Check |
+|---|---|---|
+| [Claude Code](https://claude.com/claude-code) 2.1.295+ | runs landspec | `claude --version` |
+| `git` | branches and commits | `git --version` |
+| [GitHub CLI](https://cli.github.com), logged in | issues and pull requests | `gh auth status` |
+| [uv](https://docs.astral.sh/uv/) | installs spec-kit's `specify` CLI | `uv --version` |
+
+If `specify` is missing, `/landspec:init` offers to install it with `uv`. A project already set up
+with `specify init` for another agent (such as `--integration copilot`) needs Claude added first:
+`specify integration add claude`.
 
 ## Update
 
