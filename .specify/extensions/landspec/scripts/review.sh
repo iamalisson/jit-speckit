@@ -63,6 +63,8 @@ risk() {
       if (l ~ /auth([^o]|$)|authori[sz]|login|permission|rbac|(^|[^a-z])acls?([^a-z]|$)|oauth|jwt|passw|crypt/) flag("auth", p)
       if (l ~ /(^|\/)\.env|secret|credential|\.pem$|\.key$|id_rsa/) flag("secrets", p)
       if (l ~ /payment|billing|invoice|checkout|pricing|refund|wallet|ledger/) flag("money", p)
+      # What people see: styles and markup templates, read for contrast, focus and accessible names.
+      if (l ~ /\.(css|scss|sass|less|styl|html?|vue|svelte|hbs|njk|jinja2?|j2|erb|twig|liquid)$/) flag("ui", p)
       next
     }
     # Added lines count only inside a hunk, so a "+++" line in the content is never a header.

@@ -58,7 +58,7 @@ only through the author's `## Review`, a security finding as the one line
 `Security: reported privately (<id>)`.
 
 Depth follows risk. A script that sees only paths and added lines (`review.sh risk`) names the
-risky ones (a migration, a deletion, CI, authorization, secrets, money, a skipped gate), and
+risky ones (a migration, a deletion, CI, authorization, secrets, money, styles and page templates, a skipped gate), and
 `record` refuses a report that does not deep-check each, or name the test line that proves it. The
 reviewer adds the risks a path cannot show. A fix round is a **delta**: it reviews only the commits
 since the last recorded head, and `record --delta` holds it to that: it follows a recorded round, names

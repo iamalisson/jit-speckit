@@ -104,6 +104,11 @@ check "when the diff adds db/migrations/002_drop.sql with DROP TABLE, then risk 
 check "when the diff adds src/authorization.py, then risk prints RISK=auth for it" '"$r" risk | grep -qx "RISK=auth src/authorization.py"'
 check "when an added line swallows a failure (x || true), then risk prints RISK=gate for its file" '"$r" risk | grep -qx "RISK=gate build.sh"'
 check "then risk prints only paths and categories, never the line content" '! "$r" risk | grep -qiE "drop table|make x"'
+mkdir -p web; printf 'a { color: #8a90ad }\n' > web/site.css; printf '<a href="/">x</a>\n' > web/page.html; echo 'x = 1' > src/util.py
+git add web src/util.py; git commit --quiet -m "feat: page"
+check "when the diff adds a stylesheet or a page template, then risk prints RISK=ui for each, and not for other code" \
+  'out="$("$r" risk)"; grep -qx "RISK=ui web/site.css" <<<"$out" && grep -qx "RISK=ui web/page.html" <<<"$out" && ! grep -q "src/util.py" <<<"$out"'
+git reset --quiet --hard HEAD~1
 deep=("- deep: src/authorization.py — always allows: checked the callers" "- deep: build.sh")
 rep ready "${deep[@]}"
 check "when the report has no '- deep:' line for a risky path, then record refuses, names the path and says to run the review again" \

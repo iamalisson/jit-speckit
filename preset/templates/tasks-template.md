@@ -26,7 +26,10 @@ description: "Task list template for feature implementation"
   money) gets a unit test; a behavior through the interface (an endpoint, a query, a migration)
   gets an integration test against the real thing (in-memory HTTP, the database the project uses
   in CI); a user-visible flow gets one end-to-end test of the running program. A unit test alone
-  never proves an endpoint or a migration.
+  never proves an endpoint or a migration. A task that changes what people see names its
+  accessibility check: the contrast ratio of each new text and icon colour against its background
+  (text at least 4.5:1, large text and icons 3:1), focus visible on each control, an accessible
+  name on each control and image.
 - **Every task names its failure path in *Completed when*.** What the caller gets when it fails
   (a status and an error code, never internals), what is logged (one structured line with the
   request ID, no personal data or secrets), and who is refused (the wrong user, bad input, a

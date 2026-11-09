@@ -51,7 +51,10 @@ One pass. A review should take a couple of minutes, so read, do not run: CI runs
    (for a delta, `review.sh risk <sha>`), then read `git diff origin/<base>...HEAD` once, and open
    what each changed function calls and what calls it. Look for real bugs in the changed lines:
    a wrong result, data loss, a crash, a broken upgrade on existing state, a write to the user's
-   files, a secret, an injection, a check that lets through what it should refuse. Run a command
+   files, a secret, an injection, a check that lets through what it should refuse, an interface
+   some people cannot use (text under 4.5:1 contrast, 3:1 for large text and icons: compute it from
+   the colours in the diff and the background they sit on; a focus that is not visible; a control
+   or image without an accessible name). Run a command
    only to settle whether a suspected bug is real, and only in a throwaway copy.
 
 **Plan review** (before the issues are created): apply step 1 and read every task in `tasks.md`,
@@ -88,7 +91,9 @@ Written for the author, who fixes it, and for the human who merges:
   scenario of what goes wrong ("on a database built by `create_all` and stamped at the previous
   revision, `flask db upgrade` stops with 'already exists'"), and the evidence (the sibling's
   `file:line`, the command output). A finding you could not verify says so. No style, no naming,
-  no nits: they are what gets reviews ignored. A **security** finding is listed last, and the PR
+  no nits: they are what gets reviews ignored. Accessibility is not style: a contrast, focus or
+accessible-name failure is at least **Medium**, with the computed ratio as evidence. Matching a
+sibling is not a defense: a defect copied from an existing file is still a defect in this diff. A **security** finding is listed last, and the PR
   shows it as one line, `Security: reported privately (<id>)`: its detail goes to the author only,
   never into a public PR.
 - Before the last line, each on its own line: `Reviewed: <from>..<head>`, the full shas you
