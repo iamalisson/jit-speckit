@@ -208,7 +208,8 @@ check "when the plan review and issues step 2 are read, then spec-folder code ge
   'r="$(tr "\n" " " < extension/commands/review.md)"; i="$(tr "\n" " " < extension/commands/issues.md)"
    [[ "$r" == *"**Spec-folder code:** every file under \`specs/NNN-*/\` that is not markdown is code"* && "$r" == *"script that hides an error"* \
    && "$r" == *"**Orderings:** for each state machine in"* && "$r" == *"out of order, delivered twice, the original event replayed, opposite actions both pending"* \
-   && "$r" == *"never narrows the review"* && "$i" == *"same class as an earlier round"* && "$i" == *"replace the case rules with it, and run the next round full"* ]]'
+   && "$r" == *"never narrows the review"* && "$r" == *"resolved (by the stated invariant or a changed text) or keeps its severity"* \
+   && "$i" == *"same class as an earlier round (for example"* && "$i" == *"replace the case rules with it, and run the next round full"* && "$i" == *"once per class"* ]]'
 # The section is read into a variable: a pipe into grep -q can fail under pipefail (SIGPIPE on sed).
 sec_readme="$(sed -n "/^## Security, built in/,/^## Levels/p" README.md)"
 check "when the README's Security, built in table is read, then it names the reviewer's model" \
