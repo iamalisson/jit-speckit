@@ -20,14 +20,17 @@ source "$(dirname "$0")/lib.sh"
 landspec_cd_root
 command -v gh >/dev/null || die "the GitHub CLI (gh) is required: https://cli.github.com"
 
-git fetch --quiet origin 2>/dev/null || echo "landspec: warning: could not fetch origin; branches and parallel lines may be out of date" >&2
+# Without origin and the open PRs a task another clone claimed looks free, so each read stops on failure.
+git fetch --quiet origin || die "cannot fetch origin, so tasks claimed in other clones cannot be seen; fix the error above and run next again"
 
 # Branches, once: ours (local), checked out in some worktree, on origin, with an open PR.
 cur="$(git branch --show-current)"
 local_b=" $(git for-each-ref --format='%(refname:short)' refs/heads/ | tr '\n' ' ') "
 checked_out=" $(git worktree list --porcelain | sed -n 's#^branch refs/heads/##p' | tr '\n' ' ') "
-remote_b=" $({ git ls-remote --heads origin 2>/dev/null || true; } | sed 's#.*refs/heads/##' | tr '\n' ' ') "
-pr_heads=" $(gh pr list --state open --limit 500 --json headRefName --jq '.[].headRefName' 2>/dev/null | tr '\n' ' ') "
+remote_b=" $(git ls-remote --heads origin | sed 's#.*refs/heads/##' | tr '\n' ' ') " \
+  || die "cannot read origin's branches, so tasks claimed in other clones cannot be seen; fix the error above and run next again"
+pr_heads=" $(gh pr list --state open --limit 500 --json headRefName --jq '.[].headRefName' | tr '\n' ' ') " \
+  || die "cannot list the open pull requests, so tasks with an open PR cannot be seen; fix gh's error above and run next again"
 
 # scan <feature dir> <print>: one line per task when print=true; sets DONE_N TOTAL BUSY NEXT_ID PAR
 scan() {
