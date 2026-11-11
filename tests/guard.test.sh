@@ -133,6 +133,10 @@ check "when a cd or pushd runs inside sh -c, then the commands after it are stil
   'blocked "bash -c '"'"'cd /tmp'"'"'; git commit --no-verify -m x" && blocked "sh -c '"'"'cd /tmp'"'"'; git commit -m x" && blocked "zsh -c '"'"'cd /tmp'"'"' && git commit --no-verify -m x" && blocked "env bash -c '"'"'cd /tmp'"'"'; git commit --no-verify -m x" && blocked "bash -c '"'"'pushd /tmp'"'"'; git commit --no-verify -m x" && blocked "bash -c '"'"'cd /tmp'"'"'; git add -A" && blocked "bash -c '"'"'cd /tmp'"'"'; git push origin main"'
 check "when a cd runs in a pipeline stage or before a lone &, then the commands after it are still checked here" \
   'blocked "cd /tmp | true; git commit --no-verify -m x" && blocked "true | cd /tmp; git commit -m x" && blocked "cd /tmp |& true; git commit -m x" && blocked "cd /tmp & git commit --no-verify -m x" && blocked "(cd /tmp); git commit --no-verify -m x"'
+check "when a redirection is glued to a blocked word (&>, >&, >, <), then it is still blocked" \
+  'blocked "git commit --no-verify&>/dev/null -m x" && blocked "git push --no-verify&>/dev/null" && blocked "git commit -m x --no-verify&>/dev/null" && blocked "git push origin main&>/dev/null" && blocked "git add .&>/dev/null" && blocked "git commit --no-verify>&2 -m x" && blocked "git commit --no-verify>/dev/null -m x" && blocked "git add -A</dev/null" && blocked "git commit -m x --no-verify|&cat"'
+check "when a redirection is spaced or 2>&1, then the commit is checked as usual" \
+  'blocked "git commit --no-verify &> /dev/null -m x" && blocked "git commit --no-verify 2>&1 -m x" && blocked "git commit -m x 2>&1" && "$g" "git -C $TMP/other commit -m x 2>&1 >/dev/null" && "$g" "git -C $TMP/other commit -m x &>/dev/null" && "$g" "git -C $TMP/other commit -m x >&2"'
 check "when the commit runs inside the same sh -c as the cd, or after a cd with a redirection, then it is checked there" \
   '"$g" "bash -c '"'"'cd $TMP/other; git commit -m x'"'"'" && "$g" "cd $TMP/other 2>&1 && git commit -m x" && "$g" "cd $TMP/other && git commit -m x | cat"'
 

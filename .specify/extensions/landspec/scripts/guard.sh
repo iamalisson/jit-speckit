@@ -90,7 +90,8 @@ switched() {
 
 # words "<text>": shell-like words, one per line. Quotes group and are removed; nothing is
 # expanded or run. Unquoted && || ; and newlines become a "|" word, separating commands; a pipe
-# (| or |&) becomes "|>" and a lone & "|&" (subshells). A # at the start of a word starts a comment. In awk, linear in the length (bash's ${s:i:1} is not).
+# (| or |&) becomes "|>" and a lone & "|&" (subshells); a redirection (>f, 2>&1, &>f) is a word of
+# its own. A # at the start of a word starts a comment. In awk, linear in the length (bash's ${s:i:1} is not).
 words() {
   awk '
     { text = text $0 "\n" }
@@ -105,8 +106,13 @@ words() {
           w = w part; inw = 1; i += j; continue
         }
         if (c == "#" && !inw) { while (i < n && substr(text, i + 1, 1) != "\n") i++; continue }
-        # A redirection (2>&1, &>f) is not a separator.
-        if (c == "&" && (substr(text, i + 1, 1) == ">" || w ~ /[<>]$/)) { w = w c; inw = 1; continue }
+        # A redirection ends the word before it (bash does too) but is not a separator: it becomes
+        # its own word, keeping a file descriptor number (2>&1) and the & of >&2 or &>f.
+        if (c == "<" || c == ">" || c == "&" && substr(text, i + 1, 1) == ">") {
+          if (inw && w !~ /^[0-9]*$/ && w !~ /[<>&]$/) { print w; w = "" }
+          w = w c; inw = 1; continue
+        }
+        if (c == "&" && w ~ /[<>]$/) { w = w c; continue }
         if (c == " " || c == "\t" || c == "\n" || c == ";" || c == "|" || c == "&") {
           if (inw) { print w; w = ""; inw = 0 }
           d = substr(text, i + 1, 1); s = "|"
