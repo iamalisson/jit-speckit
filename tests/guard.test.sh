@@ -27,6 +27,9 @@ check "when the PR is a promotion from a long-lived branch, then gh pr create is
   '"$g" "gh pr create --base main --head develop --title x" && "$g" "gh pr create -B main -H develop -t x"'
 check "when gh ends in -R or uses --repo=, then the guard ends (a loop hangs the job) and still blocks the PR" \
   '"$g" "gh -R" && "$g" "gh --repo" && blocked "gh --repo=o/r pr create -t x"'
+check "when the project's pr.sh predates pr.sh fix (not updated by init yet), then gh pr create is allowed" \
+  'rm .specify/extensions/landspec/scripts && mkdir .specify/extensions/landspec/scripts && echo "  task)" > .specify/extensions/landspec/scripts/pr.sh \
+   && "$g" "gh pr create --head feat/001-t001-thing --fill"; rc=$?; rm -r .specify/extensions/landspec/scripts; ln -s "$ROOT/extension/scripts" .specify/extensions/landspec/scripts; exit $rc'
 check "when gh only reads PRs, then it is allowed" '"$g" "gh pr list" && "$g" "gh pr view 3 --json body" && "$g" "gh pr edit 3 --body x"'
 
 check "when no-verify hides in a bundled flag, a global option or a wrapper, then it is blocked" \
