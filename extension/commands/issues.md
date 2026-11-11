@@ -63,6 +63,10 @@ or one with another summary never matches.
    - **lite**: ask "Open the spec PR now?"; on yes run
      `bash .specify/extensions/landspec/scripts/pr.sh spec`.
    - **standard**: run `bash .specify/extensions/landspec/scripts/pr.sh spec`.
+   - Give it a title in the language the project's rules (`AGENTS.md`, `CLAUDE.md`) ask for commits
+     in, as a Conventional Commit: `pr.sh spec "docs(specs): <what this run adds or changes>"`. It
+     names the commit and, the first time, the PR, which becomes the squashed commit on the base.
+     A later run updates the open PR, its body and task issues included.
    - **full**: do not open it yet. Tell the user to run `/speckit-analyze` next; the spec PR opens
      after the analysis.
    - If `pr.sh spec` stops on a stale plan review, run the plan review again, record it, and run

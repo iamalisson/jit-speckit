@@ -11,9 +11,11 @@
 #   pr.sh fix "fix(api): handle empty cart" <body-file>
 #       Any other PR (a small fix, a dependency bump, landspec's setup), from its own branch: the same
 #       review, mutants, scan and test gate as a task, without an issue.
-#   pr.sh spec
+#   pr.sh spec ["<title>"]
 #       Stops without a current plan review. Commits the active feature's spec folder on
-#       spec/<feature> and opens a docs PR.
+#       spec/<feature> and opens a docs PR, or updates the open one (its generated body too, so a
+#       new task issue shows). The title, in the project's language, names the commit and a new PR;
+#       without one, the commit says "add" on a new spec PR and "update" on an open one.
 # Prints: PR=<url>
 set -euo pipefail
 # shellcheck source=lib.sh
@@ -162,7 +164,8 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
       restore; trap - EXIT
     fi
     git add -- "$fdir"
-    git diff --cached --quiet || git commit --quiet -m "docs(specs): add $feature spec, plan and tasks"
+    title="${2:-}"; verb=add; [[ -n "$open" ]] && verb=update
+    git diff --cached --quiet || git commit --quiet -m "${title:-docs(specs): $verb $feature spec, plan and tasks}"
     # A fresh branch may replace a stale one left by a merged PR (no PR is open on it); the lease
     # still refuses if someone pushed to it since we last fetched.
     if $fresh; then git push --quiet --force-with-lease -u origin "$branch"; else git push --quiet -u origin "$branch"; fi
@@ -170,7 +173,8 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
     # The plan review's model warning, from its record (issues.sh refuses a missing or stale one).
     warn="$(bash "$LANDSPEC_EXT_DIR/scripts/review.sh" report --plan 2>/dev/null | sed -n 's/^warning: /**Plan review:** /p' || true)"
     [[ -z "$warn" ]] || warn=$'\n\n'"$warn"
-    open_pr "docs(specs): $feature" "Spec, plan and tasks for \`$feature\`.
+    # The body is generated, so an open spec PR gets it again: the third argument says to replace it.
+    open_pr "${title:-docs(specs): $feature}" "Spec, plan and tasks for \`$feature\`.
 
 **Task issues:** ${issues:-none yet}$warn
 
@@ -183,7 +187,7 @@ Merge this before starting tasks: \`/speckit-implement Tnnn\` branches from \`$b
 - Each task PR then stays small, independent and closes exactly one issue.
 - The design gets reviewed before any code is written, while changing it is still cheap.
 
-</details>"
+</details>" "the generated spec body"
     ;;
-  *) die "usage: pr.sh task T003 \"type(scope): summary\" [body-file] | pr.sh fix \"type(scope): summary\" <body-file> | pr.sh spec" ;;
+  *) die "usage: pr.sh task T003 \"type(scope): summary\" [body-file] | pr.sh fix \"type(scope): summary\" <body-file> | pr.sh spec [\"<title>\"]" ;;
 esac

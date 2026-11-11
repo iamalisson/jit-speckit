@@ -14,4 +14,5 @@ description: "Record that analysis ran on the current tasks"
    changed `tasks.md` or `plan.md`, run the plan review again (`/speckit-landspec-review`) before the
    next step: `pr.sh spec` stops on a stale one.
 3. On level `full` (`level:` in `.specify/extensions/landspec/landspec-config.yml`), open the spec PR now:
-   `bash .specify/extensions/landspec/scripts/pr.sh spec`, and show its URL.
+   `bash .specify/extensions/landspec/scripts/pr.sh spec "<title>"` (the title as `issues.md` step 5
+   says), and show its URL.
