@@ -35,7 +35,8 @@ on the first line, then the report exactly as written there.
 Facts the author passes:
 - the base branch and the branch under review, or, for a plan review, the feature folder
   `specs/NNN-*/`;
-- the task's line from `tasks.md` with its sub-bullets, or "plan review";
+- the task's line from `tasks.md` with its sub-bullets, "plan review", or, for a PR that is not a
+  task (`pr.sh fix`), one line on what it changes and why;
 - the path of the PR body draft, if there is one;
 - the project's test command (the constitution's **Commands** line or its landspec block);
 - for a fix round (a **delta**): the `REVIEWED=<sha>` the last `record` printed and the path of

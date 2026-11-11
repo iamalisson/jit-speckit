@@ -8,6 +8,9 @@
 #       "full" also requires "## Evidence".
 #       Runs the constitution's test command before the push and refuses when it fails.
 #       On an open PR, replaces its body from body-file.
+#   pr.sh fix "fix(api): handle empty cart" <body-file>
+#       Any other PR (a small fix, a dependency bump, landspec's setup), from its own branch: the same
+#       review, mutants, scan and test gate as a task, without an issue.
 #   pr.sh spec
 #       Stops without a current plan review. Commits the active feature's spec folder on
 #       spec/<feature> and opens a docs PR.
@@ -18,7 +21,7 @@ source "$(dirname "$0")/lib.sh"
 
 landspec_cd_root
 command -v gh >/dev/null || die "the GitHub CLI (gh) is required: https://cli.github.com"
-fdir="$(feature_dir)"
+fdir=""; [[ "${1:-}" == fix ]] || fdir="$(feature_dir)" # a fix PR belongs to no feature
 base="$(base_branch)"
 mode="${1:-}"
 
@@ -38,16 +41,25 @@ open_pr() { # open_pr <title> <body> [body-file]
 }
 
 case "$mode" in
-  task)
-    task="${2:-}"; title="${3:-}"; body_file="${4:-}"
-    [[ "$task" =~ ^T[0-9]{3,}$ && -n "$title" ]] || die 'usage: pr.sh task T003 "type(scope): summary" [body-file]'
-    line="$(task_line "$fdir" "$task")"
-    issue="$(task_issue "$line")"
-    [[ -n "$issue" ]] || die "$task has no issue"
-    branch="$(git branch --show-current)"
-    num="$(feature_key "$fdir")"
-    [[ "$branch" == */"$num-$(tr '[:upper:]' '[:lower:]' <<<"$task")-"* ]] \
-      || die "not on $task's branch for feature $num (on '$branch'); run /speckit-implement $task"
+  task|fix)
+    # fix: any PR that is not a task (a small fix, a dependency bump, landspec's own setup) gets the
+    # same gate, so no PR opens without a recorded review at any level; only "Closes #N" is task-only.
+    branch="$(git branch --show-current)"; issue=""
+    if [[ "$mode" == task ]]; then
+      task="${2:-}"; title="${3:-}"; body_file="${4:-}"
+      [[ "$task" =~ ^T[0-9]{3,}$ && -n "$title" ]] || die 'usage: pr.sh task T003 "type(scope): summary" [body-file]'
+      line="$(task_line "$fdir" "$task")"
+      issue="$(task_issue "$line")"
+      [[ -n "$issue" ]] || die "$task has no issue"
+      num="$(feature_key "$fdir")"
+      [[ "$branch" == */"$num-$(tr '[:upper:]' '[:lower:]' <<<"$task")-"* ]] \
+        || die "not on $task's branch for feature $num (on '$branch'); run /speckit-implement $task"
+    else
+      title="${2:-}"; body_file="${3:-}"
+      [[ -n "$title" && -n "$body_file" ]] || die 'usage: pr.sh fix "type(scope): summary" <body-file>'
+      [[ -n "$branch" ]] && ! is_protected "$branch" \
+        || die "on '${branch:-a detached HEAD}': a PR comes from its own branch (git switch -c fix/<slug>), never a base branch"
+    fi
     [[ -z "$(git status --porcelain)" ]] || die "uncommitted changes; commit the work first"
     git fetch --quiet origin "$base" 2>/dev/null || true
     [[ -n "$(git log --oneline "origin/$base..HEAD" 2>/dev/null || git log --oneline -1)" ]] || die "no commits ahead of $base"
@@ -110,7 +122,7 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
       echo "landspec: tests not run before the PR (no test command in the constitution)" >&2
     fi
     body+=$'\n\n<details><summary>Independent review</summary>\n\n'"$review"$'\n\n</details>'
-    grep -qiE "(close[sd]?|fix(e[sd])?|resolve[sd]?) #$issue([^0-9]|$)" <<<"$body" || body+=$'\n\n'"Closes #$issue"
+    if [[ -n "$issue" ]] && ! grep -qiE "(close[sd]?|fix(e[sd])?|resolve[sd]?) #$issue([^0-9]|$)" <<<"$body"; then body+=$'\n\n'"Closes #$issue"; fi
     git push --quiet -u origin "$branch"
     open_pr "$title" "$body" "$body_file"
     ;;
@@ -173,5 +185,5 @@ Merge this before starting tasks: \`/speckit-implement Tnnn\` branches from \`$b
 
 </details>"
     ;;
-  *) die "usage: pr.sh task T003 \"type(scope): summary\" [body-file] | pr.sh spec" ;;
+  *) die "usage: pr.sh task T003 \"type(scope): summary\" [body-file] | pr.sh fix \"type(scope): summary\" <body-file> | pr.sh spec" ;;
 esac

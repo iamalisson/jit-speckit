@@ -9,6 +9,12 @@ metadata:
 
 # Task pull request (after `/speckit-implement`)
 
+**Not a task** (a small fix, a dependency bump, landspec's own setup or level change): the same
+steps 2 to 6 at every level, on its own branch, with no issue. The reviewer gets one line on what
+the change does and why in place of the task's line, the commit has no `Refs #`, and step 6 is
+`pr.sh fix "<commit title>" <body-file>`. A raw `gh pr create` is blocked by the guard, except a
+promotion between long-lived branches (`develop` into `main`), whose PRs were each reviewed.
+
 1. Read the level: `level:` in `.specify/extensions/landspec/landspec-config.yml` (default `standard`).
    - **lite**: ask "Review and open the PR now?" and continue only on yes.
    - **standard** and **full**: continue.
