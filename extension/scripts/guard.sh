@@ -88,8 +88,8 @@ switched() {
 }
 
 # words "<text>": shell-like words, one per line. Quotes group and are removed; nothing is
-# expanded or run. Unquoted && || ; | & and newlines become a "|" word, separating commands. A #
-# at the start of a word starts a comment. In awk, linear in the length (bash's ${s:i:1} is not).
+# expanded or run. Unquoted && || ; and newlines become a "|" word, separating commands; a pipe
+# (| or |&) becomes "|>" and a lone & "|&" (subshells). A # at the start of a word starts a comment. In awk, linear in the length (bash's ${s:i:1} is not).
 words() {
   awk '
     { text = text $0 "\n" }
@@ -104,9 +104,15 @@ words() {
           w = w part; inw = 1; i += j; continue
         }
         if (c == "#" && !inw) { while (i < n && substr(text, i + 1, 1) != "\n") i++; continue }
+        # A redirection (2>&1, &>f) is not a separator.
+        if (c == "&" && (substr(text, i + 1, 1) == ">" || w ~ /[<>]$/)) { w = w c; inw = 1; continue }
         if (c == " " || c == "\t" || c == "\n" || c == ";" || c == "|" || c == "&") {
           if (inw) { print w; w = ""; inw = 0 }
-          if (c != " " && c != "\t") print "|"
+          d = substr(text, i + 1, 1); s = "|"
+          if (c == "|" && d == "|" || c == "&" && d == "&") i++
+          else if (c == "|") { s = "|>"; if (d == "&") i++ }
+          else if (c == "&") s = "|&"
+          if (c != " " && c != "\t") print s
           continue
         }
         w = w c; inw = 1
@@ -222,12 +228,18 @@ check_git() {
 # check_command <command text> [nested]: every command in it, including ones inside sh -c '...'.
 # An env prefix (SKIP=) belongs to one top-level command; inside sh -c it carries over.
 check_command() {
-  local cmd=() w nested="${2:-}"
+  local cmd=() w nested="${2:-}" before="$dir" piped=false
   while IFS= read -r w; do
-    if [[ "$w" == "|" ]]; then
-      [[ -n "$nested" ]] || skip_env=false
-      check_words ${cmd[@]+"${cmd[@]}"}; cmd=()
-    else cmd+=("$w"); fi
+    case "$w" in
+      "|"|"|>"|"|&")
+        [[ -n "$nested" ]] || skip_env=false
+        check_words ${cmd[@]+"${cmd[@]}"}; cmd=()
+        # A pipeline stage or a background job runs in a subshell: its cd does not last.
+        if $piped || [[ "$w" != "|" ]]; then dir="$before"; fi
+        if [[ "$w" == "|>" ]]; then piped=true; else piped=false; fi
+        before="$dir" ;;
+      *) cmd+=("$w") ;;
+    esac
   done < <(words "$(without_heredocs "$1")")
   [[ -n "$nested" ]] || skip_env=false
   check_words ${cmd[@]+"${cmd[@]}"}
@@ -282,7 +294,8 @@ check_words() {
     sh|bash|zsh|*/sh|*/bash|*/zsh)
       shift
       while (($#)); do
-        if [[ "$1" == -*c* && "$1" != --* ]]; then check_command "${2:-}" nested; return; fi
+        # A cd inside the child shell does not move the commands after it.
+        if [[ "$1" == -*c* && "$1" != --* ]]; then local d="$dir"; check_command "${2:-}" nested; dir="$d"; return; fi
         shift
       done ;;
   esac

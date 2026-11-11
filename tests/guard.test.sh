@@ -128,6 +128,13 @@ check "when git config only reads core.hooksPath, then it is allowed; setting or
   '"$g" "git config core.hooksPath" && "$g" "git config --local core.hooksPath" && blocked "git config core.hooksPath /dev/null" && blocked "git config --unset core.hooksPath"'
 check "when the cd target can not be told (a variable, cd -), then it is checked here" \
   'blocked "cd \$X && git commit -m x" && blocked "cd - && git commit -m x"'
+# #103: a cd in a child process (sh -c, a pipeline stage, a background job) does not move the rest.
+check "when a cd or pushd runs inside sh -c, then the commands after it are still checked here" \
+  'blocked "bash -c '"'"'cd /tmp'"'"'; git commit --no-verify -m x" && blocked "sh -c '"'"'cd /tmp'"'"'; git commit -m x" && blocked "zsh -c '"'"'cd /tmp'"'"' && git commit --no-verify -m x" && blocked "env bash -c '"'"'cd /tmp'"'"'; git commit --no-verify -m x" && blocked "bash -c '"'"'pushd /tmp'"'"'; git commit --no-verify -m x" && blocked "bash -c '"'"'cd /tmp'"'"'; git add -A" && blocked "bash -c '"'"'cd /tmp'"'"'; git push origin main"'
+check "when a cd runs in a pipeline stage or before a lone &, then the commands after it are still checked here" \
+  'blocked "cd /tmp | true; git commit --no-verify -m x" && blocked "true | cd /tmp; git commit -m x" && blocked "cd /tmp |& true; git commit -m x" && blocked "cd /tmp & git commit --no-verify -m x" && blocked "(cd /tmp); git commit --no-verify -m x"'
+check "when the commit runs inside the same sh -c as the cd, or after a cd with a redirection, then it is checked there" \
+  '"$g" "bash -c '"'"'cd $TMP/other; git commit -m x'"'"'" && "$g" "cd $TMP/other 2>&1 && git commit -m x" && "$g" "cd $TMP/other && git commit -m x | cat"'
 
 # The plugin hook shim: JSON in, guard decision out; silent outside landspec projects.
 shim="$ROOT/hooks/guard-git.sh"
