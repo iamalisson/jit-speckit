@@ -5,7 +5,7 @@
 
 PIN_CHECKOUT="actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1"
 PIN_SETUP_NODE="actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0"
-PIN_PNPM="pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0"
+PIN_PNPM="pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1"
 PIN_RUST_TOOLCHAIN="dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master"
 PIN_RUST_CACHE="Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3"
 PIN_SETUP_UV="astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3"
