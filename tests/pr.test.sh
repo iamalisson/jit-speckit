@@ -132,6 +132,8 @@ printf '%s\n' '- [ ] T003 Added by converge in `c` — #13' >> specs/002-new/tas
 "$p" spec >/dev/null
 check "when a later spec PR follows a squash-merged one, then it starts fresh from the base" \
   'git merge-base --is-ancestor origin/develop HEAD && [[ "$(git branch --show-current)" == spec/002-new ]]'
+check "then its commit says update: the spec is already on the base" \
+  '[[ "$(git log -1 --format=%s)" == "docs(specs): update 002-new spec, plan and tasks" ]]'
 check "then the new spec PR carries only what changed: the converge task" \
   '[[ "$(git diff --name-only origin/develop..HEAD)" == specs/002-new/tasks.md ]] && git diff origin/develop..HEAD | grep -q "^+- \[ \] T003 Added by converge"'
 

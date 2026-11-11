@@ -164,7 +164,9 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
       restore; trap - EXIT
     fi
     git add -- "$fdir"
-    title="${2:-}"; verb=add; [[ -n "$open" ]] && verb=update
+    # "update" once the spec exists anywhere: an open PR, or a squash-merged one already on the base.
+    title="${2:-}"; verb=add
+    if [[ -n "$open" ]] || git cat-file -e "$(base_ref):$fdir" 2>/dev/null; then verb=update; fi
     git diff --cached --quiet || git commit --quiet -m "${title:-docs(specs): $verb $feature spec, plan and tasks}"
     # A fresh branch may replace a stale one left by a merged PR (no PR is open on it); the lease
     # still refuses if someone pushed to it since we last fetched.
