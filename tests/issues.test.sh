@@ -29,8 +29,8 @@ check "then a task that already had an issue is left alone" 'grep -qx -- "- \[ \
 check "then it reports what it did" '[[ "$out" == *"CREATED=2 SKIPPED=1"* ]]'
 check "then the title has the feature number and no file path, with or without backticks" \
   'grep -qF -- "--title [001] T001: Create the schema --body" "$GH_LOG" && grep -qF -- "--title [001] T003: Show prices --body" "$GH_LOG"'
-check "then the body carries Comes from, Impact and Completed when" \
-  'grep -qF "**Comes from:** FR-001" "$GH_LOG" && grep -qF "**Impact:** tests/test_schema.py lists every table and must include the new one" "$GH_LOG" && grep -qF "**Completed when:** \`make test\` passes" "$GH_LOG"'
+check "then the body carries Comes from, Impact (a wrapped line keeps its newline) and Completed when" \
+  'grep -qF "**Comes from:** FR-001" "$GH_LOG" && grep -qxF "**Impact:** tests/test_schema.py lists every table and" "$GH_LOG" && grep -qxF "must include the new one" "$GH_LOG" && grep -qF "**Completed when:** \`make test\` passes" "$GH_LOG"'
 check "then the configured label is applied" 'grep -q -- "--label type:task" "$GH_LOG"'
 check "then the user is assigned after creation" '[[ "$(grep -c "^issue edit https://github.com/acme/app/issues/[0-9]* --add-assignee @me" "$GH_LOG")" == 2 ]]'
 check "when no milestone or project is configured, then none is set" '! grep -qE -- "--milestone|--add-project" "$GH_LOG"'
@@ -101,5 +101,41 @@ mkdir -p "$TMP/gh-up"; printf '#!/bin/sh\necho their/template\n' > "$TMP/gh-up/g
 check "then repo_slug names origin too, whatever gh repo view says" \
   '[[ "$(PATH="$TMP/gh-up:$PATH"; source "$SCRIPTS/lib.sh"; repo_slug)" == acme/app ]]'
 git remote remove upstream; git remote set-url origin "$keep_url"
+
+# #107: a field keeps every line indented under it, nested lists and blank lines included.
+printf '%s\n' '- [ ] T200 Nest fields in `src/a.py`' '  - Comes from: FR-001' '  - Impact:' '    - first item' '    - second item' \
+  '  - Completed when: `pytest tests/test_a.py` passes:' '    - case one' '' '    And then a note after a blank line.' \
+  '- [ ] T201 Sibling fields in `src/b.py`' '  - Impact: one line' '    - nested' '  - What: next field' \
+  '' '- [ ] T202 Last task in `src/c.py`' '  - Comes from: FR-002' '  - Completed when: the end' '    - last nested' '' >> specs/001-demo/tasks.md
+plan_reviewed
+tf() { (source "$SCRIPTS/lib.sh"; task_field specs/001-demo "$@"); }
+check "when Impact is a nested list, then task_field returns every item on its own line" \
+  '[[ "$(tf T200 Impact)" == $'"'"'\n- first item\n- second item'"'"' ]]'
+check "when Completed when has a nested list and a note after a blank line, then all of it is kept, blank line included" \
+  '[[ "$(tf T200 "Completed when")" == $'"'"'`pytest tests/test_a.py` passes:\n- case one\n\nAnd then a note after a blank line.'"'"' ]]'
+check "when a field is followed by a sibling field, then it stops there and the sibling is read on its own" \
+  '[[ "$(tf T201 Impact)" == $'"'"'one line\n- nested'"'"' && "$(tf T201 What)" == "next field" ]]'
+check "when the field is the last of the last task, then it ends at the file end without trailing blank lines" \
+  '[[ "$(tf T202 "Completed when")" == $'"'"'the end\n- last nested'"'"' ]]'
+check "when a field is absent or one line, then it is empty or that line" '[[ -z "$(tf T202 Impact)" && "$(tf T202 "Comes from")" == FR-002 ]]'
+: > "$GH_LOG"; "$i" >/dev/null
+check "then the issue body carries the nested lists as markdown" \
+  'grep -qxF "**Impact:** " "$GH_LOG" && grep -qxF -- "- first item" "$GH_LOG" && grep -qxF "**Completed when:** \`pytest tests/test_a.py\` passes:" "$GH_LOG" && grep -qxF "And then a note after a blank line." "$GH_LOG"'
+t200="$(grep -o 'T200 Nest fields in `src/a.py` — #[0-9]*' specs/001-demo/tasks.md)"; t200="${t200##*#}"
+base="$(source "$SCRIPTS/lib.sh"; base_branch)"
+# The body issues.sh built before #107: no Impact, and the default Completed when.
+truncated="**Feature:** \`001-demo\` · **Task:** T200 in [\`tasks.md\`](../blob/$base/specs/001-demo/tasks.md)
+
+**Task:** Nest fields in \`src/a.py\`
+
+**Comes from:** FR-001
+
+**Completed when:** _its tests pass and the change is verified as plan.md describes._
+
+---
+**Done** = closed by the merged PR (\`Closes #N\`). Start it with \`/speckit-implement T200\`."
+: > "$GH_LOG"
+check "when --sync meets an issue whose body was built truncated, then it rewrites it with the whole fields" \
+  'out="$(GH_VIEW_BODY="$truncated" "$i" --sync)"; grep -qF "T200 → #$t200 (updated)" <<<"$out" && grep -q "^issue edit $t200 --body" "$GH_LOG" && grep -qxF -- "- first item" "$GH_LOG" && grep -qxF "And then a note after a blank line." "$GH_LOG"'
 
 exit "$FAIL"
