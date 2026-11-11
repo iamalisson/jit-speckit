@@ -150,6 +150,10 @@ Details, the configuration keys and what runs automatically: [docs/reference.md]
 `/landspec:help` shows every command, level and setting. Ask it anything:
 `/landspec:help why is the spec a separate PR?`
 
+landspec got something wrong, or could do better? `/landspec:report` drafts an issue for this
+repository from what just happened (versions, the message, where in landspec it comes from,
+nothing private from your project), checks for duplicates, and files it once you say yes.
+
 ## Uninstall
 
 `/landspec:remove` takes landspec out of one project (`--with-speckit` also removes
