@@ -76,7 +76,9 @@ feature; when more than one feature has tasks to start, it lists them and asks, 
 does, it serves that one without changing the active feature. On a task branch the branch name
 decides, for `next` too, so a worktree never follows the main checkout. `next` prints `FEATURE=` and
 starts `/speckit-implement <FEATURE> <NEXT>`, so `next 002` on a 001 task branch starts 002's task.
-It fetches origin first (a failed fetch warns), and prints a `parallel` line only for a task whose
+It fetches origin first, and stops, naming the reason above git's or gh's error, when it cannot
+fetch origin, read its branches or list the open PRs: without them a task another clone claimed
+would look free. It prints a `parallel` line only for a task whose
 line is on `origin/<base>` with its issue: a task of an unmerged spec PR, converge ones included,
 gets no line, and `branch.sh` refuses it with "merge the spec PR first" before any claim. A task is
 done when the issue number on its line is closed: `next` reads every task's issue by number in one

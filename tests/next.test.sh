@@ -134,10 +134,18 @@ git worktree remove --force "$top-001-t007" 2>/dev/null || true
 git branch --quiet -D feat/001-t007-seventh 2>/dev/null || true
 git push --quiet origin --delete feat/001-t007-seventh 2>/dev/null || true
 
+# #105: next stops, naming why, when it cannot see other clones' claims.
 url="$(git remote get-url origin)"; git remote set-url origin "$TMP/gone.git"
-check "when the fetch fails, then next warns and still answers" \
-  'out="$("$n" 2>"$TMP/err")"; grep -q "warning: could not fetch origin" "$TMP/err" && [[ "$(tail -1 <<<"$out")" == *"NEXT=T001"* ]]'
-git remote set-url origin "$url"
+check "when the fetch fails, then next stops naming the reason and git's error" \
+  '! "$n" >/dev/null 2>"$TMP/err" && grep -q "^landspec: cannot fetch origin, so tasks claimed in other clones cannot be seen" "$TMP/err" && grep -q "gone.git" "$TMP/err"'
+git remote set-url origin "$url"; git push --quiet origin main:refs/heads/feat/001-t001-claimed
+check "when another clone claimed a task, then next shows it in progress" 'out="$("$n")"; grep -q "^in-progress T001" <<<"$out" && [[ "$out" == *"NEXT=T002" ]]'
+git remote set-url origin "$TMP/gone.git"
+check "when origin is then unreachable, then the claimed task is never offered as NEXT" \
+  'if out="$("$n" 2>/dev/null)"; then false; fi; [[ "$out" != *"NEXT=T001"* ]]'
+git remote set-url origin "$url"; git push --quiet origin --delete feat/001-t001-claimed
+check "when the open pull requests cannot be listed, then next stops naming the reason and gh's error" \
+  '! GH_FAIL_PR_LIST=1 "$n" >"$TMP/out" 2>"$TMP/err" && [[ ! -s "$TMP/out" ]] && grep -q "^landspec: cannot list the open pull requests" "$TMP/err" && grep -q "HTTP 502" "$TMP/err"'
 
 # A first spec PR: the feature exists only on its spec branch.
 git switch --quiet -c spec/002-new

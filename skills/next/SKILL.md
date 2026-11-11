@@ -11,6 +11,8 @@ argument-hint: "[feature]"
    a task branch, it serves that branch's feature.
    - If it stops with `cannot read the state of feature …`, show gh's error above it (it names the
      issue number) and stop: the task line links an issue that is missing or not an issue.
+   - If it stops with `cannot fetch origin`, `cannot read origin's branches` or `cannot list the
+     open pull requests`, show the error above it and stop: without them a claimed task looks free.
    - If `.specify/extensions/landspec/` does not exist, tell the user to run `/landspec:init`
      first, and stop.
    - If it prints `CHOOSE=...`, more than one feature has tasks to start: show the `feature` lines
