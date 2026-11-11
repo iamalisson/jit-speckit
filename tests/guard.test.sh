@@ -153,6 +153,17 @@ check "when the session is outside landspec but the command cds into a landspec 
   'rc=0; json "$TMP/plain" "cd $TMP/repo && git commit -m x" | bash "$shim" 2>/dev/null || rc=$?; [[ $rc == 2 ]]'
 check "when the session is in a landspec repo on main but the commit targets another repo, then the hook allows it" \
   'json "$TMP/repo" "git -C $TMP/other commit -m x" | bash "$shim"'
+# #104: --git-dir / GIT_DIR= name the repository git writes to; --work-tree alone does not.
+check "when the session is outside landspec but --git-dir or GIT_DIR= names a landspec repo on main, then it is blocked" \
+  '(cd "$TMP/plain" && blocked "git --git-dir=$TMP/repo/.git --work-tree=$TMP/repo commit --no-verify -m x" && blocked "GIT_DIR=$TMP/repo/.git GIT_WORK_TREE=$TMP/repo git commit --no-verify -m x" && blocked "git --git-dir $TMP/repo/.git commit -m x" && blocked "GIT_DIR=$TMP/repo/.git bash -c \"git commit -m x\"")'
+check "when the hook gets --git-dir or GIT_DIR= from outside landspec, then it still runs the guard and exits 2" \
+  'a=0 b=0; json "$TMP/plain" "GIT_DIR=$TMP/repo/.git git commit --no-verify -m x" | bash "$shim" 2>/dev/null || a=$?; json "$TMP/plain" "git --git-dir=$TMP/repo/.git --work-tree=$TMP/repo commit --no-verify -m x" | bash "$shim" 2>/dev/null || b=$?; [[ $a == 2 && $b == 2 ]]'
+check "when the session is in a landspec repo on main but --git-dir or GIT_DIR= names another repo, then it is allowed" \
+  '"$g" "git --git-dir=$TMP/plain/.git commit -m x" && "$g" "GIT_DIR=$TMP/plain/.git git commit -m x"'
+check "when only --work-tree names another repo, or GIT_DIR= was on an earlier command, then the commit is still checked here" \
+  'blocked "git --work-tree=$TMP/plain commit -m x" && blocked "GIT_WORK_TREE=$TMP/plain git commit -m x" && blocked "GIT_DIR=$TMP/plain/.git true; git commit -m x" && blocked "GIT_DIR=$TMP/plain/.git; git commit -m x"'
+check "when a git or gh option that takes a value ends the command, then the guard ends (a loop hangs the hook)" \
+  '"$g" "git --git-dir" && "$g" "git -C" && "$g" "git -c" && "$g" "git --namespace" && "$g" "gh pr create --base main -H"'
 
 
 mkdir -p "$TMP/plain/.specify/extensions/landspec/scripts"; echo 'exit 0' > "$TMP/plain/.specify/extensions/landspec/scripts/guard.sh"

@@ -6,7 +6,8 @@
 #        to a protected branch (counting every branch a switch/checkout earlier in the chain may
 #        have moved to), no `gh pr create` outside pr.sh except a promotion between long-lived branches.
 # Each git command is checked against the repository it runs in: the hook's directory, moved by a
-# `cd`/`pushd` earlier in the chain or by `git -C`. A repository without landspec is not checked.
+# `cd`/`pushd` earlier in the chain or by `git -C`, or the one --git-dir/GIT_DIR= names. A
+# repository without landspec is not checked.
 # Best effort: it catches the usual forms (chains, env/command/VAR= prefixes, sh -c '...', git
 # global options, bundled flags), not every possible shell trick. The real boundary is CI plus
 # branch protection. People are not affected; their git hooks still apply.
@@ -140,18 +141,28 @@ no_hooks() { block "switching git hooks off skips the secret checks"; }
 
 # check_git <args...>: the words after `git`.
 check_git() {
-  local sub="" w gdir="${dir:-$start}"
+  local sub="" w gdir="${dir:-$start}" gd="$git_dir" wt="$work_tree"
   # Global options before the subcommand; -C and -c take a value. Each -C moves on from the last.
   while (($#)); do
     case "$1" in
-      -c|--config-env) if hookspath "${2:-}"; then no_hooks; fi; shift 2 ;;
+      -c|--config-env) if hookspath "${2:-}"; then no_hooks; fi; shift 2 || shift ;;
       -c*|--config-env=*) if hookspath "$1"; then no_hooks; fi; shift ;;
-      -C) gdir="$(resolve "$gdir" "${2:-}")"; [[ -n "$gdir" ]] || gdir="$start"; shift 2 ;;
-      --git-dir|--work-tree|--namespace) shift 2 ;;
+      -C) gdir="$(resolve "$gdir" "${2:-}")"; [[ -n "$gdir" ]] || gdir="$start"; shift 2 || shift ;;
+      --git-dir) gd="${2:-}"; shift 2 || shift ;;
+      --git-dir=*) gd="${1#*=}"; shift ;;
+      --work-tree) wt="${2:-}"; shift 2 || shift ;;
+      --work-tree=*) wt="${1#*=}"; shift ;;
+      --namespace) shift 2 || shift ;;
       -*) shift ;;
       *) sub="$1"; shift; break ;;
     esac
   done
+  # A named git dir picks the repository: its work tree, or the folder above it. Git resolves a
+  # relative one after every -C. --work-tree alone keeps the repository found from the directory.
+  if [[ -n "$gd" ]]; then
+    if [[ -n "$wt" ]]; then gdir="$(resolve "$gdir" "$wt")"; else gdir="$(resolve "$gdir" "$gd/..")"; fi
+    [[ -n "$gdir" ]] || gdir="$start"
+  fi
   enter_repo "$gdir" || return 0
   # pre-commit's SKIP= only matters where hooks run; `SKIP=x git status` is fine.
   case "$sub" in commit|push|merge|rebase|am|cherry-pick|revert)
@@ -257,7 +268,7 @@ check_gh() {
   shift 2
   while (($#)); do
     case "$1" in
-      -H|--head) head="${2:-}"; shift 2 ;;
+      -H|--head) head="${2:-}"; shift 2 || shift ;;
       --head=*) head="${1#*=}"; shift ;;
       *) shift ;;
     esac
@@ -269,7 +280,8 @@ check_gh() {
 }
 
 check_words() {
-  local w
+  # GIT_DIR=/GIT_WORK_TREE= belong to this command, and reach the commands inside its sh -c.
+  local w git_dir="${git_dir-}" work_tree="${work_tree-}"
   # Git reads config from the environment too (GIT_CONFIG_PARAMETERS, GIT_CONFIG_KEY_n).
   for w in "$@"; do
     if [[ "$w" == GIT_CONFIG_*=* ]] && hookspath "$w"; then no_hooks; fi
@@ -279,6 +291,8 @@ check_words() {
   while (($#)); do
     case "$1" in
       SKIP=*|PRE_COMMIT_ALLOW_NO_CONFIG=*) skip_env=true; shift ;;
+      GIT_DIR=*) git_dir="${1#*=}"; shift ;;
+      GIT_WORK_TREE=*) work_tree="${1#*=}"; shift ;;
       *=*|env|command|exec|time|nohup|sudo) shift ;;
       *) break ;;
     esac

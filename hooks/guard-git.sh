@@ -18,8 +18,9 @@ cmd="$(field command)"
 [[ "$cmd" == *git* || "$cmd" == *gh* ]] || exit 0 # gh: a PR opens only through pr.sh
 cwd="$(field cwd)"
 cd "${cwd:-.}" 2>/dev/null || exit 0
-# Fast path: no cd/pushd/-C, so every git command runs here; nothing to check outside landspec.
-if [[ ! "$cmd" =~ (^|[^[:alnum:]_-])(cd|pushd)[[:space:]]|[[:space:]]-C[[:space:]] ]]; then
+# Fast path: no cd/pushd/-C/--git-dir/GIT_DIR=, so every git command runs here; nothing to check
+# outside landspec.
+if [[ ! "$cmd" =~ (^|[^[:alnum:]_-])(cd|pushd)[[:space:]]|[[:space:]]-C[[:space:]]|--git-dir|--work-tree|GIT_DIR=|GIT_WORK_TREE= ]]; then
   root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
   [[ -d "$root/.specify/extensions/landspec" || -d "$root/.specify/extensions/jit" ]] || exit 0 # jit: the name before 2.0.0
 fi
