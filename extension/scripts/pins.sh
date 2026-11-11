@@ -25,5 +25,5 @@ SEMGREP_DIGEST="2e45517a85e13a9cca14a2a00df6bb48affd66b8ebfae1b0991cd57578362fb0
 # Checksum from the release's own trivy_<v>_checksums.txt: it catches a corrupted download, not a
 # compromised release (trivy's distribution was attacked in March 2026). Bump only to releases
 # that have been out for a few weeks.
-TRIVY_VERSION="0.76.0"
-TRIVY_SHA256="e24b1c51293c1b15e4ba8d45bbc7891ba053f90278ec2698f3562c993e145fe7" # Linux-64bit tarball
+TRIVY_VERSION="0.76.1"
+TRIVY_SHA256="c7cbe3137fb8a48a17574bede3dd6beb16742d1e9772929940fc90082c39d9c0" # Linux-64bit tarball
