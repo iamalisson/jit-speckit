@@ -29,9 +29,9 @@
 - One task = one issue = one branch = one pull request. A task is done when its issue is closed
   by the merged PR (`Closes #N`); a ticked checkbox alone is not done.
 - Features go through specs and tasks. A small fix (a typo, a one-line bug, a dependency bump)
-  goes on a normal branch and PR: no spec or issue needed, but the hooks and CI still apply.
+  goes on a normal branch and PR: no spec or issue needed, but the review, hooks and CI still apply.
 - Branch flow: `{{BRANCH_FLOW}}`, always through a pull request.
 - Before a PR opens, a fresh reader reviews it against the whole repository
   (`/speckit-landspec-review`); High and Medium findings are fixed, the review is recorded for the
-  exact diff, and the PR's `## Review` section says what was found and done. No task PR opens
-  without it.
+  exact diff, and the PR's `## Review` section says what was found and done. No PR opens without
+  it, at any level: a task through `pr.sh task`, anything else through `pr.sh fix`.

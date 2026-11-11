@@ -21,6 +21,13 @@ check "when Claude pushes to develop or main explicitly, then it is blocked" \
   'blocked "git push origin develop" && blocked "git push origin HEAD:main" && blocked "git push --force origin main"'
 check "when the push hides in a chain or uses -C, then it is still blocked" \
   'blocked "npm test && git -C . push origin develop"'
+check "when Claude opens a PR with gh pr create, then it is blocked at every level (pr.sh checks the review)" \
+  'blocked "gh pr create --base develop --title x --body y" && blocked "cd . && gh -R o/r pr create -t x" && blocked "bash -c \"gh pr create --fill\""'
+check "when the PR is a promotion from a long-lived branch, then gh pr create is allowed" \
+  '"$g" "gh pr create --base main --head develop --title x" && "$g" "gh pr create -B main -H develop -t x"'
+check "when gh ends in -R or uses --repo=, then the guard ends (a loop hangs the job) and still blocks the PR" \
+  '"$g" "gh -R" && "$g" "gh --repo" && blocked "gh --repo=o/r pr create -t x"'
+check "when gh only reads PRs, then it is allowed" '"$g" "gh pr list" && "$g" "gh pr view 3 --json body" && "$g" "gh pr edit 3 --body x"'
 
 check "when no-verify hides in a bundled flag, a global option or a wrapper, then it is blocked" \
   'blocked "git commit -nm x" && blocked "git --no-pager commit -n -m x" && blocked "env git commit --no-verify -m x" && blocked "GIT_X=1 command git push --no-verify"'
@@ -127,6 +134,8 @@ shim="$ROOT/hooks/guard-git.sh"
 json() { printf '{"tool_name":"Bash","cwd":"%s","tool_input":{"command":"%s"}}' "$1" "$2"; }
 check "when the hook gets a blocked command inside a landspec project, then it exits 2" \
   'rc=0; json "$PWD" "git push origin develop" | bash "$shim" 2>/dev/null || rc=$?; [[ $rc == 2 ]]'
+check "when the hook gets gh pr create (no 'git' in it) inside a landspec project, then it exits 2" \
+  'rc=0; json "$PWD" "gh pr create --head feat/001-t001-thing --fill" | bash "$shim" 2>/dev/null || rc=$?; [[ $rc == 2 ]]'
 mkdir -p "$TMP/oldname/.specify/extensions/jit" && git -C "$TMP/oldname" init --quiet
 check "when a project still has the old jit folder, then the hook still guards it" \
   'rc=0; json "$TMP/oldname" "git add -A" | bash "$shim" 2>/dev/null || rc=$?; [[ $rc == 2 ]]'

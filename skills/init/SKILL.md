@@ -98,9 +98,11 @@ disable-model-invocation: true
    taking the setup along (if git refuses because the two branches differ in those files, say so,
    and stop: run `/landspec:init` again from `<base>`). Stage **by name** only what the setup
    wrote (`.specify`, `.claude/skills`, and each file the script listed as created or updated;
-   never `git add -A`), commit `chore: landspec <version> (level <level>)`, push, and open the
-   PR with `gh pr create --base <base>` and a two-line body saying what moved and that nothing else
-   changed. It is a small fix: no spec, no issue; the hooks and CI still apply. Then
+   never `git add -A`), commit `chore: landspec <version> (level <level>)`, and open the PR as a
+   small fix (`.specify/extensions/landspec/commands/pr.md`, "Not a task"): the review, then
+   `pr.sh fix "chore: landspec <version> (level <level>)" <body-file>`, which opens it into `<base>`, with a
+   two-line body saying what moved and that nothing else changed, plus its `## Review`. No spec, no
+   issue; the hooks and CI still apply. Then
    `/landspec:adopt` (step 6) runs on that branch. If `origin/<base>` does not exist yet (the
    script said a branch is "not created yet"), there is no PR to open: tell the user to commit, push
    the default branch and run `/landspec:level <level>`. On no: leave it uncommitted for the user

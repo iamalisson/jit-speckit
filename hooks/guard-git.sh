@@ -15,7 +15,7 @@ field() { # field <name>: a string field from the hook's JSON input
   fi
 }
 cmd="$(field command)"
-[[ "$cmd" == *git* ]] || exit 0
+[[ "$cmd" == *git* || "$cmd" == *gh* ]] || exit 0 # gh: a PR opens only through pr.sh
 cwd="$(field cwd)"
 cd "${cwd:-.}" 2>/dev/null || exit 0
 # Fast path: no cd/pushd/-C, so every git command runs here; nothing to check outside landspec.

@@ -4,7 +4,7 @@
 # Rules: no --no-verify or a prefix of it (or commit/am -n), no hooks disabled with -c
 #        core.hooksPath or SKIP=, no `git add -A/--all/.`, no commit on a protected branch, no push
 #        to a protected branch (counting every branch a switch/checkout earlier in the chain may
-#        have moved to).
+#        have moved to), no `gh pr create` outside pr.sh except a promotion between long-lived branches.
 # Each git command is checked against the repository it runs in: the hook's directory, moved by a
 # `cd`/`pushd` earlier in the chain or by `git -C`. A repository without landspec is not checked.
 # Best effort: it catches the usual forms (chains, env/command/VAR= prefixes, sh -c '...', git
@@ -233,6 +233,29 @@ check_command() {
   check_words ${cmd[@]+"${cmd[@]}"}
 }
 
+# check_gh <args...>: the words after `gh`. A PR opens through pr.sh, which refuses it without a
+# recorded review, at every level. A promotion (head is a long-lived branch: develop into main)
+# carries only PRs that were each reviewed, so it may open directly.
+check_gh() {
+  local head=""
+  while [[ "${1:-}" == -R || "${1:-}" == --repo ]]; do shift; (($#)) && shift; done # a trailing -R must not loop
+  while [[ "${1:-}" == --repo=* ]]; do shift; done
+  [[ "${1:-}" == pr && "${2:-}" == create ]] || return 0
+  enter_repo "${dir:-$start}" || return 0
+  shift 2
+  while (($#)); do
+    case "$1" in
+      -H|--head) head="${2:-}"; shift 2 ;;
+      --head=*) head="${1#*=}"; shift ;;
+      *) shift ;;
+    esac
+  done
+  [[ -n "$head" ]] || head="$(git branch --show-current 2>/dev/null)"
+  head="${head##*:}" # owner:branch
+  if [[ -n "$head" ]] && is_protected "$head"; then return 0; fi
+  block "a PR opens after the independent review, through pr.sh: pr.sh task Tnnn \"<title>\" <body-file> for a task, pr.sh fix \"<title>\" <body-file> for anything else (/speckit-landspec-review first)"
+}
+
 check_words() {
   local w
   # Git reads config from the environment too (GIT_CONFIG_PARAMETERS, GIT_CONFIG_KEY_n).
@@ -255,6 +278,7 @@ check_words() {
       while [[ "${1:-}" == -?* ]]; do shift; done
       dir="$(resolve "${dir:-$start}" "${1:-~}")" ;;
     git|*/git) shift; check_git "$@" ;;
+    gh|*/gh) shift; check_gh "$@" ;;
     sh|bash|zsh|*/sh|*/bash|*/zsh)
       shift
       while (($#)); do

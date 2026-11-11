@@ -99,7 +99,8 @@ branches start there. What `new` asks and sets up: [docs/reference.md](docs/refe
 | **When every task is done** | `/speckit-converge` | compares the code with the spec; anything unbuilt becomes new tasks with issues |
 
 **Small fixes don't need the feature loop.** A typo, a one-line bug fix or a dependency bump
-goes on a normal branch with a normal PR. The hooks and the CI gate still apply. The spec, issue
+goes on a normal branch with a normal PR, through `pr.sh fix`. The independent review, the hooks
+and the CI gate still apply: no PR opens without a review, at any level. The spec, issue
 and per-task flow are for features.
 
 The spec PR and the task PRs are separate on purpose: task branches start from the base branch
@@ -120,7 +121,7 @@ Why one task = one issue = one branch = one PR, with the evidence: [docs/design.
 | When | Check |
 |---|---|
 | **every commit** | refuses `.env`, keys and credential files, and tokens or passwords in the code. Under a second. |
-| **every command Claude runs** | blocks `--no-verify`, `git add -A`, commits on base branches and pushes to them |
+| **every command Claude runs** | blocks `--no-verify`, `git add -A`, commits on base branches and pushes to them, and `gh pr create` outside `pr.sh` (a promotion between long-lived branches aside) |
 | **every push** | re-checks every outgoing commit, including ones made with `--no-verify` |
 | **before each PR** | an **independent review** by a fresh agent (`landspec:reviewer`, on Sonnet unless `review_model:` says `opus` or `fable`) that reads the diff and the code around it in one fast pass, like Copilot code review, with no subscription needed, scanners on the changed files (the PR is refused until they ran on its exact diff), `/security-review` |
 | **every PR, and weekly** | CI gate (standard and full): Gitleaks, OSV-Scanner and zizmor (Semgrep with the OWASP rules on `full`, from its image pinned by digest, its rules fetched from the Semgrep registry at run time; trivy on Dockerfiles and Terraform when the project has them), all pinned and checksum-verified |

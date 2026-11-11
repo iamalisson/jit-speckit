@@ -162,9 +162,9 @@ check "when init's summary is read, then it repeats a warning that a kept workfl
 # The setup commit has to reach the base branch: task branches start there, and scripts read the level from the tree.
 init_commit="$(sed -n '/^8\. \*\*Offer to commit it/,$p' skills/init/SKILL.md)"
 check "when init's step 8 is read, then the setup branch starts from origin/<base> and the PR names that base, on yes and on no" \
-  'grep -qF "git switch -c <branch> origin/<base>" <<<"$init_commit" && grep -qF "gh pr create --base <base>" <<<"$init_commit" && tr "\n" " " <<<"$init_commit" | grep -qE "On no: .*into +\`<base>\`" && grep -q "next promotion" <<<"$init_commit"'
+  'grep -qF "git switch -c <branch> origin/<base>" <<<"$init_commit" && grep -qF "pr.sh fix \"chore: landspec <version> (level <level>)\" <body-file>" <<<"$init_commit" && grep -qF "opens it into \`<base>\`" <<<"$init_commit" && tr "\n" " " <<<"$init_commit" | grep -qE "On no: .*into +\`<base>\`" && grep -q "next promotion" <<<"$init_commit"'
 check "when the level skill is read, then a level change goes to the base branch too" \
-  'grep -qF "gh pr create --base <base branch>" skills/level/SKILL.md'
+  'grep -qF "opens it into \`<base branch>\`" skills/level/SKILL.md'
 check "when the level skill is read, then going up from lite offers merge commits on, and going down offers squash-only" \
   'grep -qF "allow_merge_commit=true" skills/level/SKILL.md && grep -qF "allow_merge_commit=false -F allow_squash_merge=true" skills/level/SKILL.md'
 check "when the reference Update and level.sh are read, then marked files are re-created, so commit first or delete the marker" \

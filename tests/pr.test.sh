@@ -400,4 +400,21 @@ printf '%s\n' '- [ ] T001 Thing in `a` — #11' > specs/001-demo/tasks.md; echo 
 check "when the switch to the spec branch is refused, then it fails and the spec folder is put back untouched" \
   'fails_with "put back" "$p" spec && [[ "$(cat specs/001-demo/spec.md)" == draft && "$(cat specs/001-demo/tasks.md)" == *"#11" && "$(git branch --show-current)" == main ]]'
 
+# ── A PR that is not a task (pr.sh fix): the same review gate, at every level, without an issue ──
+rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR"; : > "$GH_LOG"
+new_repo lite
+rm .specify/feature.json # a small fix belongs to no feature
+check "when pr.sh fix runs on the base branch, then it refuses" 'fails_with "never a base branch" "$p" fix "fix: typo" "$TMP/body.md"'
+git switch --quiet -c fix/typo
+echo typo > typo.txt; git add typo.txt; git commit --quiet -m "fix: typo"
+check "when a fix PR has no recorded review (level lite), then it refuses" \
+  'fails_with "no independent review" "$p" fix "fix: typo" "$TMP/body.md" && ! grep -q "^pr create" "$GH_LOG"'
+check "when pr.sh fix has no body file, then it refuses with its usage" 'fails_with "usage: pr.sh fix" "$p" fix "fix: typo"'
+range() { printf 'Reviewed: %s..%s\nModel: claude-sonnet-4-7\n' "$(git merge-base HEAD origin/main)" "$(git rev-parse HEAD)"; }
+reviewed; scanned
+out="$("$p" fix "fix: typo" "$TMP/body.md" 2>/dev/null)" || true
+check "when it was reviewed and scanned, then it opens the PR into the base, with the review block and no Closes line" \
+  '[[ "$out" == *"PR=https://github.com/acme/app/pull/99" ]] && grep -q "^pr create --base main --head fix/typo" "$GH_LOG" \
+   && grep -q "Independent review" "$GH_LOG" && ! grep -q "Closes #" "$GH_LOG"'
+
 exit "$FAIL"
