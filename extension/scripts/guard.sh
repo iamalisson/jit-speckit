@@ -6,7 +6,8 @@
 #        to a protected branch (counting every branch a switch/checkout earlier in the chain may
 #        have moved to), no `gh pr create` outside pr.sh except a promotion between long-lived branches.
 # Each git command is checked against the repository it runs in: the hook's directory, moved by a
-# `cd`/`pushd` earlier in the chain or by `git -C`. A repository without landspec is not checked.
+# `cd`/`pushd` earlier in the chain or by `git -C`, or the one --git-dir/GIT_DIR= names. A
+# repository without landspec is not checked.
 # Best effort: it catches the usual forms (chains, env/command/VAR= prefixes, sh -c '...', git
 # global options, bundled flags), not every possible shell trick. The real boundary is CI plus
 # branch protection. People are not affected; their git hooks still apply.
@@ -88,8 +89,9 @@ switched() {
 }
 
 # words "<text>": shell-like words, one per line. Quotes group and are removed; nothing is
-# expanded or run. Unquoted && || ; | & and newlines become a "|" word, separating commands. A #
-# at the start of a word starts a comment. In awk, linear in the length (bash's ${s:i:1} is not).
+# expanded or run. Unquoted && || ; and newlines become a "|" word, separating commands; a pipe
+# (| or |&) becomes "|>" and a lone & "|&" (subshells); a redirection (>f, 2>&1, &>f) is a word of
+# its own. A # at the start of a word starts a comment. In awk, linear in the length (bash's ${s:i:1} is not).
 words() {
   awk '
     { text = text $0 "\n" }
@@ -104,9 +106,20 @@ words() {
           w = w part; inw = 1; i += j; continue
         }
         if (c == "#" && !inw) { while (i < n && substr(text, i + 1, 1) != "\n") i++; continue }
+        # A redirection ends the word before it (bash does too) but is not a separator: it becomes
+        # its own word, keeping a file descriptor number (2>&1) and the & of >&2 or &>f.
+        if (c == "<" || c == ">" || c == "&" && substr(text, i + 1, 1) == ">") {
+          if (inw && w !~ /^[0-9]*$/ && w !~ /[<>&]$/) { print w; w = "" }
+          w = w c; inw = 1; continue
+        }
+        if (c == "&" && w ~ /[<>]$/) { w = w c; continue }
         if (c == " " || c == "\t" || c == "\n" || c == ";" || c == "|" || c == "&") {
           if (inw) { print w; w = ""; inw = 0 }
-          if (c != " " && c != "\t") print "|"
+          d = substr(text, i + 1, 1); s = "|"
+          if (c == "|" && d == "|" || c == "&" && d == "&") i++
+          else if (c == "|") { s = "|>"; if (d == "&") i++ }
+          else if (c == "&") s = "|&"
+          if (c != " " && c != "\t") print s
           continue
         }
         w = w c; inw = 1
@@ -134,18 +147,28 @@ no_hooks() { block "switching git hooks off skips the secret checks"; }
 
 # check_git <args...>: the words after `git`.
 check_git() {
-  local sub="" w gdir="${dir:-$start}"
+  local sub="" w gdir="${dir:-$start}" gd="$git_dir" wt="$work_tree"
   # Global options before the subcommand; -C and -c take a value. Each -C moves on from the last.
   while (($#)); do
     case "$1" in
-      -c|--config-env) if hookspath "${2:-}"; then no_hooks; fi; shift 2 ;;
+      -c|--config-env) if hookspath "${2:-}"; then no_hooks; fi; shift 2 || shift ;;
       -c*|--config-env=*) if hookspath "$1"; then no_hooks; fi; shift ;;
-      -C) gdir="$(resolve "$gdir" "${2:-}")"; [[ -n "$gdir" ]] || gdir="$start"; shift 2 ;;
-      --git-dir|--work-tree|--namespace) shift 2 ;;
+      -C) gdir="$(resolve "$gdir" "${2:-}")"; [[ -n "$gdir" ]] || gdir="$start"; shift 2 || shift ;;
+      --git-dir) gd="${2:-}"; shift 2 || shift ;;
+      --git-dir=*) gd="${1#*=}"; shift ;;
+      --work-tree) wt="${2:-}"; shift 2 || shift ;;
+      --work-tree=*) wt="${1#*=}"; shift ;;
+      --namespace) shift 2 || shift ;;
       -*) shift ;;
       *) sub="$1"; shift; break ;;
     esac
   done
+  # A named git dir picks the repository: its work tree, or the folder above it. Git resolves a
+  # relative one after every -C. --work-tree alone keeps the repository found from the directory.
+  if [[ -n "$gd" ]]; then
+    if [[ -n "$wt" ]]; then gdir="$(resolve "$gdir" "$wt")"; else gdir="$(resolve "$gdir" "$gd/..")"; fi
+    [[ -n "$gdir" ]] || gdir="$start"
+  fi
   enter_repo "$gdir" || return 0
   # pre-commit's SKIP= only matters where hooks run; `SKIP=x git status` is fine.
   case "$sub" in commit|push|merge|rebase|am|cherry-pick|revert)
@@ -222,12 +245,18 @@ check_git() {
 # check_command <command text> [nested]: every command in it, including ones inside sh -c '...'.
 # An env prefix (SKIP=) belongs to one top-level command; inside sh -c it carries over.
 check_command() {
-  local cmd=() w nested="${2:-}"
+  local cmd=() w nested="${2:-}" before="$dir" piped=false
   while IFS= read -r w; do
-    if [[ "$w" == "|" ]]; then
-      [[ -n "$nested" ]] || skip_env=false
-      check_words ${cmd[@]+"${cmd[@]}"}; cmd=()
-    else cmd+=("$w"); fi
+    case "$w" in
+      "|"|"|>"|"|&")
+        [[ -n "$nested" ]] || skip_env=false
+        check_words ${cmd[@]+"${cmd[@]}"}; cmd=()
+        # A pipeline stage or a background job runs in a subshell: its cd does not last.
+        if $piped || [[ "$w" != "|" ]]; then dir="$before"; fi
+        if [[ "$w" == "|>" ]]; then piped=true; else piped=false; fi
+        before="$dir" ;;
+      *) cmd+=("$w") ;;
+    esac
   done < <(words "$(without_heredocs "$1")")
   [[ -n "$nested" ]] || skip_env=false
   check_words ${cmd[@]+"${cmd[@]}"}
@@ -248,7 +277,7 @@ check_gh() {
   shift 2
   while (($#)); do
     case "$1" in
-      -H|--head) head="${2:-}"; shift 2 ;;
+      -H|--head) head="${2:-}"; shift 2 || shift ;;
       --head=*) head="${1#*=}"; shift ;;
       *) shift ;;
     esac
@@ -260,7 +289,8 @@ check_gh() {
 }
 
 check_words() {
-  local w
+  # GIT_DIR=/GIT_WORK_TREE= belong to this command, and reach the commands inside its sh -c.
+  local w git_dir="${git_dir-}" work_tree="${work_tree-}"
   # Git reads config from the environment too (GIT_CONFIG_PARAMETERS, GIT_CONFIG_KEY_n).
   for w in "$@"; do
     if [[ "$w" == GIT_CONFIG_*=* ]] && hookspath "$w"; then no_hooks; fi
@@ -270,6 +300,8 @@ check_words() {
   while (($#)); do
     case "$1" in
       SKIP=*|PRE_COMMIT_ALLOW_NO_CONFIG=*) skip_env=true; shift ;;
+      GIT_DIR=*) git_dir="${1#*=}"; shift ;;
+      GIT_WORK_TREE=*) work_tree="${1#*=}"; shift ;;
       *=*|env|command|exec|time|nohup|sudo) shift ;;
       *) break ;;
     esac
@@ -285,7 +317,8 @@ check_words() {
     sh|bash|zsh|*/sh|*/bash|*/zsh)
       shift
       while (($#)); do
-        if [[ "$1" == -*c* && "$1" != --* ]]; then check_command "${2:-}" nested; return; fi
+        # A cd inside the child shell does not move the commands after it.
+        if [[ "$1" == -*c* && "$1" != --* ]]; then local d="$dir"; check_command "${2:-}" nested; dir="$d"; return; fi
         shift
       done ;;
   esac

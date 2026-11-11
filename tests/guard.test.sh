@@ -131,6 +131,17 @@ check "when git config only reads core.hooksPath, then it is allowed; setting or
   '"$g" "git config core.hooksPath" && "$g" "git config --local core.hooksPath" && blocked "git config core.hooksPath /dev/null" && blocked "git config --unset core.hooksPath"'
 check "when the cd target can not be told (a variable, cd -), then it is checked here" \
   'blocked "cd \$X && git commit -m x" && blocked "cd - && git commit -m x"'
+# #103: a cd in a child process (sh -c, a pipeline stage, a background job) does not move the rest.
+check "when a cd or pushd runs inside sh -c, then the commands after it are still checked here" \
+  'blocked "bash -c '"'"'cd /tmp'"'"'; git commit --no-verify -m x" && blocked "sh -c '"'"'cd /tmp'"'"'; git commit -m x" && blocked "zsh -c '"'"'cd /tmp'"'"' && git commit --no-verify -m x" && blocked "env bash -c '"'"'cd /tmp'"'"'; git commit --no-verify -m x" && blocked "bash -c '"'"'pushd /tmp'"'"'; git commit --no-verify -m x" && blocked "bash -c '"'"'cd /tmp'"'"'; git add -A" && blocked "bash -c '"'"'cd /tmp'"'"'; git push origin main"'
+check "when a cd runs in a pipeline stage or before a lone &, then the commands after it are still checked here" \
+  'blocked "cd /tmp | true; git commit --no-verify -m x" && blocked "true | cd /tmp; git commit -m x" && blocked "cd /tmp |& true; git commit -m x" && blocked "cd /tmp & git commit --no-verify -m x" && blocked "(cd /tmp); git commit --no-verify -m x"'
+check "when a redirection is glued to a blocked word (&>, >&, >, <), then it is still blocked" \
+  'blocked "git commit --no-verify&>/dev/null -m x" && blocked "git push --no-verify&>/dev/null" && blocked "git commit -m x --no-verify&>/dev/null" && blocked "git push origin main&>/dev/null" && blocked "git add .&>/dev/null" && blocked "git commit --no-verify>&2 -m x" && blocked "git commit --no-verify>/dev/null -m x" && blocked "git add -A</dev/null" && blocked "git commit -m x --no-verify|&cat"'
+check "when a redirection is spaced or 2>&1, then the commit is checked as usual" \
+  'blocked "git commit --no-verify &> /dev/null -m x" && blocked "git commit --no-verify 2>&1 -m x" && blocked "git commit -m x 2>&1" && "$g" "git -C $TMP/other commit -m x 2>&1 >/dev/null" && "$g" "git -C $TMP/other commit -m x &>/dev/null" && "$g" "git -C $TMP/other commit -m x >&2"'
+check "when the commit runs inside the same sh -c as the cd, or after a cd with a redirection, then it is checked there" \
+  '"$g" "bash -c '"'"'cd $TMP/other; git commit -m x'"'"'" && "$g" "cd $TMP/other 2>&1 && git commit -m x" && "$g" "cd $TMP/other && git commit -m x | cat"'
 
 # The plugin hook shim: JSON in, guard decision out; silent outside landspec projects.
 shim="$ROOT/hooks/guard-git.sh"
@@ -149,6 +160,17 @@ check "when the session is outside landspec but the command cds into a landspec 
   'rc=0; json "$TMP/plain" "cd $TMP/repo && git commit -m x" | bash "$shim" 2>/dev/null || rc=$?; [[ $rc == 2 ]]'
 check "when the session is in a landspec repo on main but the commit targets another repo, then the hook allows it" \
   'json "$TMP/repo" "git -C $TMP/other commit -m x" | bash "$shim"'
+# #104: --git-dir / GIT_DIR= name the repository git writes to; --work-tree alone does not.
+check "when the session is outside landspec but --git-dir or GIT_DIR= names a landspec repo on main, then it is blocked" \
+  '(cd "$TMP/plain" && blocked "git --git-dir=$TMP/repo/.git --work-tree=$TMP/repo commit --no-verify -m x" && blocked "GIT_DIR=$TMP/repo/.git GIT_WORK_TREE=$TMP/repo git commit --no-verify -m x" && blocked "git --git-dir $TMP/repo/.git commit -m x" && blocked "GIT_DIR=$TMP/repo/.git bash -c \"git commit -m x\"")'
+check "when the hook gets --git-dir or GIT_DIR= from outside landspec, then it still runs the guard and exits 2" \
+  'a=0 b=0; json "$TMP/plain" "GIT_DIR=$TMP/repo/.git git commit --no-verify -m x" | bash "$shim" 2>/dev/null || a=$?; json "$TMP/plain" "git --git-dir=$TMP/repo/.git --work-tree=$TMP/repo commit --no-verify -m x" | bash "$shim" 2>/dev/null || b=$?; [[ $a == 2 && $b == 2 ]]'
+check "when the session is in a landspec repo on main but --git-dir or GIT_DIR= names another repo, then it is allowed" \
+  '"$g" "git --git-dir=$TMP/plain/.git commit -m x" && "$g" "GIT_DIR=$TMP/plain/.git git commit -m x"'
+check "when only --work-tree names another repo, or GIT_DIR= was on an earlier command, then the commit is still checked here" \
+  'blocked "git --work-tree=$TMP/plain commit -m x" && blocked "GIT_WORK_TREE=$TMP/plain git commit -m x" && blocked "GIT_DIR=$TMP/plain/.git true; git commit -m x" && blocked "GIT_DIR=$TMP/plain/.git; git commit -m x"'
+check "when a git or gh option that takes a value ends the command, then the guard ends (a loop hangs the hook)" \
+  '"$g" "git --git-dir" && "$g" "git -C" && "$g" "git -c" && "$g" "git --namespace" && "$g" "gh pr create --base main -H"'
 
 
 mkdir -p "$TMP/plain/.specify/extensions/landspec/scripts"; echo 'exit 0' > "$TMP/plain/.specify/extensions/landspec/scripts/guard.sh"
