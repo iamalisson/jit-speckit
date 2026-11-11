@@ -104,6 +104,20 @@ check "then it gets the configured milestone and project" \
   'grep -q -- "^pr edit https://github.com/acme/app/pull/99 --milestone v2$" "$GH_LOG" && grep -q -- "^pr edit https://github.com/acme/app/pull/99 --add-project Board$" "$GH_LOG"'
 check "when the spec PR step runs again on its branch, then it reuses the branch and the PR" \
   'before="$(grep -c "^pr create" "$GH_LOG")"; "$p" spec && [[ "$(git branch --show-current)" == spec/002-new && "$(grep -c "^pr create" "$GH_LOG")" == "$before" ]]'
+check "when the first spec PR was opened, then its commit says add" \
+  '[[ "$(git log -1 --format=%s HEAD~0)" == "docs(specs): add 002-new spec, plan and tasks" ]]'
+# #115/#116: a task added after the spec PR opened reaches its body, and the commit says update.
+printf '%s\n' '- [ ] T004 Added after review in `d` — #14' >> specs/002-new/tasks.md
+"$SCRIPTS/review.sh" record --plan "$TMP/plan.md" >/dev/null 2>&1
+: > "$GH_LOG"; out="$("$p" spec)"
+check "when the open spec PR is updated with a new task issue, then its body is rewritten with every issue" \
+  'grep -q "^pr edit https://github.com/acme/app/pull/99 --body" "$GH_LOG" && grep -q "#11 #12 #14" "$GH_LOG" && grep -qF "PR body replaced from the generated spec body" <<<"$out"'
+check "then the new commit says update, not add" '[[ "$(git log -1 --format=%s)" == "docs(specs): update 002-new spec, plan and tasks" ]]'
+printf '%s\n' '- [ ] T005 Outra tarefa em `e` — #15' >> specs/002-new/tasks.md
+"$SCRIPTS/review.sh" record --plan "$TMP/plan.md" >/dev/null 2>&1
+"$p" spec "docs(specs): adiciona a tarefa T005" >/dev/null
+check "when a title is given, then the commit uses it as written (the project's language)" \
+  '[[ "$(git log -1 --format=%s)" == "docs(specs): adiciona a tarefa T005" ]]'
 
 # The first spec PR was squash-merged (its branch is now stale), then /speckit-converge added a task.
 git push --quiet --no-verify origin "spec/002-new:refs/heads/tmp-squash"
@@ -118,6 +132,8 @@ printf '%s\n' '- [ ] T003 Added by converge in `c` — #13' >> specs/002-new/tas
 "$p" spec >/dev/null
 check "when a later spec PR follows a squash-merged one, then it starts fresh from the base" \
   'git merge-base --is-ancestor origin/develop HEAD && [[ "$(git branch --show-current)" == spec/002-new ]]'
+check "then its commit says update: the spec is already on the base" \
+  '[[ "$(git log -1 --format=%s)" == "docs(specs): update 002-new spec, plan and tasks" ]]'
 check "then the new spec PR carries only what changed: the converge task" \
   '[[ "$(git diff --name-only origin/develop..HEAD)" == specs/002-new/tasks.md ]] && git diff origin/develop..HEAD | grep -q "^+- \[ \] T003 Added by converge"'
 
