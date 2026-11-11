@@ -261,12 +261,15 @@ task_summary() { task_desc "$1" | sed -E 's/ in `.*//; s/ in [^ ]*[/][^ ]*.*//';
 FEATURE_KEY_RE='[0-9]{8}-[0-9]{6}|[0-9]{3,}'
 feature_key() { basename "$1" | sed -nE "s/^($FEATURE_KEY_RE)-.*/\1/p"; }
 
-# A wrapped sub-bullet (continuation lines indented deeper) is joined into one line.
+# task_field <feature dir> <Tnnn> <Field>: the "  - <Field>:" sub-bullet of a task, with every line
+# indented under it (nested lists, blank lines between them) up to the next sibling field or task.
+# Newlines are kept and the field's 4-space indent removed, so a nested list stays markdown.
 task_field() {
   awk -v id="$2" -v key="$3" '
     $0 ~ "^- \\[.\\] " id " " { inside = 1; next }
     inside && /^- \[/ { exit }
-    found && /^    +[^ -]/ { sub(/^ +/, ""); value = value " " $0; next }
+    found && /^[[:space:]]*$/ { blanks = blanks "\n"; next }
+    found && /^    / { sub(/^    /, ""); value = value blanks "\n" $0; blanks = ""; next }
     found { exit }
     inside && index($0, "  - " key ":") == 1 { sub("^  - " key ":[[:space:]]*", ""); value = $0; found = 1 }
     END { if (found) print value }

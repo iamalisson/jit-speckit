@@ -73,7 +73,7 @@ case "$1 $2" in
   "issue list") if [[ -n "${GH_FAIL_ISSUE_LIST:-}" ]]; then echo "HTTP 502: Bad Gateway" >&2; exit 1; fi
                 cat "$GH_CLOSED" 2>/dev/null; exit 0 ;;
   "repo view") exit 1 ;;
-  "issue view") printf '%s\n%s\n' "${GH_VIEW_STATE:-OPEN}" "an older body"; exit 0 ;; # as --jq '.state + "\n" + .body
+  "issue view") printf '%s\n%s\n' "${GH_VIEW_STATE:-OPEN}" "${GH_VIEW_BODY:-an older body}"; exit 0 ;; # as --jq '.state + "\n" + .body
   "issue edit"|"pr edit") if [[ -n "${GH_FAIL_EDIT:-}" ]]; then echo "GraphQL: Could not resolve to a ProjectV2" >&2; exit 1; fi ;;
   *) exit 0 ;;
 esac
