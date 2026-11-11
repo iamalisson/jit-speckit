@@ -260,4 +260,12 @@ if [[ "$v_plugin" == 1.8.0 ]]; then
     'for n in 13 14 15 16 17 18 19 20 21; do grep -q "^| T0$n |" "$notes" || exit 1; done'
 fi
 
+# /landspec:report: public issues, so nothing is filed without a yes and nothing private leaves the project.
+rp="$(cat skills/report/SKILL.md)"
+check "when /landspec:report drafts an issue, then it files on the plugin's repository only after a yes" \
+  'grep -qF "plugin.json" <<<"$rp" && grep -qF "never file without a yes" <<<"$rp" && grep -qF "gh issue create -R <repo>" <<<"$rp"'
+check "then it keeps the project private and checks duplicates first" \
+  'grep -qF "Keep the project private" <<<"$rp" && grep -qF "gh issue list -R <repo> --state all" <<<"$rp"'
+check "then README and help list it" 'grep -qF "/landspec:report" README.md && grep -qF "\`report\`" skills/help/SKILL.md'
+
 exit "$FAIL"
