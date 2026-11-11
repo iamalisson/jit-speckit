@@ -25,6 +25,8 @@ check "when Claude opens a PR with gh pr create, then it is blocked at every lev
   'blocked "gh pr create --base develop --title x --body y" && blocked "cd . && gh -R o/r pr create -t x" && blocked "bash -c \"gh pr create --fill\""'
 check "when the PR is a promotion from a long-lived branch, then gh pr create is allowed" \
   '"$g" "gh pr create --base main --head develop --title x" && "$g" "gh pr create -B main -H develop -t x"'
+check "when gh ends in -R or uses --repo=, then the guard ends and still blocks the PR" \
+  'timeout 5 "$g" "gh -R" && timeout 5 "$g" "gh --repo" && blocked "gh --repo=o/r pr create -t x"'
 check "when gh only reads PRs, then it is allowed" '"$g" "gh pr list" && "$g" "gh pr view 3 --json body" && "$g" "gh pr edit 3 --body x"'
 
 check "when no-verify hides in a bundled flag, a global option or a wrapper, then it is blocked" \

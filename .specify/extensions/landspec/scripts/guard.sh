@@ -238,7 +238,7 @@ check_command() {
 # carries only PRs that were each reviewed, so it may open directly.
 check_gh() {
   local head=""
-  while [[ "${1:-}" == -R || "${1:-}" == --repo ]]; do shift 2; done
+  while [[ "${1:-}" == -R || "${1:-}" == --repo ]]; do shift; (($#)) && shift; done # a trailing -R must not loop
   while [[ "${1:-}" == --repo=* ]]; do shift; done
   [[ "${1:-}" == pr && "${2:-}" == create ]] || return 0
   enter_repo "${dir:-$start}" || return 0
