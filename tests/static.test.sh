@@ -203,6 +203,13 @@ check "when review.md sets the reviewer model, then it names review_model:, the 
    && grep -qF "general-purpose" $f && grep -qF "landspec review: independent reviewer" $f'
 check "when docs/reference.md is read, then the Configuration table has a review_model row, and it says CLAUDE_CODE_SUBAGENT_MODEL_FORCE overrides it and the hook exists only where the plugin is installed" \
   'grep -q "^| \`review_model\` |" docs/reference.md && grep -qF "CLAUDE_CODE_SUBAGENT_MODEL_FORCE" docs/reference.md && grep -qi "only where the plugin is installed" docs/reference.md'
+# Issue #108: the plan review reads spec-folder code and orderings, and a repeated class ends the patching.
+check "when the plan review and issues step 2 are read, then spec-folder code gets the bug list, each state machine's orderings meet one invariant, and a repeated class gets the invariant and a full round" \
+  'r="$(tr "\n" " " < extension/commands/review.md)"; i="$(tr "\n" " " < extension/commands/issues.md)"
+   [[ "$r" == *"**Spec-folder code:** every file under \`specs/NNN-*/\` that is not markdown is code"* && "$r" == *"script that hides an error"* \
+   && "$r" == *"**Orderings:** for each state machine in"* && "$r" == *"out of order, delivered twice, the original event replayed, opposite actions both pending"* \
+   && "$r" == *"never narrows the review"* && "$r" == *"resolved (by the stated invariant or a changed text) or keeps its severity"* \
+   && "$i" == *"same class as an earlier round (for example"* && "$i" == *"replace the case rules with it, and run the next round full"* && "$i" == *"once per class"* ]]'
 # The section is read into a variable: a pipe into grep -q can fail under pipefail (SIGPIPE on sed).
 sec_readme="$(sed -n "/^## Security, built in/,/^## Levels/p" README.md)"
 check "when the README's Security, built in table is read, then it names the reviewer's model" \

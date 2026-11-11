@@ -37,7 +37,8 @@ Facts the author passes:
 - for a fix round (a **delta**): the `REVIEWED=<sha>` the last `record` printed and the path of
   that round's report;
 - for a plan review after a `changes needed` round: the path of that round's report and the
-  author's one-line answer to each of its findings.
+  author's one-line answer to each of its findings; in a full round (`issues.md` step 2), the
+  earlier rounds' findings, with no answers.
 
 **A delta** reads `git diff <sha>..HEAD` only: it checks that each previous finding is fixed and
 applies step 2 to the fix commits alone, and it never widens. A bug it notices outside those
@@ -48,7 +49,9 @@ new full review.
 
 ## Method
 
-One pass. A review should take a couple of minutes, so read, do not run: CI runs the tests.
+One pass. A review should take a couple of minutes, so read, do not run: CI runs the tests. A plan
+review takes as long as its spec-folder code and state machines need, and runs a command only as
+step 2 allows.
 
 1. **Read the rules**, from the branch: `.specify/memory/constitution.md`, `AGENTS.md`, `CLAUDE.md`
    and `.github/copilot-instructions.md` where they exist, and the task's line in `tasks.md`.
@@ -76,10 +79,19 @@ lockfiles, and markup or data copied as is from an existing file do not count). 
 file, data set, URL or credential a task reads exists on `origin/<base>` (`git cat-file -e
 origin/<base>:<path>`), in the spec folder, or in the task text; one that exists only in the
 author's working tree (untracked, ignored) is a finding, since the next person starts from a
-clean clone. **Commands** in *Completed when* run from any clone and directory: a `gh` call
-without `--repo`, or a path relative to somewhere other than the repository root, is a finding.
+clean clone. **Spec-folder code:** every file under `specs/NNN-*/` that is not markdown is code:
+apply the step 2 bug list to it, and a `research.md` claim resting on a script that hides an error
+(a failed call read as empty data) is a finding. **Orderings:** for each state machine in
+`data-model.md`, or in `plan.md` when there is none (opposite actions on one resource, events
+that arrive late, twice or replayed), state its one invariant and check it against each ordering:
+out of order, delivered twice, the original event replayed, opposite actions both pending; one
+that breaks it, or a plan that answers orderings case by case with no invariant, is a finding.
+**Commands** in *Completed when* run from any clone and directory: a `gh` call without `--repo`,
+or a path relative to somewhere other than the repository root, is a finding.
 **Earlier round:** when the author passes the last round's report, a finding it raised keeps its
-severity unless the text it was about changed or you name a fact that round did not have. **Ships dark:**
+severity unless the text it was about changed or you name a fact that round did not have; the
+report never narrows the review: read the whole plan again. In a full round, each earlier
+finding passed is resolved (by the stated invariant or a changed text) or keeps its severity. **Ships dark:**
 each task is safe to reach production alone; a task that makes the feature visible to users
 before its last task (a tab, route or menu entry with no flag off by default), a feature with no
 last task that turns the flag on, or a migration the production code can't run against, is a
