@@ -242,6 +242,9 @@ check_gh() {
   while [[ "${1:-}" == --repo=* ]]; do shift; done
   [[ "${1:-}" == pr && "${2:-}" == create ]] || return 0
   enter_repo "${dir:-$start}" || return 0
+  # The guard is the plugin's copy, pr.sh the project's: before /landspec:init updates a project,
+  # its pr.sh has no fix mode, and blocking would leave a small fix no way to open.
+  grep -qF 'task|fix)' .specify/extensions/landspec/scripts/pr.sh 2>/dev/null || return 0
   shift 2
   while (($#)); do
     case "$1" in
