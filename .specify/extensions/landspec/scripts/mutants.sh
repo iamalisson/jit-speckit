@@ -4,7 +4,8 @@
 # The command is the constitution's **Commands** line: mutate `<command>`. It must exit non-zero
 # when a mutant survives, and it gets two variables to scope itself to the change:
 #   LANDSPEC_DIFF_FILE      a unified diff of this branch against the base (cargo mutants --in-diff)
-#   LANDSPEC_CHANGED_FILES  the changed source files, space-separated, tests excluded (stryker --mutate)
+#   LANDSPEC_CHANGED_FILES  the changed source files, space-separated, tests excluded (stryker --mutate,
+#                           or a project's own harness: docs/reference.md, "Mutation testing")
 # Prints one line: "mutants ok|survivors|unavailable|missing|skipped <detail>", then REPORT_DIR=<dir>.
 # unavailable: the command exited 126 or 127, so it never ran. A wrapper (uv run) exits otherwise,
 # so a tool missing behind one stays survivors.

@@ -24,8 +24,13 @@ description: "Adopt landspec in an existing codebase: read the repo and fill the
      `$LANDSPEC_DIFF_FILE` (a diff against the base) or `$LANDSPEC_CHANGED_FILES` (changed sources, space
      separated), and exiting non-zero when a mutant survives, for example
      `cargo mutants --in-diff "$LANDSPEC_DIFF_FILE"`, or for mutmut, whose own exit is 0 on a survivor,
-     `mutmut run && ! mutmut results | grep -q survived`. It runs before every PR. If the project has no
-     such tool, leave the placeholder and say so in the summary: adding one is a small-fix PR;
+     `mutmut run && ! mutmut results | grep -q survived`. It runs before every PR. No such tool, but
+     the project has **its own mutation harness** (a script that applies a fixed list of mutants and
+     runs the tests for each, named in the constitution, the README or the test folder): `mutate` is
+     that script, given `$LANDSPEC_CHANGED_FILES` so it runs only the cases for the changed files
+     (docs/reference.md, "Mutation testing"); if it cannot filter yet, say so in the summary, since
+     every PR then runs all of it. Neither a tool nor a harness: leave the placeholder and say so in
+     the summary, since adding one is a small-fix PR;
    - a **Commands** line that already exists but has no `mutate` entry gets one appended;
    - `[PROJECT_PRINCIPLES]`: only rules specific to this codebase that you can point to (layer
      boundaries, where auth lives, how migrations run), each backed by a file path.
