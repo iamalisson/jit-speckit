@@ -106,13 +106,40 @@ branches on origin.
 | after `/speckit-analyze` | records the analysis from its report: `analyzed.sh <report-file>` refuses a file without the report's "Specification Analysis Report" and "Coverage Summary Table", and keeps the report next to the record (level `full` needs it, for the current `tasks.md`, before tasks start) |
 | after `/speckit-converge` | the new tasks it found get grounded, get issues, and reach the base branch through a spec PR |
 | before `/speckit-implement` | refuses without exactly one task, an issue, the merged spec and a clean tree; otherwise switches to `feat/<feature>-t00x-<slug>` and pushes it to origin at once (the claim). spec-kit's implement command is told to build only that task and not tick it (the issue closing is "done") |
-| after `/speckit-implement` | checks, commit, `/security-review`, the independent review (recorded for the exact diff, fixed until `ready`), mutation testing and the security scan on the change after the last commit, push, PR with `Closes #N` and `## Review`. The PR is refused without a recorded `ready` review for the diff, at every level, and when the constitution's test command fails (it runs before the push; with no test command, a warning says the tests were not run). With a `mutate` command in the constitution, it is also refused without a `mutants.sh` result for the diff, on surviving mutants that `## Evidence` does not explain, or when the command could not run (exit 126 or 127, recorded as `unavailable`; a wrapper such as `uv run` exits otherwise, so a tool missing behind one shows as survivors); without one, the body says mutation testing was not run. It is refused without a `security-scan.sh --changed` result for the diff (missing scanners and findings do not refuse) |
+| after `/speckit-implement` | checks, commit, `/security-review`, the independent review (recorded for the exact diff, fixed until `ready`), mutation testing (see "Mutation testing") and the security scan on the change after the last commit, push, PR with `Closes #N` and `## Review`. The PR is refused without a recorded `ready` review for the diff, at every level, and when the constitution's test command fails (it runs before the push; with no test command, a warning says the tests were not run). With a `mutate` command in the constitution, it is also refused without a `mutants.sh` result for the diff, on surviving mutants that `## Evidence` does not explain, or when the command could not run (exit 126 or 127, recorded as `unavailable`; a wrapper such as `uv run` exits otherwise, so a tool missing behind one shows as survivors); without one, the body says mutation testing was not run. It is refused without a `security-scan.sh --changed` result for the diff (missing scanners and findings do not refuse) |
 | a PR that is not a task | a small fix, a dependency bump, landspec's own setup or level change: the same gate as a task PR at every level (recorded `ready` review, `## Review`, tests, mutants and scan for the diff), opened with `pr.sh fix "<title>" <body-file>` from its own branch, with no issue and no `Closes`. The guard blocks a raw `gh pr create`, except a promotion whose head is a long-lived branch (`develop` into `main`) |
 | every issue and PR | assigned to you; given the milestone and project if configured (a failure only warns); no AI attribution lines; long output folded into `<details>` |
 | a task PR that changes existing tests | refused unless the body has a `## Test changes` section saying why: adding tests to an existing file needs no explanation; a deletion, an edit or an added skip does. An added line can still weaken a test in ways this rule cannot see: the review reads it, and `review.sh risk` still flags gate lines. Tests are files under `tests/`, `test/`, `Tests/`, `__tests__/`, `spec/`, `e2e/`, `cypress/` or a `*.Tests/` folder, and files named `*.test.*`, `*.spec.*` (or with `_`, `-`), `*.cy.*`, `tests.py`, `test_*.py` or `FooTests.swift` (case-sensitive). For any other layout, add a line `tests: <regex>` (`grep -E`) to the constitution; an invalid one makes `pr.sh`, `mutants.sh` and `review.sh record` refuse. The same files are what a review's `- proven:` line may name, and what a fix round (`review.sh record --delta`) may change beyond its 20-line limit outside the previous findings |
 
 These are spec-kit hooks, so you never type them. If you skip one, run it yourself:
 `/speckit-landspec-issues`, `/speckit-landspec-pr`.
+
+## Mutation testing
+
+`mutants.sh` runs the constitution's `mutate` command once per PR, after the last commit, and keeps
+the result for that exact diff; `pr.sh task` and `pr.sh fix` refuse a PR without it. A fix commit
+means one more run, so fix first and run it last. The command is told what changed:
+
+| Variable | Holds | For |
+|---|---|---|
+| `LANDSPEC_DIFF_FILE` | a unified diff of the branch against its base | tools that read a diff (`cargo mutants --in-diff`) |
+| `LANDSPEC_CHANGED_FILES` | the changed source files, space-separated, tests excluded | tools that take files (`stryker --mutate`), and a project's own harness |
+
+**A project's own harness** (a script with a fixed list of mutants, each a file and a change, that
+runs the tests for each) is a `mutate` command like any tool, and it is what keeps a run short:
+the whole suite runs once per mutant, so a harness that runs every case on every PR costs the
+number of cases times the suite's time (116 cases of 8 s each is about 15 minutes, for a change to
+one file). The contract:
+
+- read `LANDSPEC_CHANGED_FILES`; when it is set, run only the cases whose file is in it, plus any
+  case marked to run always; when it is unset (run by hand, in CI, on a schedule), run them all;
+- print which cases ran and which were left out, so the log shows the run was scoped, not skipped;
+- exit non-zero when a case that the tests must catch survives, or when a case's change no longer
+  matches the file (a stale case proves nothing), and 0 when every case that ran came out as expected;
+- run the full set somewhere it does not hold up a PR: in CI or on a schedule.
+
+A harness that rewrites files in place also needs a lock: two runs at once would leave a mutant in
+the source. landspec's reviewer runs in the author's working tree, so it must not run one.
 
 ## Using Claude Code well
 
