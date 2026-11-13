@@ -15,19 +15,41 @@ facts below, and nothing else: no summary of what you built, no "I already check
 call's `model`: `review_model:` from `.specify/extensions/landspec/landspec-config.yml` when it is `sonnet`,
 `opus` or `fable`, `sonnet` when the key is absent or empty. If `review_model:` holds any other
 value, print `landspec: review_model must be sonnet, opus or fable` and stop.
-Never run the review on `haiku`, and never in a fork of this session. If the call refuses the type `landspec:reviewer`
-(the plugin is not installed), launch a `general-purpose` subagent with the same prompt and the
-same `model`. The plugin's hook blocks a review launch without one of those models, or in a fork.
+Never run the review on `haiku`, and never in a fork of this session. Pass `isolation: "worktree"` on the
+call too: the reviewer then runs in its own copy of the repository and never writes to yours. If
+the call refuses the type `landspec:reviewer` (the plugin is not installed), launch a
+`general-purpose` subagent with the same prompt, the same `model` and `isolation: "worktree"`. The
+plugin's hook blocks a review launch without one of those models, without that isolation, or in a
+fork.
 Wait for its report. The reviewer writes it to a file itself and names it on its first line,
 `Report file: <path>`: record that file as it is, never a copy you typed or edited:
 `bash .specify/extensions/landspec/scripts/review.sh record <file>` (`record --plan <file>` for a plan
 review, `record --delta <file>` for a fix round). The record is tied to the exact diff (or `tasks.md`): `pr.sh` and `issues.sh` refuse to
 open anything without a recorded review that said `ready` for the current state, at every level,
-so a commit after the review means another review. If you are that subagent: follow the method,
-write the report to a new file outside the repository (`mktemp`), and return `Report file: <path>`
-on the first line, then the report exactly as written there.
+so a commit after the review means another review. Recording removes the reviewer's copy (its
+`Copy:` line) once it is safe to.
+
+If you are that subagent:
+0. **Your own copy, first**, before any command that writes: `git rev-parse --show-toplevel` must
+   differ from the `checkout:` fact and be an `agent-*` folder directly under a `.claude/worktrees/`,
+   and the facts must carry `commit:`. Otherwise run nothing but read-only commands (`git
+   rev-parse`, `git status`, reading files) and `mktemp` for the report, report `Copy: none (<the
+   reason>)`, and end `Assessment: changes needed`: "running in <path>" (the isolation was asked for
+   but not given), or, with no `commit:` fact, "the project's landspec copy predates the plugin: run
+   /landspec:init".
+1. `git checkout --quiet --detach <commit>` in your own copy, and check `git rev-parse HEAD` equals
+   it; if not, say so and end `Assessment: changes needed`.
+2. A plan review reads `<checkout>/specs/NNN-*/` in place, and copies a spec-folder script into your
+   copy only to run it.
+3. Never write to `<checkout>`: no editing command, no `git checkout`, `reset`, `clean`, `stash` or
+   `restore` there, no lock or temp files there. Do not run a command that writes outside your copy,
+   except `mktemp` for the report file.
+4. Follow the method, write the report to a new file outside the repository (`mktemp`), and return
+   `Report file: <path>` on the first line, then the report exactly as written there.
 
 Facts the author passes:
+- `commit:` the reviewed commit (`git rev-parse HEAD`) and `checkout:` the repository root
+  (absolute), so the reviewer can check it is not in your checkout and move its copy to that commit;
 - the base branch and the branch under review, or, for a plan review, the feature folder
   `specs/NNN-*/`;
 - the task's line from `tasks.md` with its sub-bullets, "plan review", or, for a PR that is not a
@@ -63,7 +85,7 @@ step 2 allows.
    some people cannot use (text under 4.5:1 contrast, 3:1 for large text and icons: compute it from
    the colours in the diff and the background they sit on; a focus that is not visible; a control
    or image without an accessible name). Run a command
-   only to settle whether a suspected bug is real, and only in a throwaway copy.
+   only to settle whether a suspected bug is real, and only in your own copy.
 
 **Plan review** (before the issues are created): apply step 1 and read every task in `tasks.md`,
 asking what happens where state already exists. *Impact* names every reference the task touches (search each symbol) and the newest
@@ -121,10 +143,11 @@ accessible-name failure is at least **Medium**, with the computed ratio as evide
 sibling is not a defense: a defect copied from an existing file is still a defect in this diff. A **security** finding is listed last, and the PR
   shows it as one line, `Security: reported privately (<id>)`: its detail goes to the author only,
   never into a public PR.
-- Before the last line, each on its own line: `Reviewed: <from>..<head>`, the full shas you
+- Before the last line, each on its own line: `Copy: <git rev-parse --show-toplevel>` (your copy,
+  or `Copy: none (<reason>)`), then `Reviewed: <from>..<head>`, the full shas you
   reviewed (`git merge-base HEAD origin/<base>`, the local `<base>` only without an origin copy, and `git rev-parse HEAD`; for a delta, `<sha>` and
   `git rev-parse HEAD`), and `Model: <your model id>`. A delta report also has `Delta from: <sha>`. A plan report
-  has only `Model:`. `review.sh record` refuses a report without them, a range that is not the
+  has only `Copy:` and `Model:`. `review.sh record` refuses a report without them, a range that is not the
   branch's (or the delta's), and a commit made after the review started.
 - The last line, exactly: `Assessment: ready`, or `Assessment: changes needed` when there is a
   High or Medium in the lines this review covers (the branch's diff, or a delta's commits). `review.sh record` reads that line; without it the report cannot be recorded.
