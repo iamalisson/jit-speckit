@@ -354,7 +354,7 @@ check "then landspec's own config names its four version files and docs/releases
 # The audit before the release (spec 004 T010): once per base commit, unattended, holding on a confirmed critical or high.
 au="$(sed -n "/^## The audit before the bump/,/^## When an implementer returns/p" skills/implement/SKILL.md)"
 check "when the skill reaches a bump, then it acts on the one AUDIT= line, for needed, done and hold" \
-  'grep -qF "first the audit (below); only on \`AUDIT=done\`" skills/implement/SKILL.md && grep -qF "I audit-plan" <<<"$au" && grep -qF "I audit-record <sha> <file> <n>" <<<"$au" \
+  'grep -qF "On \`RELEASE=bump\` and on \`RELEASE=none\`, before anything else" <<<"$au" && [[ "$(grep -cF "first the audit (below); only on \`AUDIT=done\`" skills/implement/SKILL.md)" == 2 ]] && grep -qF "I audit-plan" <<<"$au" && grep -qF "I audit-record <sha> <file> <n>" <<<"$au" \
    && for k in needed done hold; do grep -qF -- "- \`AUDIT=$k" <<<"$au" || exit 1; done'
 check "then a hold files and posts nothing and the last line names /landspec:security with the report" \
   'grep -qF "nothing filed or posted about the findings" <<<"$au" && grep -qF "release held: <n> confirmed critical or high; run /landspec:security" skills/implement/SKILL.md'

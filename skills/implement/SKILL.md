@@ -119,12 +119,12 @@ next run reads where it stands from git and GitHub:
   --notes-file <that file>`. `NOTES=-`: `gh release create vV --title "<project> V" --generate-notes`.
 - `RELEASE=pending X.Y.Z PR=<n>`: the release PR waits for its merge; say so.
 - `RELEASE=done V`: the feature is released; say so.
-- `RELEASE=none (no version_files:)`: write the notes to a `mktemp` file and say the project has no
+- `RELEASE=none (no version_files:)`: first the audit (below); only on `AUDIT=done`, write the notes to a `mktemp` file and say the project has no
   release convention (`version_files:` and `release_notes:` in `landspec-config.yml` set one).
 
 ## The audit before the bump
 
-On `RELEASE=bump`, before anything else, run `I audit-plan` and act on the **one** `AUDIT=` line it
+On `RELEASE=bump` and on `RELEASE=none`, before anything else, run `I audit-plan` and act on the **one** `AUDIT=` line it
 prints. The base is audited once per commit: a later run reuses the recorded result.
 
 - `AUDIT=needed COMMIT=<sha>`: in the run's worktree `<repo>-<feature>-run`, `git switch --detach <sha>`,
@@ -133,7 +133,7 @@ prints. The base is audited once per commit: a later run reuses the recorded res
   'Unattended' mode says. Write the report to `<a mktemp file>`." When it returns, take the `HOLD=<n>`
   of its last line (no such line: record nothing, say the audit did not finish, and stop the
   release), run `I audit-record <sha> <file> <n>`, then `I audit-plan` again.
-- `AUDIT=done COMMIT=… REPORT=… HOLD=0`: go on with the bump.
+- `AUDIT=done COMMIT=… REPORT=… HOLD=0`: go on with the bump (or, on `RELEASE=none`, the notes).
 - `AUDIT=hold COMMIT=… REPORT=<path> HOLD=<n>`: the release **holds**: no bump, no release PR, and
   nothing filed or posted about the findings (no issue, advisory, PR or comment: the run report gives
   only their count and the report's path, never what they are). `/landspec:security <path>` tracks
