@@ -408,7 +408,10 @@ rl_setup; r="$(on_main "chore(release): 1.4.2" notes.md 'notes\n')"
 rel 21 "chore(release): 1.4.2" chore/release-1.4.2 MERGED "$r" 2026-11-09T10:00:00Z; rp
 check "when the release PR is merged and not tagged, then tag 1.4.2 with its merge commit, not bump" '[[ "$out" == "RELEASE=tag 1.4.2 COMMIT=$r" ]]'
 git -C "$TMP/w" tag v1.4.2 "$r"; git -C "$TMP/w" push --quiet origin v1.4.2; rp
-check "when it is tagged and not published, then publish 1.4.2" '[[ "$out" == "RELEASE=publish 1.4.2" ]]'
+check "when it is tagged and not published, then publish 1.4.2, naming the notes on the base" '[[ "$out" == "RELEASE=publish 1.4.2 NOTES=docs/releases/1.4.2.md" ]]'
+sed -i.bak '/^release_notes:/d' .specify/extensions/landspec/landspec-config.yml; rm -f .specify/extensions/landspec/landspec-config.yml.bak; rp
+check "then without release_notes: the publish line says NOTES=-" '[[ "$out" == "RELEASE=publish 1.4.2 NOTES=-" ]]'
+echo 'release_notes: docs/releases' >> .specify/extensions/landspec/landspec-config.yml
 echo v1.4.2 > "$GH_RELEASES"; rp
 check "when it is published, then done 1.4.2" '[[ "$out" == "RELEASE=done 1.4.2" ]]'
 mkb feat/001-t001-second-feature origin/main g; squash feat/001-t001-second-feature 1

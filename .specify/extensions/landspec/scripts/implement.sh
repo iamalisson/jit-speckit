@@ -25,7 +25,7 @@
 #   implement.sh [feature] release-plan
 #       The release's one next step, from git and GitHub (V: the version in the first of version_files:
 #       on origin/<base>; M: the merge commit of the feature's last merged task PR): RELEASE=done V,
-#       RELEASE=publish V, RELEASE=tag V COMMIT=<sha>, RELEASE=pending X.Y.Z PR=<n>,
+#       RELEASE=publish V NOTES=<path on origin/<base>|->, RELEASE=tag V COMMIT=<sha>, RELEASE=pending X.Y.Z PR=<n>,
 #       RELEASE=bump X.Y.Z FILES=<a,b> NOTES=<path|-> PRS=<n,m>, or RELEASE=none (no version_files:).
 #   implement.sh [feature] release-bump X.Y.Z   rewrites the version line of each of version_files:
 # The record is <git common dir>/landspec-run/<feature>/<task>: phase=, head=, round=, report=, failed=.
@@ -373,6 +373,7 @@ case "$action" in
     v="$(git show "origin/$base:$f1" 2>/dev/null | grep -m1 -E "$VER_RE" | sed -E 's/.*"([^"]*)"[^"]*$/\1/' || true)"
     [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "$f1 on origin/$base has no version line (version: \"X.Y.Z\" or \"version\": \"X.Y.Z\")"
     # Every PR: number, title, head branch, state, merge commit, merged at.
+    # shortcut: the last 500 PRs; a release PR older than that is not seen, raise the limit if a repo ever needs it
     prs="$(gh pr list --state all --limit 500 --json number,title,headRefName,state,mergeCommit,mergedAt \
       --jq '.[] | [.number, .title, .headRefName, .state, (.mergeCommit.oid // ""), (.mergedAt // "")] | @tsv')" \
       || die "cannot list the pull requests; fix gh's error above"
@@ -386,7 +387,7 @@ case "$action" in
       if git merge-base --is-ancestor "$m" "$tag" 2>/dev/null; then
         if rv="$(gh release view "v$v" --json tagName 2>&1)"; then echo "RELEASE=done $v"; exit 0; fi
         grep -qi 'not found' <<<"$rv" || { echo "$rv" >&2; die "cannot read the release v$v; fix gh's error above"; }
-        echo "RELEASE=publish $v"; exit 0
+        rn="$(cfg release_notes "")"; echo "RELEASE=publish $v NOTES=$([[ -n "$rn" ]] && echo "${rn%/}/$v.md" || echo -)"; exit 0
       fi
     else
       rc="$(awk -F'\t' -v t="chore(release): $v" '$2 == t && $4 == "MERGED" { print $5; exit }' <<<"$prs")"

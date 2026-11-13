@@ -111,11 +111,12 @@ next run reads where it stands from git and GitHub:
   title and number), and an "Upgrading" section when a task changed a config key or a command. Commit
   them by name (`chore(release): X.Y.Z`), push, then the review and `pr.sh fix "chore(release): X.Y.Z"
   <body>` as `pr.md` says for a PR that is not a task, then `git switch --detach origin/<base>` there.
-  `NOTES=-` (no `release_notes:`): write the notes to a `mktemp` file instead and keep them for
-  `publish`.
+  `NOTES=-` (no `release_notes:`): put the notes in the release PR's body instead (nothing is
+  committed for them).
 - `RELEASE=tag V COMMIT=<sha>`: `git tag vV <sha>` and `git push origin vV`.
-- `RELEASE=publish V`: `gh release create vV --title "<project> V" --notes-file <the notes>` (the
-  release notes file of V, or the kept `mktemp` file).
+- `RELEASE=publish V NOTES=<path>`: `git fetch origin`, `git show origin/<base>:<path> > "$(mktemp)"`
+  (the merged notes, never the checkout's copy), then `gh release create vV --title "<project> V"
+  --notes-file <that file>`. `NOTES=-`: `gh release create vV --title "<project> V" --generate-notes`.
 - `RELEASE=pending X.Y.Z PR=<n>`: the release PR waits for its merge; say so.
 - `RELEASE=done V`: the feature is released; say so.
 - `RELEASE=none (no version_files:)`: write the notes to a `mktemp` file and say the project has no
