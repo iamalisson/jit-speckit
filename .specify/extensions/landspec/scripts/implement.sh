@@ -28,6 +28,12 @@
 #       RELEASE=publish V NOTES=<path on origin/<base>|->, RELEASE=tag V COMMIT=<sha>, RELEASE=pending X.Y.Z PR=<n>,
 #       RELEASE=bump X.Y.Z FILES=<a,b> NOTES=<path|-> PRS=<n,m>, or RELEASE=none (no version_files:).
 #   implement.sh [feature] release-bump X.Y.Z   rewrites the version line of each of version_files:
+#   implement.sh [feature] audit-plan
+#       The security audit before the bump, once per origin/<base> commit: AUDIT=needed COMMIT=<sha>, or, for
+#       an audit recorded for that commit, AUDIT=done|hold COMMIT=<sha> REPORT=<path> HOLD=<n> (hold: n > 0).
+#   implement.sh [feature] audit-record <commit> <report> <hold>
+#       Keeps a copy of the report and records it: <git common dir>/landspec-security/audit (commit=,
+#       report=, hold=, the number of confirmed critical or high findings).
 # The record is <git common dir>/landspec-run/<feature>/<task>: phase=, head=, round=, report=, failed=.
 set -euo pipefail
 # shellcheck source=lib.sh
@@ -35,7 +41,7 @@ source "$(dirname "$0")/lib.sh"
 landspec_cd_root
 
 feature=""
-case "${1:-}" in status|mark|fail|retry|restack|stack|check-copy|check-result|release-plan|release-bump|"") ;; *) feature="$1"; shift ;; esac
+case "${1:-}" in status|mark|fail|retry|restack|stack|check-copy|check-result|release-plan|release-bump|audit-plan|audit-record|"") ;; *) feature="$1"; shift ;; esac
 action="${1:-}"; shift || true
 if [[ -n "$feature" ]]; then fdir="$(resolve_feature "$feature")"; else fdir="$(feature_dir)"; fi
 [[ -f "$fdir/tasks.md" ]] || die "$fdir/tasks.md not found; run /speckit-tasks first"
@@ -416,5 +422,21 @@ case "$action" in
       sed -E -i.bak "/$VER_RE/ s/\"[^\"]*\"([^\"]*)\$/\"$nv\"\1/" "$f"; rm -f "$f.bak"
     done <<<"$vf"
     echo "BUMPED=$nv" ;;
-  *) die "usage: implement.sh [feature] status [--running T001,T002] | mark <task> <phase> [<report>] | fail <task> <reason> | retry <task> | restack | stack <task> <onto-task> | check-copy [--remove] | check-result red|green | release-plan | release-bump X.Y.Z" ;;
+  audit-plan)
+    base="$(base_branch)"
+    git fetch --quiet origin "+refs/heads/$base:refs/remotes/origin/$base" || die "cannot fetch origin; fix the error above"
+    c="$(git rev-parse "origin/$base")"; af="$(git rev-parse --git-common-dir)/landspec-security/audit"
+    r="$(sed -n 's/^report=//p' "$af" 2>/dev/null || true)"; h="$(sed -n 's/^hold=//p' "$af" 2>/dev/null || true)"
+    if [[ -f "$af" && "$(sed -n 's/^commit=//p' "$af")" == "$c" && -f "$r" && "$h" =~ ^[0-9]+$ ]]; then
+      st="done"; ((h == 0)) || st=hold; echo "AUDIT=$st COMMIT=$c REPORT=$r HOLD=$h"
+    else echo "AUDIT=needed COMMIT=$c"; fi ;;
+  audit-record)
+    c="${1:-}"; r="${2:-}"; h="${3:-}"
+    [[ "$c" =~ ^[0-9a-f]{40}$ && -f "$r" && "$h" =~ ^[0-9]+$ ]] || die "usage: implement.sh audit-record <commit (full sha)> <report file> <hold (confirmed critical or high)>"
+    git cat-file -e "$c^{commit}" 2>/dev/null || die "$c is not a commit in this repository"
+    ad="$(cd "$(git rev-parse --git-common-dir)" && pwd -P)/landspec-security"; mkdir -p "$ad"
+    cp "$r" "$ad/audit-$c.md" # a copy: the report the audit wrote may be a temp file
+    printf 'commit=%s\nreport=%s\nhold=%s\n' "$c" "$ad/audit-$c.md" "$h" > "$ad/audit"
+    echo "AUDITED=$c REPORT=$ad/audit-$c.md HOLD=$h" ;;
+  *) die "usage: implement.sh [feature] status [--running T001,T002] | mark <task> <phase> [<report>] | fail <task> <reason> | retry <task> | restack | stack <task> <onto-task> | check-copy [--remove] | check-result red|green | release-plan | release-bump X.Y.Z | audit-plan | audit-record <commit> <report> <hold>" ;;
 esac

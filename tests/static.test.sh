@@ -351,6 +351,19 @@ check "then nothing in the skill merges a PR" '! grep -qF "gh pr merge" skills/i
 check "then landspec's own config names its four version files and docs/releases" \
   'c=.specify/extensions/landspec/landspec-config.yml; for f in .claude-plugin/plugin.json extension/extension.yml preset/preset.yml .specify/extensions/landspec/extension.yml; do grep "^version_files:" $c | grep -qF "$f" || exit 1; done; grep -qx "release_notes: docs/releases" $c'
 
+# The audit before the release (spec 004 T010): once per base commit, unattended, holding on a confirmed critical or high.
+au="$(sed -n "/^## The audit before the bump/,/^## When an implementer returns/p" skills/implement/SKILL.md)"
+check "when the skill reaches a bump, then it acts on the one AUDIT= line, for needed, done and hold" \
+  'grep -qF "first the audit (below); only on \`AUDIT=done\`" skills/implement/SKILL.md && grep -qF "I audit-plan" <<<"$au" && grep -qF "I audit-record <sha> <file> <n>" <<<"$au" \
+   && for k in needed done hold; do grep -qF -- "- \`AUDIT=$k" <<<"$au" || exit 1; done'
+check "then a hold files and posts nothing and the last line names /landspec:security with the report" \
+  'grep -qF "nothing filed or posted about the findings" <<<"$au" && grep -qF "release held: <n> confirmed critical or high; run /landspec:security" skills/implement/SKILL.md'
+check "then /landspec:security has the unattended mode (steps 1 to 6, HOLD=) and takes a report for step 7" \
+  'grep -qF "**Unattended**" skills/security/SKILL.md && grep -qF "steps 1 to 6 only" skills/security/SKILL.md && grep -qF "\`HOLD=<n>\`" skills/security/SKILL.md \
+   && grep -qF "Read it, show its summary as step 6 says, then step 7" skills/security/SKILL.md'
+check "then /landspec:next and README point to /landspec:implement once every task is merged" \
+  'grep -qF "it audits the base and makes the release" skills/next/SKILL.md && grep -qF "it audits the base (\`/landspec:security\`" README.md'
+
 # /landspec:report: public issues, so nothing is filed without a yes and nothing private leaves the project.
 rp="$(cat skills/report/SKILL.md)"
 check "when /landspec:report drafts an issue, then it files on the plugin's repository only after a yes" \

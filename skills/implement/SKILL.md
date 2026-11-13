@@ -105,7 +105,7 @@ When every task is `merged` and no gaps were filed (on this run or a later one),
 and act on the **one** `RELEASE=` line it prints, never on anything else; each step happens once, and the
 next run reads where it stands from git and GitHub:
 
-- `RELEASE=bump X.Y.Z FILES=… NOTES=<path> PRS=…`: in the run's worktree `<repo>-<feature>-run`
+- `RELEASE=bump X.Y.Z FILES=… NOTES=<path> PRS=…`: first the audit (below); only on `AUDIT=done`, in the run's worktree `<repo>-<feature>-run`
   (`git fetch origin`, `git switch -c chore/release-X.Y.Z origin/<base>`): `I release-bump X.Y.Z`
   there, then write the notes to `<path>`: grouped by user story, one line per PR in `PRS=` (its
   title and number), and an "Upgrading" section when a task changed a config key or a command. Commit
@@ -121,6 +121,24 @@ next run reads where it stands from git and GitHub:
 - `RELEASE=done V`: the feature is released; say so.
 - `RELEASE=none (no version_files:)`: write the notes to a `mktemp` file and say the project has no
   release convention (`version_files:` and `release_notes:` in `landspec-config.yml` set one).
+
+## The audit before the bump
+
+On `RELEASE=bump`, before anything else, run `I audit-plan` and act on the **one** `AUDIT=` line it
+prints. The base is audited once per commit: a later run reuses the recorded result.
+
+- `AUDIT=needed COMMIT=<sha>`: in the run's worktree `<repo>-<feature>-run`, `git switch --detach <sha>`,
+  then launch one background subagent (`general-purpose`) with this prompt: "In `<that path>`, run the
+  `full` security audit of `${CLAUDE_PLUGIN_ROOT}/skills/security/SKILL.md` unattended, as its
+  'Unattended' mode says. Write the report to `<a mktemp file>`." When it returns, take the `HOLD=<n>`
+  of its last line (no such line: record nothing, say the audit did not finish, and stop the
+  release), run `I audit-record <sha> <file> <n>`, then `I audit-plan` again.
+- `AUDIT=done COMMIT=… REPORT=… HOLD=0`: go on with the bump.
+- `AUDIT=hold COMMIT=… REPORT=<path> HOLD=<n>`: the release **holds**: no bump, no release PR, and
+  nothing filed or posted about the findings (no issue, advisory, PR or comment: the run report gives
+  only their count and the report's path, never what they are). `/landspec:security <path>` tracks
+  and fixes them without disclosing them; once the fixes are merged, the base has a new commit and
+  the next run audits it again.
 
 ## When an implementer returns
 
@@ -146,9 +164,12 @@ Show the run report, then only what is left for the developer:
   skipped task;
 - the gap tasks filed, with their issues and the spec PR;
 - the release: the `RELEASE=` line and what was done for it (the release PR to merge, the tag, the
-  published release).
+  published release), and the `AUDIT=` line when there was one.
 
 Last line, when gaps were filed: `merge the PRs in ORDER and <spec PR>, then run /landspec:implement
-again`.
+again`. When the release holds: `release held: <n> confirmed critical or high; run /landspec:security
+<report path>`. When the release is done or was published by this run: `/speckit-specify` for the next
+feature. Nothing else is left for the developer to run by hand: the whole-feature check stands in for
+`/speckit-converge`, and the audit for `/landspec:security`.
 
 The skill never merges a PR: the developer merges, in `ORDER`.

@@ -128,6 +128,10 @@ When every task of the feature is merged, `/landspec:implement` makes the **rele
 run, read each time from git and GitHub (`implement.sh release-plan`): a release PR `chore(release):
 X.Y.Z` with the bump (`release-bump`) and the notes, through `pr.sh fix` and its review; once you merge
 it, the tag `vX.Y.Z` on its merge commit; then the published release with those notes. It never merges.
+Before the bump it runs the `full` security audit unattended on `origin/<base>`, once per commit
+(`implement.sh audit-plan`, `audit-record`; the report is kept in `.git/landspec-security/`). A
+confirmed critical or high finding holds the release: no bump, nothing filed or posted, and the last
+line is `run /landspec:security <report>`, which tracks and fixes it.
 
 `/landspec:implement` is the default after `/speckit-tasks`: the spec PR's last line names it, and
 `next.sh` prints `RUN=/landspec:implement <feature>` before `FEATURE=` when two or more tasks can start.

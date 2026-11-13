@@ -1,7 +1,7 @@
 ---
 name: security
 description: "Full security audit of the project: scanners, a manual OWASP Top 10 and CWE Top 25 sweep, business-logic and race-condition flaws, each finding verified, then tracked and fixed safely. Use for /landspec:security, before a release, or when the user asks whether the software is secure."
-argument-hint: "[quick|full|deep]"
+argument-hint: "[quick|full|deep|<report>]"
 ---
 
 # Security audit
@@ -12,6 +12,13 @@ argument-hint: "[quick|full|deep]"
 - `full` (default): the whole repository, every phase below.
 - `deep`: `full`, plus one read-only subagent per sweep group running in parallel, and a fresh
   subagent trying to disprove each high or critical finding.
+- `<report>` (a path): a report the audit of `/landspec:implement` already wrote, for a held release.
+  Read it, show its summary as step 6 says, then step 7. Skip steps 1 to 5.
+- **Unattended** (the audit `/landspec:implement` runs before a release): `full`, steps 1 to 6 only, on
+  the checkout it names. Ask nothing; change no file, commit nothing, open no issue, advisory or PR,
+  post nothing. Write the report where the prompt says (not `REPORT_DIR`), and end with one line
+  `HOLD=<n>`: the number of findings marked `confirmed` with severity critical or high. Step 7 is for
+  the developer, through `/landspec:security <report>`.
 
 **Rules for the whole audit**
 - Read code; don't guess. Every finding cites `file:line` and a concrete way to exploit or
