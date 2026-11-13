@@ -86,7 +86,8 @@ step 2 allows.
    some people cannot use (text under 4.5:1 contrast, 3:1 for large text and icons: compute it from
    the colours in the diff and the background they sit on; a focus that is not visible; a control
    or image without an accessible name). Open each helper a changed line passes personal data or a
-   secret to, and read what it does with it: a value masked or hashed before the log is not a
+   secret to, and read what it does with it: the finding names the helper's own `file:line` that
+   writes the log, beside the changed line that passes the value; a value masked or hashed before the log is not a
    finding; one you cannot follow to its end is a Low that says what you could not see. Run a command
    only to settle whether a suspected bug is real, and only in your own copy.
 

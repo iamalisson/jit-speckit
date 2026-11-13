@@ -214,7 +214,7 @@ check "when agents/reviewer.md is read, then it has isolation: worktree, the age
 # Spec 003 T002: the reviewer follows personal data and secrets into the helpers that log them.
 check "when review.md lists the bugs to look for, then it names data reaching a log inside a helper, says to open each helper, and ranks a faked asserted component" \
   'f="$(tr "\n" " " < extension/commands/review.md | tr -s " ")"; [[ "$f" == *"reaches a log, including inside a helper the changed lines call with it"* \
-   && "$f" == *"Open each helper a changed line passes personal data or a secret to"* && "$f" == *"a test that fakes the component whose behavior it asserts"* \
+   && "$f" == *"Open each helper a changed line passes personal data or a secret to"* && "$f" == *"names the helper'"'"'s own \`file:line\` that writes the log"* && "$f" == *"a test that fakes the component whose behavior it asserts"* \
    && "$f" == *"is **Medium** when it is the only proof of a privacy or security rule"* && "$f" == *"Personal data in a log is **High** when the project'"'"'s rules forbid it"* ]]'
 check "when docs/reference.md is read, then the Configuration table has a review_model row, and it says CLAUDE_CODE_SUBAGENT_MODEL_FORCE overrides it and the hook exists only where the plugin is installed" \
   'grep -q "^| \`review_model\` |" docs/reference.md && grep -qF "CLAUDE_CODE_SUBAGENT_MODEL_FORCE" docs/reference.md && grep -qi "only where the plugin is installed" docs/reference.md'
