@@ -49,7 +49,8 @@ branch="$(cfg branch_prefix feat)/$num-$(tr '[:upper:]' '[:lower:]' <<<"$task")-
 
 if [[ "$(git branch --show-current)" != "$branch" ]]; then
   # Never carry uncommitted work onto another task's branch.
-  [[ -z "$(git status --porcelain)" ]] || die "uncommitted changes on '$(git branch --show-current)'; commit or stash them first"
+  # A reviewer's copy (Claude Code puts it under .claude/worktrees) is not the author's work.
+  [[ -z "$(git status --porcelain -- . ':(exclude).claude/worktrees')" ]] || die "uncommitted changes on '$(git branch --show-current)'; commit or stash them first"
   if git show-ref --verify --quiet "refs/heads/$branch"; then git switch --quiet "$branch"
   elif git show-ref --verify --quiet "refs/remotes/origin/$branch"; then git switch --quiet --track "origin/$branch"
   else

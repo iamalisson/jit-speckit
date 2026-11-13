@@ -39,7 +39,7 @@ or one with another summary never matches.
    linked task gets sub-bullets added or fixed, not a new line. Report what changed in one short
    list.
 2. **Independent review of the plan.** Launch the reviewer exactly as `commands/review.md`
-   (`/speckit-landspec-review`) says, as a plan review: one `landspec:reviewer` subagent, with `model` as review.md says, given that
+   (`/speckit-landspec-review`) says, as a plan review: one `landspec:reviewer` subagent, with `model` and `isolation: "worktree"` as review.md says, given that
    file and the feature folder, nothing of your own conclusions. Save its report to a file outside the repository (`mktemp`) and record it:
    `bash .specify/extensions/landspec/scripts/review.sh record --plan <file>`. Fix what it finds in
    `tasks.md` and `plan.md` under the same rules as step 1, and run it again until it says

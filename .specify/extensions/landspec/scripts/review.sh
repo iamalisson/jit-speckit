@@ -123,6 +123,40 @@ outside() {
   echo "$n"
 }
 
+# remove_copy <report> <reviewed commit>: after a record, remove the reviewer's copy its last "Copy:"
+# line names, only when it is surely one Claude Code made for this review: an agent-* folder directly
+# under <root>/.claude/worktrees (the current or the main worktree), a listed worktree on (or detached
+# from) its worktree-agent-* branch, at the reviewed commit, and not this checkout. Anything else is
+# left with a line saying why; the record stands either way.
+remove_copy() {
+  local c p top main parent br head="" on="" wt="" line why=""
+  c="$(sed -nE 's/^\**Copy\**: *//p' "$1" | tail -1 | sed 's/[[:space:]]*$//')"
+  [[ -n "$c" && "$c" != none* && -d "$c" ]] || return 0
+  p="$(cd "$c" && pwd -P)"; top="$(cd "$(git rev-parse --show-toplevel)" && pwd -P)"
+  main="$(git worktree list --porcelain | sed -n '1s/^worktree //p')"; main="$(cd "$main" 2>/dev/null && pwd -P || true)"
+  parent="$(dirname "$p")"; br="worktree-$(basename "$p")"
+  while IFS= read -r line; do
+    case "$line" in
+      "worktree "*) wt="$(cd "${line#worktree }" 2>/dev/null && pwd -P || echo "${line#worktree }")" ;;
+      "HEAD "*) if [[ "$wt" == "$p" ]]; then head="${line#HEAD }"; fi ;;
+      "branch "*) if [[ "$wt" == "$p" ]]; then on="${line#branch refs/heads/}"; fi ;;
+    esac
+  done < <(git worktree list --porcelain)
+  if [[ "$p" == "$top" ]]; then why="it is this checkout"
+  elif [[ "$(basename "$p")" != agent-* || ( "$parent" != "$top/.claude/worktrees" && "$parent" != "$main/.claude/worktrees" ) ]]; then
+    why="not an agent-* folder directly under .claude/worktrees"
+  elif [[ -z "$head" ]]; then why="not a worktree of this repository"
+  elif ! git show-ref --verify --quiet "refs/heads/$br" || [[ -n "$on" && "$on" != "$br" ]]; then why="not on its $br branch"
+  elif [[ "$head" != "$2" ]]; then why="not at the reviewed commit"
+  fi
+  if [[ -z "$why" ]] && git worktree remove --force "$p" 2>/dev/null; then
+    git branch -D "$br" >/dev/null 2>&1 || true
+    echo "landspec: removed the reviewer's copy $c" >&2
+  else
+    echo "landspec: left the reviewer's copy $c (${why:-git refused to remove it})" >&2
+  fi
+}
+
 case "$action" in
   record)
     report="${1:-}"; [[ -f "$report" ]] || die "usage: review.sh record [--plan|--delta] <report-file>"
@@ -189,6 +223,7 @@ case "$action" in
       elif [[ -n "$map" ]]; then sed 's/^/map-full: /' <<<"$map"; fi
       echo; cat "$report"
     } > "$record.tmp" && mv "$record.tmp" "$record"
+    remove_copy "$report" "${head:-$(git rev-parse HEAD)}"
     if ! $plan; then echo "REVIEWED=$head"; fi
     echo "REVIEW=$verdict" ;;
   check|report)

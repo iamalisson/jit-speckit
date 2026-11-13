@@ -145,4 +145,14 @@ echo '{ "feature_directory": "specs/001-demo" }' > .specify/feature.json
 check "then that branch still resolves to its own timestamp feature" \
   'bash -c "source \"$SCRIPTS/lib.sh\"; feature_dir" | grep -qx "specs/20261104-153000-ts"'
 
+# Spec 003: a reviewer's copy under .claude/worktrees is not the author's uncommitted work.
+git switch --quiet main; echo kept > tracked.txt; git add tracked.txt; git commit --quiet -m "test: tracked"
+mkdir -p .claude/worktrees/agent-x; echo x > .claude/worktrees/agent-x/f
+check "when only an untracked .claude/worktrees/agent-x/ folder is there, then switching to a task branch does not refuse" \
+  '"$b" 001 T001 >/dev/null && [[ "$(git branch --show-current)" == feat/001-t001-* ]]'
+git switch --quiet main; echo changed >> tracked.txt
+check "when a tracked file has an uncommitted edit, then switching to a task branch refuses" \
+  'fails_with "uncommitted changes" "$b" 001 T001'
+git checkout --quiet -- tracked.txt; rm -rf .claude
+
 exit "$FAIL"

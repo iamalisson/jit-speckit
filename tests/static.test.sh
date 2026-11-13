@@ -201,6 +201,16 @@ check "when review.md, pr.md and issues.md launch the reviewer, then each names 
 check "when review.md sets the reviewer model, then it names review_model:, the refusal line, never haiku, the general-purpose fallback and the sentinel line" \
   'f=extension/commands/review.md; grep -qF "review_model:" $f && grep -qF "landspec: review_model must be sonnet, opus or fable" $f && grep -qF "Never run the review on \`haiku\`" $f \
    && grep -qF "general-purpose" $f && grep -qF "landspec review: independent reviewer" $f'
+# Spec 003 T001: every review runs in its own copy of the reviewed commit, never in the author's checkout.
+check "when review.md, pr.md and issues.md launch the reviewer, then each passes isolation: \"worktree\"" \
+  'for f in review pr issues; do grep -qF "isolation: \"worktree\"" extension/commands/$f.md || exit 1; done'
+check "when review.md lists the facts and the reviewer's steps, then it has commit:, checkout:, the detach to <commit>, the agent-* step 0, the /landspec:init stop, never writing to <checkout> and the Copy: line" \
+  'f=extension/commands/review.md; grep -qF "\`commit:\`" $f && grep -qF "\`checkout:\`" $f && grep -qF "git checkout --quiet --detach <commit>" $f \
+   && grep -qF "be an \`agent-*\` folder directly under a \`.claude/worktrees/\`" $f && tr "\n" " " < $f | grep -qE "predates the plugin: run +/landspec:init" \
+   && grep -qF "Never write to \`<checkout>\`" $f && grep -qF "\`Copy: <git rev-parse --show-toplevel>\`" $f'
+check "when agents/reviewer.md is read, then it has isolation: worktree, the agent-* step 0, the /landspec:init stop and never writing to the author's checkout" \
+  'f=agents/reviewer.md; grep -qx "isolation: worktree" $f && grep -qF "be an \`agent-*\` folder directly under a \`.claude/worktrees/\`" $f \
+   && grep -qF "predates the plugin: run /landspec:init" $f && grep -qF "never write to the author'"'"'s checkout" $f'
 check "when docs/reference.md is read, then the Configuration table has a review_model row, and it says CLAUDE_CODE_SUBAGENT_MODEL_FORCE overrides it and the hook exists only where the plugin is installed" \
   'grep -q "^| \`review_model\` |" docs/reference.md && grep -qF "CLAUDE_CODE_SUBAGENT_MODEL_FORCE" docs/reference.md && grep -qi "only where the plugin is installed" docs/reference.md'
 # Issue #108: the plan review reads spec-folder code and orderings, and a repeated class ends the patching.

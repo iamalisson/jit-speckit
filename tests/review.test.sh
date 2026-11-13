@@ -330,4 +330,66 @@ shallow_repo 3
 check "on a shallow clone that has the merge base, then a commit and its revert are an empty diff, not a refusal" \
   '[[ "$(git rev-parse --is-shallow-repository)" == true ]] && one_refusal "no independent review" "$r" check'
 
+# ── Spec 003: record removes the reviewer's copy when it is surely the one made for this review ──
+rm -rf "$TMP/origin.git" "$TMP/repo" "$TMP/out" "$TMP/linked"; cd "$TMP"
+new_repo standard
+commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5'
+"$SCRIPTS/branch.sh" T001 >/dev/null
+echo a > a.txt; git add a.txt; git commit --quiet -m "feat: a"
+author() { git status --porcelain -- . ':(exclude).claude/worktrees'; }
+# copy <name> [<commit>] [detach]: a worktree like Claude Code's, with an uncommitted change in it.
+copy() {
+  git worktree add --quiet -b "worktree-$1" ".claude/worktrees/$1" "${2:-HEAD}"
+  if [[ "${3:-}" == detach ]]; then git -C ".claude/worktrees/$1" checkout --quiet --detach; fi
+  echo wip > ".claude/worktrees/$1/wip.txt"
+}
+# copy_report <Copy: value> [plan]: a ready report naming that copy.
+copy_report() {
+  if [[ "${2:-}" == plan ]]; then printf 'Copy: %s\nModel: claude-sonnet-4-7\n\nAssessment: ready\n' "$1" > "$TMP/report.md"
+  else printf 'What changed: x\n\nCopy: %s\n%s\nModel: claude-sonnet-4-7\n\nAssessment: ready\n' "$1" "$(range)" > "$TMP/report.md"; fi
+}
+before="$(author)"
+copy agent-x; copy_report "$PWD/.claude/worktrees/agent-x"
+check "when a task report names .claude/worktrees/agent-x on worktree-agent-x at the reviewed commit, with an uncommitted change in it, then record removes it and its branch and says so" \
+  'out="$("$r" record "$TMP/report.md" 2>&1)" && grep -q "^REVIEW=ready" <<<"$out" && grep -qF "landspec: removed the reviewer'"'"'s copy $PWD/.claude/worktrees/agent-x" <<<"$out" && [[ ! -e .claude/worktrees/agent-x ]] && ! git show-ref --quiet refs/heads/worktree-agent-x'
+check "when the same report is recorded twice, then the second prints no error and removes nothing" \
+  'out="$("$r" record "$TMP/report.md" 2>&1)" && [[ "$out" != *"reviewer'"'"'s copy"* ]]'
+prev="$(git rev-parse HEAD)"; echo b >> a.txt; git commit --quiet -am "fix: b"
+copy agent-d HEAD detach
+printf 'Copy: %s\nDelta from: %s\nReviewed: %s..%s\nModel: claude-sonnet-4-7\n\nAssessment: ready\n' "$PWD/.claude/worktrees/agent-d" "$prev" "$prev" "$(git rev-parse HEAD)" > "$TMP/report.md"
+check "when a delta report names a detached agent-d copy at the reviewed commit, then record --delta removes it" \
+  '"$r" record --delta "$TMP/report.md" 2>&1 | grep -qF "removed the reviewer'"'"'s copy" && [[ ! -e .claude/worktrees/agent-d ]]'
+copy agent-p; copy_report "$PWD/.claude/worktrees/agent-p" plan
+check "when a plan report names an agent-p copy at HEAD, then record --plan removes it" \
+  '"$r" record --plan "$TMP/report.md" 2>&1 | grep -qF "removed the reviewer'"'"'s copy" && [[ ! -e .claude/worktrees/agent-p ]]'
+copy_report "none (running in $PWD)"
+check "when the report says Copy: none (...), then record prints and removes nothing about a copy" \
+  'out="$("$r" record "$TMP/report.md" 2>&1)" && [[ "$out" != *"reviewer'"'"'s copy"* ]]'
+report ready
+check "when the report has no Copy: line, then record works as before" \
+  'out="$("$r" record "$TMP/report.md" 2>&1)" && grep -q "^REVIEW=ready" <<<"$out" && [[ "$out" != *"reviewer'"'"'s copy"* ]]'
+# Each of these is left, with a line saying so, and the record still succeeds.
+copy feature
+copy agent-y HEAD~1
+mkdir -p .claude/worktrees/agent-m; echo m > .claude/worktrees/agent-m/f
+mkdir -p "$TMP/out/.claude/worktrees"; git worktree add --quiet -b worktree-agent-o "$TMP/out/agent-o" HEAD
+for lc in "a listed worktree .claude/worktrees/feature on worktree-feature|$PWD/.claude/worktrees/feature" \
+  "an agent-y worktree at another commit|$PWD/.claude/worktrees/agent-y" "the repository root|$PWD" \
+  "an agent-o worktree outside .claude/worktrees/|$TMP/out/agent-o" "a folder made with mkdir under .claude/worktrees/|$PWD/.claude/worktrees/agent-m"; do
+  c="${lc#*|}"; copy_report "$c"
+  check "when the report names ${lc%%|*}, then record succeeds, leaves it and says so" \
+    'out="$("$r" record "$TMP/report.md" 2>&1)" && grep -q "^REVIEW=ready" <<<"$out" && grep -qF "landspec: left the reviewer'"'"'s copy $c (" <<<"$out" && [[ -d "$c" ]]'
+done
+check "then every left copy keeps its files" \
+  '[[ -f .claude/worktrees/feature/wip.txt && -f .claude/worktrees/agent-y/wip.txt && -f .claude/worktrees/agent-m/f && -d "$TMP/out/agent-o" ]]'
+check "then the author's git status is the same as before (copies aside)" '[[ "$(author)" == "$before" ]]'
+# The author works in a linked worktree: Claude Code puts the copy under the main worktree's .claude/worktrees.
+git worktree add --quiet -b feat/001-t001-linked "$TMP/linked" HEAD
+main="$PWD"; cd "$TMP/linked"
+git worktree add --quiet -b worktree-agent-l "$main/.claude/worktrees/agent-l" HEAD
+copy_report "$main/.claude/worktrees/agent-l"
+check "when the author's checkout is a linked worktree, then a copy under the main worktree's .claude/worktrees is removed" \
+  '"$r" record "$TMP/report.md" 2>&1 | grep -qF "removed the reviewer'"'"'s copy" && [[ ! -e "$main/.claude/worktrees/agent-l" ]]'
+cd "$main"
+
 exit "$FAIL"
