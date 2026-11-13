@@ -435,7 +435,7 @@ case "$action" in
     [[ "$c" =~ ^[0-9a-f]{40}$ && -f "$r" && "$h" =~ ^[0-9]+$ ]] || die "usage: implement.sh audit-record <commit (full sha)> <report file> <hold (confirmed critical or high)>"
     git cat-file -e "$c^{commit}" 2>/dev/null || die "$c is not a commit in this repository"
     ad="$(cd "$(git rev-parse --git-common-dir)" && pwd -P)/landspec-security"; mkdir -p "$ad"
-    cp "$r" "$ad/audit-$c.md" # a copy: the report the audit wrote may be a temp file
+    [[ "$r" -ef "$ad/audit-$c.md" ]] || cp "$r" "$ad/audit-$c.md" # a copy: the audit's report may be a temp file
     printf 'commit=%s\nreport=%s\nhold=%s\n' "$c" "$ad/audit-$c.md" "$h" > "$ad/audit"
     echo "AUDITED=$c REPORT=$ad/audit-$c.md HOLD=$h" ;;
   *) die "usage: implement.sh [feature] status [--running T001,T002] | mark <task> <phase> [<report>] | fail <task> <reason> | retry <task> | restack | stack <task> <onto-task> | check-copy [--remove] | check-result red|green | release-plan | release-bump X.Y.Z | audit-plan | audit-record <commit> <report> <hold>" ;;

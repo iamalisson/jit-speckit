@@ -439,6 +439,8 @@ check "when an audit with no confirmed critical or high is recorded, then done, 
   '[[ "$out" == "AUDIT=done COMMIT=$c0 REPORT="*"/landspec-security/audit-$c0.md HOLD=0" ]] && grep -qx "# report" "$(sed "s/.*REPORT=//; s/ HOLD=.*//" <<<"$out")"'
 printf '# report\n' > "$TMP/audit.md"; "$I" audit-record "$c0" "$TMP/audit.md" 2 >/dev/null; ap
 check "when the audit confirmed two, then hold, HOLD=2" '[[ "$out" == "AUDIT=hold COMMIT=$c0 "*" HOLD=2" ]]'
+r0="$(sed "s/.*REPORT=//; s/ HOLD=.*//" <<<"$out")"; "$I" audit-record "$c0" "$r0" 0 >/dev/null 2>&1 || true; ap
+check "when the held report itself is recorded again with 0 (a disproved finding), then done" '[[ "$out" == "AUDIT=done COMMIT=$c0 REPORT=$r0 HOLD=0" ]] && grep -qx "# report" "$r0"'
 c1="$(on_main fix fix.txt 'fixed\n')"; ap
 check "when origin/main moved since the audit, then needed again for the new commit" '[[ "$out" == "AUDIT=needed COMMIT=$c1" ]]'
 check "when audit-record gets a short sha, a missing report or a hold that is not a number, then it refuses" \
