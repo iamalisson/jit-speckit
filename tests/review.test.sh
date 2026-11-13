@@ -358,10 +358,10 @@ prev="$(git rev-parse HEAD)"; echo b >> a.txt; git commit --quiet -am "fix: b"
 copy agent-d HEAD detach
 printf 'Copy: %s\nDelta from: %s\nReviewed: %s..%s\nModel: claude-sonnet-4-7\n\nAssessment: ready\n' "$PWD/.claude/worktrees/agent-d" "$prev" "$prev" "$(git rev-parse HEAD)" > "$TMP/report.md"
 check "when a delta report names a detached agent-d copy at the reviewed commit, then record --delta removes it" \
-  '"$r" record --delta "$TMP/report.md" 2>&1 | grep -qF "removed the reviewer'"'"'s copy" && [[ ! -e .claude/worktrees/agent-d ]]'
+  'out="$("$r" record --delta "$TMP/report.md" 2>&1)" && grep -qF "removed the reviewer'"'"'s copy" <<<"$out" && [[ ! -e .claude/worktrees/agent-d ]]'
 copy agent-p; copy_report "$PWD/.claude/worktrees/agent-p" plan
 check "when a plan report names an agent-p copy at HEAD, then record --plan removes it" \
-  '"$r" record --plan "$TMP/report.md" 2>&1 | grep -qF "removed the reviewer'"'"'s copy" && [[ ! -e .claude/worktrees/agent-p ]]'
+  'out="$("$r" record --plan "$TMP/report.md" 2>&1)" && grep -qF "removed the reviewer'"'"'s copy" <<<"$out" && [[ ! -e .claude/worktrees/agent-p ]]'
 copy_report "none (running in $PWD)"
 check "when the report says Copy: none (...), then record prints and removes nothing about a copy" \
   'out="$("$r" record "$TMP/report.md" 2>&1)" && [[ "$out" != *"reviewer'"'"'s copy"* ]]'
@@ -389,7 +389,7 @@ main="$PWD"; cd "$TMP/linked"
 git worktree add --quiet -b worktree-agent-l "$main/.claude/worktrees/agent-l" HEAD
 copy_report "$main/.claude/worktrees/agent-l"
 check "when the author's checkout is a linked worktree, then a copy under the main worktree's .claude/worktrees is removed" \
-  '"$r" record "$TMP/report.md" 2>&1 | grep -qF "removed the reviewer'"'"'s copy" && [[ ! -e "$main/.claude/worktrees/agent-l" ]]'
+  'out="$("$r" record "$TMP/report.md" 2>&1)" && grep -qF "removed the reviewer'"'"'s copy" <<<"$out" && [[ ! -e "$main/.claude/worktrees/agent-l" ]]'
 cd "$main"
 
 exit "$FAIL"
