@@ -81,6 +81,23 @@ When the loop has stopped and every task is `pr` or `merged`, check them togethe
    dir name>`, `checkout:` the repository root, `base:` `origin/<base>`, the test command and its output.
    Record it with `review.sh record --feature <report>`. Its `not met` lines go into the run report.
 4. `I check-copy --remove`.
+5. **The gaps**, when the feature review has `not met` lines: each becomes a task, through a spec PR,
+   before anything is merged. The check ran only because the feature has no open spec PR, so this is
+   always a new one. Work in the run's worktree `<repo>-<feature>-run` (`restack` makes it; when it is
+   missing, `git worktree add --detach <repo>-<feature>-run origin/<base>`):
+   - If `spec/<feature dir name>` is checked out in any worktree (`git worktree list`), print
+     `SKIPPED=spec/<feature dir name> (checked out in <path>)`, say so in the report, and stop.
+   - There: `git fetch origin`, `git switch --detach origin/<base>`, and `bash
+     .specify/extensions/landspec/scripts/next.sh <feature>` (so the feature is the active one).
+   - Append one task line per `not met` item to the feature's `tasks.md`, with the next free ids, in
+     the format of the others (`- [ ] Tnnn <what> in <files>`, then the sub-bullets `Comes from:`
+     the item, `What`, `Completed when`); never change a line that already ends in `— #N`.
+   - A plan review of those lines, as `issues.md` step 2 says (`review.sh record --plan`), then
+     `issues.sh` for their issues, then `pr.sh spec "docs(specs): file the whole-feature check's gaps"`.
+   - `git switch --detach` there, last.
+
+   Gap tasks are ordinary tasks: the next run starts them from the base, once the developer has
+   merged the spec PR, and checks the whole feature again.
 
 ## When an implementer returns
 
@@ -103,9 +120,10 @@ Show the run report, then only what is left for the developer:
   merged and `/landspec:implement` runs again), then "run `/landspec:implement` again";
 - the whole-feature check: its round, the test result, and each `not met` line of the feature review;
 - each `failed` task with its reason (`I retry <task>` lifts it), each `RESTACK_CONFLICT=`, each
-  skipped task.
+  skipped task;
+- the gap tasks filed, with their issues and the spec PR.
 
-Last line, when the feature review has `not met` lines: `filing the gaps as tasks is not built yet: add
-them with /speckit-converge after merging`.
+Last line, when gaps were filed: `merge the PRs in ORDER and <spec PR>, then run /landspec:implement
+again`.
 
 The skill never merges a PR: the developer merges, in `ORDER`.

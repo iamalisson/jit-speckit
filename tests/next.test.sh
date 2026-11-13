@@ -15,10 +15,13 @@ commit_tasks '- [ ] T001 First in `a` — #1
 closed
 out="$("$n")"
 check "when no issue is closed, then the next task is the first one" '[[ "$out" == *"DONE=0/3 IN_PROGRESS=0 NEXT=T001"* ]]'
+check "when two tasks can start (NEXT and a [P] one), then RUN=/landspec:implement is printed just before FEATURE=, the last two lines unchanged" \
+  '[[ "$(tail -3 <<<"$out")" == $'"'"'RUN=/landspec:implement 001\nFEATURE=001\nDONE=0/3 IN_PROGRESS=0 NEXT=T001'"'"' ]]'
 
 closed 1 3
 out="$("$n")"
 check "when issues are closed out of order, then the next task is the first still open" '[[ "$out" == *"DONE=2/3 IN_PROGRESS=0 NEXT=T002"* ]]'
+check "when only one task can start, then there is no RUN= line" '! grep -q "^RUN=" <<<"$out"'
 check "then each task shows its state" 'grep -q "^done T001 #1 First" <<<"$out" && grep -q "^open T002 #2 Second" <<<"$out"'
 
 # F1.2: the state comes from the issue numbers, so a renamed issue (one a title search misses) still counts.

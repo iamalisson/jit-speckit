@@ -76,5 +76,5 @@ or one with another summary never matches.
      after the analysis.
    - If `pr.sh spec` stops on a stale plan review, run the plan review again, record it, and run
      `pr.sh spec` once more.
-6. End with one line: the PR URL (if one was opened), and "merge it, then start a task with
-   `/speckit-implement T001`".
+6. End with one line: the PR URL (if one was opened), and "merge it, then run `/landspec:implement`
+   for the whole feature (or `/speckit-implement T001` for one task)".
