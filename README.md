@@ -97,7 +97,7 @@ branches start there. What `new` asks and sets up: [docs/reference.md](docs/refe
 | **Then, once per feature** | `/landspec:implement` | every startable task at once, each in its own copy: **its branch → code → checks (tests, mutants) → review → PR**; a task that depends on another is stacked on its PR. Then all of them checked together against the suite and the spec, and any gap filed as a new task |
 | | merge the PRs, in the order it prints | the issues close; run it again for what is left |
 | *(or, once per task)* | `/landspec:next` | progress, then the next open task, the same way, one at a time; it offers `/landspec:implement` when two or more can start. Several features? `next 002` |
-| **When every task is done** | `/speckit-converge` | compares the code with the spec; anything unbuilt becomes new tasks with issues |
+| **When every task is merged** | `/landspec:implement` | the full security audit, unattended, then the release PR, the tag and the release, one step per run; a confirmed critical or high holds the release |
 
 **Small fixes don't need the feature loop.** A typo, a one-line bug fix or a dependency bump
 goes on a normal branch with a normal PR, through `pr.sh fix`. The independent review, the hooks
@@ -109,8 +109,11 @@ and need `tasks.md` there, and each task PR stays small and closes one issue. Se
 **[examples/](examples/)** for one feature walked through from spec to merged PRs, with the
 real issue and PR bodies.
 
-When `/landspec:next` says every task is done, run `/speckit-converge`. If it finds nothing
-left to build, the feature is finished: run `/landspec:security` before you release it.
+When every task is merged, run `/landspec:implement` again: it audits the base (`/landspec:security`
+`full`, unattended, once per commit) and makes the release. A confirmed critical or high finding holds
+it, with nothing filed or posted, and the run ends with `run /landspec:security <report>`, which tracks
+and fixes it without disclosing it. Features done one task at a time with `/speckit-implement` run
+`/speckit-converge` first, since the whole-feature check runs only before the merges.
 
 > `/landspec:next` picks the next task for you. `/speckit-implement T007` does the same for a
 > specific task. Either way, exactly one task per run.
@@ -126,7 +129,7 @@ Why one task = one issue = one branch = one PR, with the evidence: [docs/design.
 | **every push** | re-checks every outgoing commit, including ones made with `--no-verify` |
 | **before each PR** (one per task, `/landspec:implement` too) | an **independent review** by a fresh agent (`landspec:reviewer`, on Sonnet unless `review_model:` says `opus` or `fable`), in its own copy of the reviewed commit, that reads the diff and the code around it in one fast pass (following personal data and secrets into the helpers that log them), like Copilot code review, with no subscription needed, scanners on the changed files (the PR is refused until they ran on its exact diff), `/security-review` |
 | **every PR, and weekly** | CI gate (standard and full): Gitleaks, OSV-Scanner and zizmor (Semgrep with the OWASP rules on `full`, from its image pinned by digest, its rules fetched from the Semgrep registry at run time; trivy on Dockerfiles and Terraform when the project has them), all pinned and checksum-verified |
-| **before a release** | `/landspec:security`, the full audit |
+| **before a release** | `/landspec:security`, the full audit, run unattended by `/landspec:implement` before the bump; a confirmed critical or high holds the release |
 
 Why each layer exists, and what it can't do: **[docs/security.md](docs/security.md)**.
 

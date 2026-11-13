@@ -430,5 +430,24 @@ check "when a listed file has no version line, then release-bump refuses and cha
   'fails_with "notes.txt has no version line" "$I" release-bump 1.5.0 && [[ -z "$(git diff -- package.json)" ]]'
 rm -f notes.txt
 
+# ── Spec 004 T010: the audit before the bump, once per base commit ──
+ap() { out="$("$I" audit-plan 2>&1)" || true; }
+c0="$(git rev-parse origin/main)"; ap
+check "when no audit is recorded, then audit-plan says needed for origin/main's commit" '[[ "$out" == "AUDIT=needed COMMIT=$c0" ]]'
+printf '# report\n' > "$TMP/audit.md"; out="$("$I" audit-record "$c0" "$TMP/audit.md" 0 2>&1)" || true; rm -f "$TMP/audit.md"; ap
+check "when an audit with no confirmed critical or high is recorded, then done, with a kept copy of the report" \
+  '[[ "$out" == "AUDIT=done COMMIT=$c0 REPORT="*"/landspec-security/audit-$c0.md HOLD=0" ]] && grep -qx "# report" "$(sed "s/.*REPORT=//; s/ HOLD=.*//" <<<"$out")"'
+printf '# report\n' > "$TMP/audit.md"; "$I" audit-record "$c0" "$TMP/audit.md" 2 >/dev/null; ap
+check "when the audit confirmed two, then hold, HOLD=2" '[[ "$out" == "AUDIT=hold COMMIT=$c0 "*" HOLD=2" ]]'
+r0="$(sed "s/.*REPORT=//; s/ HOLD=.*//" <<<"$out")"; "$I" audit-record "$c0" "$r0" 0 >/dev/null 2>&1 || true; ap
+check "when the held report itself is recorded again with 0 (a disproved finding), then done" '[[ "$out" == "AUDIT=done COMMIT=$c0 REPORT=$r0 HOLD=0" ]] && grep -qx "# report" "$r0"'
+c1="$(on_main fix fix.txt 'fixed\n')"; ap
+check "when origin/main moved since the audit, then needed again for the new commit" '[[ "$out" == "AUDIT=needed COMMIT=$c1" ]]'
+check "when audit-record gets a short sha, a missing report or a hold that is not a number, then it refuses" \
+  'fails_with "usage: implement.sh audit-record" "$I" audit-record "${c1:0:7}" "$TMP/audit.md" 0 \
+   && fails_with "usage: implement.sh audit-record" "$I" audit-record "$c1" "$TMP/none.md" 0 \
+   && fails_with "usage: implement.sh audit-record" "$I" audit-record "$c1" "$TMP/audit.md" x'
+check "when the commit is not in the repository, then it refuses" 'fails_with "is not a commit in this repository" "$I" audit-record "$(printf "%040d" 1)" "$TMP/audit.md" 0'
+
 check "then the current HEAD is the same after every call" '[[ ! -e "$TMP/head.moved" ]]'
 exit "$FAIL"
