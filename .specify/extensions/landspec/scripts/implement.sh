@@ -235,11 +235,12 @@ case "$action" in
     # unmerged (a branch stacks on one parent only); otherwise waiting.
     for t in $ids; do
       [[ -z "$(get ST "$t")" ]] || continue
-      ok=true; unmerged=0
+      ok=true; unmerged=0; pb=""
       for d in $(grep -oiE 'depends on T[0-9]{3,}([, ]+(and )?T[0-9]{3,})*' <<<"$(grep -m1 -E "^- \[.\] $t " <<<"$tasks")" | grep -oE 'T[0-9]{3,}'); do
-        case "$(get ST "$d")" in merged) ;; reviewed|pr) unmerged=$((unmerged + 1)) ;; *) ok=false ;; esac
+        case "$(get ST "$d")" in merged) ;; reviewed|pr) unmerged=$((unmerged + 1)); pb="$(get BR "$d")" ;; *) ok=false ;; esac
       done
-      if $ok && ((unmerged <= 1)); then put ST "$t" startable; else put ST "$t" waiting; fi
+      # its one unmerged dependency is the branch it stacks on (the skill passes it as --from)
+      if $ok && ((unmerged <= 1)); then put ST "$t" startable; [[ -z "$pb" ]] || put PA "$t" "$pb"; else put ST "$t" waiting; fi
     done
     running=0; done_n=0; total=0
     for t in $ids; do
