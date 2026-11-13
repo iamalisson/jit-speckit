@@ -261,6 +261,12 @@ check "when gh pr edit fails after the move, then restack stops naming the PR" '
 check "then a second restack moves the PR onto main and marks it ready" \
   'grep -qx "RETARGETED=T002" <<<"$out" && grep -q "^pr edit 12 --base main" "$GH_LOG" && grep -q "^pr ready 12$" "$GH_LOG"'
 
+# A PR stacked in another clone (no setting here) on a still-open parent is left alone.
+rs_setup
+mkb "$B1" origin/main a; mkb "$B2" "$B1" b
+printf '11 %s main false OPEN\n12 %s %s true OPEN\n' "$B1" "$B2" "$B1" | prs; : > "$GH_LOG"; rs
+check "when a PR is stacked on an open parent in another clone, then restack leaves it" '[[ -z "$out" ]] && ! grep -qE "^pr (edit|ready)" "$GH_LOG"'
+
 # A local branch behind origin is not moved, so origin keeps the commits this clone lacks.
 rs_setup
 mkb "$B1" origin/main a; mkb "$B2" "$B1" b "$B1"; old2="$(git rev-parse "refs/heads/$B2")"; edit "$B2" b 's/l2/N2/'

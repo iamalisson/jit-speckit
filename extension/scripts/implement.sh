@@ -256,7 +256,11 @@ case "$action" in
       [[ "$(sed -E 's/.* STATE=([^ ]+).*/\1/' <<<"$l")" != merged ]] || continue
       prl="$(awk -F'\t' -v b="$b" '$2 == b && $6 == "OPEN" { print; exit }' <<<"$prs")"; pr="$(cut -f1 <<<"$prl")"; pr="${pr:--}"
       if [[ -z "$p" ]]; then # not stacked (any more): finish a move whose `gh pr edit` failed
-        if [[ "$pr" != - && "$(cut -f4 <<<"$prl")" != "$base" ]]; then retarget "$t" "$b" "$pr" "$base"; fi
+        # only off a base whose own PR is merged: a PR stacked in another clone has no setting here
+        ob="$(cut -f4 <<<"$prl")"
+        if [[ "$pr" != - && "$ob" != "$base" ]] && awk -F'\t' -v b="$ob" '$2 == b && $6 == "MERGED" { f = 1 } END { exit !f }' <<<"$prs"; then
+          retarget "$t" "$b" "$pr" "$base"
+        fi
         continue
       fi
       ppr="$(awk -F'\t' -v b="$p" '$2 == b && $6 != "CLOSED" { print; exit }' <<<"$prs")"
