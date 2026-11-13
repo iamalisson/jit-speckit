@@ -86,10 +86,14 @@ step 2 allows.
    (for a delta, `review.sh risk <sha>`), then read `git diff origin/<base>...HEAD` once, and open
    what each changed function calls and what calls it. Look for real bugs in the changed lines:
    a wrong result, data loss, a crash, a broken upgrade on existing state, a write to the user's
-   files, a secret, an injection, a check that lets through what it should refuse, an interface
+   files, a secret, personal data or a secret that reaches a log, including inside a helper the
+   changed lines call with it, an injection, a check that lets through what it should refuse, an interface
    some people cannot use (text under 4.5:1 contrast, 3:1 for large text and icons: compute it from
    the colours in the diff and the background they sit on; a focus that is not visible; a control
-   or image without an accessible name). Run a command
+   or image without an accessible name). Open each helper a changed line passes personal data or a
+   secret to, and read what it does with it: the finding names the helper's own `file:line` that
+   writes the log, beside the changed line that passes the value; a value masked or hashed before the log is not a
+   finding; one you cannot follow to its end is a Low that says what you could not see. Run a command
    only to settle whether a suspected bug is real, and only in your own copy.
 
 **Plan review** (before the issues are created): apply step 1 and read every task in `tasks.md`,
@@ -139,7 +143,11 @@ Written for the author, who fixes it, and for the human who merges:
 - **Findings**, ranked: **High** (wrong result, data loss, a broken upgrade on existing state,
   security), **Medium** (a real bug: a guard the siblings have, an unhandled real-path
   case, a silent failure path), **Low** (worth a line, not a block: a test gap where the code
-  behaves correctly, a test that cannot fail, wording). Each one: `file:line`, one concrete
+  behaves correctly, a test that cannot fail, a test that fakes the component whose behavior it
+  asserts, wording). Personal data in a log is **High** when the project's rules forbid it, at
+  least **Medium** otherwise. A test that fakes the component whose behavior it asserts is
+  **Medium** when it is the only proof of a privacy or security rule; a fake of a component the
+  test asserts nothing about is not a finding. Each one: `file:line`, one concrete
   scenario of what goes wrong ("on a database built by `create_all` and stamped at the previous
   revision, `flask db upgrade` stops with 'already exists'"), and the evidence (the sibling's
   `file:line`, the command output). A finding you could not verify says so. No style, no naming,
