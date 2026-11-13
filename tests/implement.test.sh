@@ -30,6 +30,7 @@ ready() {
     "$(git merge-base "refs/heads/$1" "$(bash -c 'source "$0/lib.sh"; base_ref "$1"' "$SCRIPTS" "$1")")" "$(git rev-parse "refs/heads/$1")" > "$TMP/r.md"
   "$SCRIPTS/review.sh" record --branch "$1" "$TMP/r.md" >/dev/null
 }
+# Paths in REASON= are git's, resolved: on macOS $TMP is /var/... and git prints /private/var/....
 # st [args]: run status, keep its output in $out, and note when HEAD moved.
 st() { out="$("$I" status "$@" 2>&1)" || true; [[ "$(git rev-parse HEAD)" == "$HEAD0" ]] || echo moved >> "$TMP/head.moved"; }
 state_of() { sed -n "s/^TASK=$1 STATE=\([^ ]*\).*/\1/p" <<<"$out"; }
@@ -66,7 +67,7 @@ done
 cfg_set ""
 mk "$B2"; git worktree add --quiet "$TMP/l" "$B2"; git worktree lock "$TMP/l"; st
 check "when a task branch is checked out in a locked worktree, then it is running with the worktree named" \
-  'line_of T002 | grep -qF "STATE=running" && line_of T002 | grep -qF "REASON=locked worktree $TMP/l"'
+  'line_of T002 | grep -qF "STATE=running" && line_of T002 | grep -qF "REASON=locked worktree $(cd "$TMP/l" && pwd -P)"'
 git worktree unlock "$TMP/l"; git worktree remove --force "$TMP/l"
 git push --quiet origin "origin/develop:refs/heads/$B4"; git fetch --quiet origin; st
 check "when a task's branch is on origin with no local branch, then it is elsewhere" '[[ "$(state_of T004)" == elsewhere ]]'
@@ -119,7 +120,7 @@ git -C "$TMP/w" switch --quiet --detach "$B2"; echo theirs > "$TMP/w/t2.txt"; gi
 git -C "$TMP/w" commit --quiet -m theirs; git -C "$TMP/w" push --quiet origin "HEAD:refs/heads/$B2"; git -C "$TMP/w" switch --quiet --detach origin/develop
 st
 check "when the same happens to a branch checked out in a worktree, then it is not moved and is elsewhere with the path" \
-  '[[ "$(git rev-parse "refs/heads/$B2")" == "$before" ]] && line_of T002 | grep -qF "STATE=elsewhere" && line_of T002 | grep -qF "REASON=checked out in $TMP/c"'
+  '[[ "$(git rev-parse "refs/heads/$B2")" == "$before" ]] && line_of T002 | grep -qF "STATE=elsewhere" && line_of T002 | grep -qF "REASON=checked out in $(cd "$TMP/c" && pwd -P)"'
 git worktree remove --force "$TMP/c"; commit_on "$B2"; st
 check "when the local branch and origin diverged, then it is elsewhere, diverged from origin" \
   'line_of T002 | grep -qF "STATE=elsewhere" && line_of T002 | grep -qF "REASON=diverged from origin"'
