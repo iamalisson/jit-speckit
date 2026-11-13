@@ -54,9 +54,18 @@ if [[ "$(git branch --show-current)" != "$branch" ]]; then
   if git show-ref --verify --quiet "refs/heads/$branch"; then git switch --quiet "$branch"
   elif git show-ref --verify --quiet "refs/remotes/origin/$branch"; then git switch --quiet --track "origin/$branch"
   else
+    start="$(git branch --show-current)"; start_head="$(git rev-parse HEAD)"
     git switch --quiet --no-track -c "$branch" "$from"
     # The claim: an empty branch on origin tells every other clone's `next` this task is taken.
-    if err="$(git push --quiet -u origin "$branch" 2>&1)"; then echo "claim: $branch pushed to origin" >&2
+    # Of two clones starting the same task, only one wins: the lease refuses a branch already on
+    # origin at another commit, and an up-to-date ref ("=": both claims are the same empty commit)
+    # means another clone pushed it first.
+    rc=0; err="$(git push --porcelain -u --force-with-lease="refs/heads/$branch:" origin "$branch" 2>&1)" || rc=$?
+    if [[ $rc == 0 ]] && ! printf '%s\n' "$err" | grep -q '^='; then echo "claim: $branch pushed to origin" >&2
+    elif [[ $rc == 0 ]] || git ls-remote --exit-code origin "refs/heads/$branch" >/dev/null 2>&1; then
+      if [[ -n "$start" ]]; then git switch --quiet "$start"; else git switch --quiet --detach "$start_head"; fi
+      git branch --quiet -D "$branch"
+      echo "landspec: $task was claimed elsewhere ($branch is on origin)" >&2; exit 3
     else echo "landspec: warning: could not claim $branch on origin: $(tr '\n' ' ' <<<"${err:-unknown error}" | sed 's/ *$//'); other clones may start this task" >&2
     fi
   fi

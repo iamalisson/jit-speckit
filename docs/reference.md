@@ -94,7 +94,11 @@ A task is **claimed** the moment it starts: its branch is pushed to origin, empt
 `next` in every clone and worktree shows it as in progress and never picks it; the clone that
 started it sees it as `resume` and picks it first. When origin refuses that push (no network, no
 write access, a server hook), the task still starts and `branch.sh` warns `could not claim <branch>
-on origin: <git's error>`: other clones may start the same task until the branch is pushed. Teammates need nothing but `/landspec:init`
+on origin: <git's error>`: other clones may start the same task until the branch is pushed. The
+claim is exclusive: it is pushed only if the branch is still absent on origin, so when two clones
+start the same task at once, the second one exits 3 with `<task> was claimed elsewhere (<branch> is
+on origin)`, back where it started and without the branch. A branch that already exists, locally or
+on origin, is simply switched to: that is how you continue your own task in another clone. Teammates need nothing but `/landspec:init`
 once in their clone: the shared state is `tasks.md` on the base branch, the issues, and the
 branches on origin.
 
