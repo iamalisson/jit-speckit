@@ -22,6 +22,12 @@
 #       (the same task heads as the last attempt that was not green), ROUNDS_EXHAUSTED=<max> or
 #       SPEC_PR=<url> (merge it first) create nothing. --remove removes the copy and the ref.
 #   implement.sh [feature] check-result red|green   the outcome of the test command in the check copy
+#   implement.sh [feature] release-plan
+#       The release's one next step, from git and GitHub (V: the version in the first of version_files:
+#       on origin/<base>; M: the merge commit of the feature's last merged task PR): RELEASE=done V,
+#       RELEASE=publish V NOTES=<path on origin/<base>|->, RELEASE=tag V COMMIT=<sha>, RELEASE=pending X.Y.Z PR=<n>,
+#       RELEASE=bump X.Y.Z FILES=<a,b> NOTES=<path|-> PRS=<n,m>, or RELEASE=none (no version_files:).
+#   implement.sh [feature] release-bump X.Y.Z   rewrites the version line of each of version_files:
 # The record is <git common dir>/landspec-run/<feature>/<task>: phase=, head=, round=, report=, failed=.
 set -euo pipefail
 # shellcheck source=lib.sh
@@ -29,7 +35,7 @@ source "$(dirname "$0")/lib.sh"
 landspec_cd_root
 
 feature=""
-case "${1:-}" in status|mark|fail|retry|restack|stack|check-copy|check-result|"") ;; *) feature="$1"; shift ;; esac
+case "${1:-}" in status|mark|fail|retry|restack|stack|check-copy|check-result|release-plan|release-bump|"") ;; *) feature="$1"; shift ;; esac
 action="${1:-}"; shift || true
 if [[ -n "$feature" ]]; then fdir="$(resolve_feature "$feature")"; else fdir="$(feature_dir)"; fi
 [[ -f "$fdir/tasks.md" ]] || die "$fdir/tasks.md not found; run /speckit-tasks first"
@@ -49,6 +55,11 @@ write_rec() {
   local t="$1" f k; shift; mkdir -p "$rdir"; f="$rdir/$t"; touch "$f"
   for k in "$@"; do grep -v "^${k%%=*}=" "$f" > "$f.tmp" || true; echo "$k" >> "$f.tmp"; mv "$f.tmp" "$f"; done
 }
+# vfiles: version_files:, one path per line.
+vfiles() { cfg version_files "" | tr ',' '\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | grep . || true; }
+# ver_re: a version line, `version: "X.Y.Z"` (YAML) or `"version": "X.Y.Z"` (JSON).
+VER_RE='^[[:space:]]*(version:|"version":)[[:space:]]*"[^"]*"'
+
 valid_task() { [[ "$1" =~ ^T[0-9]{3,}$ && -n "$(task_line "$fdir" "$1")" ]] || die "$1 is not a task of $fdir"; }
 
 # run_wt: the run's worktree, detached at origin/<base>, made when missing; restack works only there.
@@ -354,5 +365,56 @@ case "$action" in
     rf="$(git rev-parse --git-common-dir)/landspec-review/feature-$(basename "$fdir")-round"
     [[ -f "$rf" && -z "$(sed -n 's/^outcome=//p' "$rf")" ]] || die "no check attempt is waiting for its result: run check-copy first"
     sed -i.bak "s/^outcome=.*/outcome=$o/" "$rf"; rm -f "$rf.bak"; echo "OUTCOME=$o" ;;
-  *) die "usage: implement.sh [feature] status [--running T001,T002] | mark <task> <phase> [<report>] | fail <task> <reason> | retry <task> | restack | stack <task> <onto-task> | check-copy [--remove] | check-result red|green" ;;
+  release-plan)
+    vf="$(vfiles)"; [[ -n "$vf" ]] || { echo "RELEASE=none (no version_files:)"; exit 0; }
+    base="$(base_branch)"
+    git fetch --quiet --tags origin "+refs/heads/$base:refs/remotes/origin/$base" || die "cannot fetch origin; fix the error above"
+    f1="$(head -1 <<<"$vf")"
+    v="$(git show "origin/$base:$f1" 2>/dev/null | grep -m1 -E "$VER_RE" | sed -E 's/.*"([^"]*)"[^"]*$/\1/' || true)"
+    [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "$f1 on origin/$base has no version line (version: \"X.Y.Z\" or \"version\": \"X.Y.Z\")"
+    # Every PR: number, title, head branch, state, merge commit, merged at.
+    # shortcut: the last 500 PRs; a release PR older than that is not seen, raise the limit if a repo ever needs it
+    prs="$(gh pr list --state all --limit 500 --json number,title,headRefName,state,mergeCommit,mergedAt \
+      --jq '.[] | [.number, .title, .headRefName, .state, (.mergeCommit.oid // ""), (.mergedAt // "")] | @tsv')" \
+      || die "cannot list the pull requests; fix gh's error above"
+    key="/$num-t"
+    tprs="$(awk -F'\t' -v k="$key" '$4 == "MERGED" && index($3, k) { print $6 "\t" $1 "\t" $5 }' <<<"$prs" | sort)"
+    m="$(tail -1 <<<"$tprs" | cut -f3)"
+    [[ -n "$m" ]] || die "no task PR of $(basename "$fdir") is merged yet"
+    tag="$(git ls-remote origin "refs/tags/v$v" "refs/tags/v$v^{}" | awk '{ print $1 }' | tail -1)" \
+      || die "cannot read origin's tags; fix git's error above"
+    if [[ -n "$tag" ]]; then # the commit tag v$v points to (peeled), fetched with the tags above
+      if git merge-base --is-ancestor "$m" "$tag" 2>/dev/null; then
+        if rv="$(gh release view "v$v" --json tagName 2>&1)"; then echo "RELEASE=done $v"; exit 0; fi
+        grep -qi 'not found' <<<"$rv" || { echo "$rv" >&2; die "cannot read the release v$v; fix gh's error above"; }
+        rn="$(cfg release_notes "")"; echo "RELEASE=publish $v NOTES=$([[ -n "$rn" ]] && echo "${rn%/}/$v.md" || echo -)"; exit 0
+      fi
+    else
+      rc="$(awk -F'\t' -v t="chore(release): $v" '$2 == t && $4 == "MERGED" { print $5; exit }' <<<"$prs")"
+      if [[ -n "$rc" ]]; then echo "RELEASE=tag $v COMMIT=$rc"; exit 0; fi
+    fi
+    op="$(awk -F'\t' '$4 == "OPEN" && index($2, "chore(release): ") == 1 { print $1 "\t" substr($2, 17); exit }' <<<"$prs")"
+    if [[ -n "$op" ]]; then echo "RELEASE=pending $(cut -f2 <<<"$op") PR=$(cut -f1 <<<"$op")"; exit 0; fi
+    closed="$(closed_issues "$fdir")" || die "cannot read the state of $(basename "$fdir")'s task issues; fix gh's error above"
+    while IFS= read -r l; do
+      n="$(task_issue "$l")"; [[ -n "$n" ]] || continue
+      [[ "$closed" == *" $n "* ]] || die "$(sed -E 's/^- \[.\] (T[0-9]+).*/\1/' <<<"$l") (#$n) is still open: merge its PR first"
+    done < <(grep -E '^- \[.\] T[0-9]{3,} ' "$fdir/tasks.md")
+    IFS=. read -r ma mi pa <<<"$v"
+    # A patch only when every task is a fix (its description, after the id and any [tags], starts with Fix).
+    if grep -E '^- \[.\] T[0-9]{3,} ' "$fdir/tasks.md" | sed -E 's/^- \[.\] T[0-9]+ (\[[^]]*\] )*//' | grep -qv '^Fix'; then
+      nv="$ma.$((mi + 1)).0"; else nv="$ma.$mi.$((pa + 1))"; fi
+    rn="$(cfg release_notes "")"; notes="-"; [[ -z "$rn" ]] || notes="${rn%/}/$nv.md"
+    echo "RELEASE=bump $nv FILES=$(paste -sd, - <<<"$vf") NOTES=$notes PRS=$(cut -f2 <<<"$tprs" | sort -n | paste -sd, -)" ;;
+  release-bump)
+    nv="${1:-}"; [[ "$nv" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "usage: implement.sh release-bump X.Y.Z"
+    vf="$(vfiles)"; [[ -n "$vf" ]] || die "no version_files: in landspec-config.yml"
+    while IFS= read -r f; do # every file first, so a refusal changes nothing
+      [[ -f "$f" ]] && grep -qE "$VER_RE" "$f" || die "$f has no version line (version: \"X.Y.Z\" or \"version\": \"X.Y.Z\"); nothing was changed"
+    done <<<"$vf"
+    while IFS= read -r f; do
+      sed -E -i.bak "/$VER_RE/ s/\"[^\"]*\"([^\"]*)\$/\"$nv\"\1/" "$f"; rm -f "$f.bak"
+    done <<<"$vf"
+    echo "BUMPED=$nv" ;;
+  *) die "usage: implement.sh [feature] status [--running T001,T002] | mark <task> <phase> [<report>] | fail <task> <reason> | retry <task> | restack | stack <task> <onto-task> | check-copy [--remove] | check-result red|green | release-plan | release-bump X.Y.Z" ;;
 esac

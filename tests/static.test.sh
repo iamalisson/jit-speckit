@@ -338,6 +338,19 @@ check "then it runs worktree_setup, stays in its copy, and returns Copy: and BRA
 check "then README, help and the reference list /landspec:implement, worktree_setup and implement_model" \
   'grep -qF "/landspec:implement" README.md && grep -qF "\`implement\`" skills/help/SKILL.md && grep -q "^| \`worktree_setup\` |" docs/reference.md && grep -q "^| \`implement_model\` |" docs/reference.md'
 
+# /landspec:implement's release (spec 004 T009): one step per RELEASE= line, and it never merges.
+rl="$(sed -n "/^## The release/,/^## When an implementer returns/p" skills/implement/SKILL.md)"
+check "when the skill makes the release, then it acts on the one RELEASE= line, for each of bump, tag, publish, pending, done and none" \
+  'grep -qF "I release-plan" <<<"$rl" && grep -qF "act on the **one** \`RELEASE=\` line it prints, never on anything else" <<<"$rl" \
+   && for k in bump tag publish pending done none; do grep -qF -- "- \`RELEASE=$k" <<<"$rl" || exit 1; done'
+check "then the bump goes through pr.sh fix in the run worktree, which is detached after" \
+  'grep -qF "<repo>-<feature>-run" <<<"$rl" && grep -qF "pr.sh fix \"chore(release): X.Y.Z\"" <<<"$rl" && grep -qF "git switch --detach origin/<base>\` there" <<<"$rl"'
+check "then publish reads the notes from the base, or --generate-notes without release_notes:" \
+  'grep -qF "git show origin/<base>:<path>" <<<"$rl" && grep -qF -- "--generate-notes" <<<"$rl"'
+check "then nothing in the skill merges a PR" '! grep -qF "gh pr merge" skills/implement/SKILL.md'
+check "then landspec's own config names its four version files and docs/releases" \
+  'c=.specify/extensions/landspec/landspec-config.yml; for f in .claude-plugin/plugin.json extension/extension.yml preset/preset.yml .specify/extensions/landspec/extension.yml; do grep "^version_files:" $c | grep -qF "$f" || exit 1; done; grep -qx "release_notes: docs/releases" $c'
+
 # /landspec:report: public issues, so nothing is filed without a yes and nothing private leaves the project.
 rp="$(cat skills/report/SKILL.md)"
 check "when /landspec:report drafts an issue, then it files on the plugin's repository only after a yes" \
