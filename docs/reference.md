@@ -139,7 +139,8 @@ one file). The contract:
 - run the full set somewhere it does not hold up a PR: in CI or on a schedule.
 
 A harness that rewrites files in place also needs a lock: two runs at once would leave a mutant in
-the source. landspec's reviewer runs in the author's working tree, so it must not run one.
+the source. landspec's reviewer runs in its own copy of the reviewed commit (`isolation:
+"worktree"`), so a run it makes there never touches the author's checkout.
 
 ## Using Claude Code well
 
@@ -162,7 +163,19 @@ the source. landspec's reviewer runs in the author's working tree, so it must no
 | `issue_labels` | `type:task` | comma-separated labels for task issues |
 | `milestone` | *(empty)* | milestone for task issues and PRs, by name; empty means none |
 | `project` | *(empty)* | GitHub project (title) to add task issues and PRs to; needs `gh auth refresh -s project` |
-| `review_model` | *(empty: `sonnet`)* | the model of the independent and plan reviews, run in the plugin's `landspec:reviewer` agent: `sonnet`, `opus` or `fable`; never `haiku`, any other value is refused. It is passed on every launch, so on a cheap session the review costs more than the session. `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` overrides it (the record then warns). The plugin's hook that blocks a review launch on a model outside `sonnet`, `opus` and `fable`, or in a fork, exists only where the plugin is installed |
+| `review_model` | *(empty: `sonnet`)* | the model of the independent and plan reviews, run in the plugin's `landspec:reviewer` agent: `sonnet`, `opus` or `fable`; never `haiku`, any other value is refused. It is passed on every launch, so on a cheap session the review costs more than the session. `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` overrides it (the record then warns). The plugin's hook that blocks a review launch on a model outside `sonnet`, `opus` and `fable`, in a fork, or without `isolation: "worktree"`, exists only where the plugin is installed. A project whose landspec copy predates that rule is refused until `/landspec:init` updates it |
+
+### The reviewer's copy
+
+Every review runs in its own copy of the repository: the author passes `isolation: "worktree"`
+with the facts `commit:` and `checkout:`, Claude Code makes the copy under `.claude/worktrees/agent-*`,
+and the reviewer moves it to `commit:` and never writes to the checkout. A reviewer that finds
+itself elsewhere, or gets no `commit:` (an older project copy: run `/landspec:init`), reports
+`Copy: none (…)` and ends `changes needed`. The report's `Copy:` line names the copy, and
+`review.sh record` removes it, with its `worktree-agent-*` branch, only when it is an `agent-*`
+folder directly under `.claude/worktrees/`, a listed worktree at the reviewed commit, and not the
+current checkout; otherwise it prints why it left it. `pr.sh` and `branch.sh` never count
+`.claude/worktrees/` as uncommitted work.
 
 ## AI attribution
 
