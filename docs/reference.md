@@ -111,6 +111,16 @@ that depends on an unmerged one starts stacked on its branch (`branch.sh --from`
 into the parent's. It asks nothing while it runs, never merges, and ends with the PRs to merge in
 `ORDER`; run it again after merging, and it moves the stacked branches onto the base.
 
+When every task has its PR, `/landspec:implement` checks them **together**: `implement.sh check-copy`
+merges every unmerged task branch in `ORDER` into `<repo>-<feature>-check` (detached at `origin/<base>`,
+never pushed, kept at `refs/landspec/check/<feature>`), runs the test command there, and records the
+outcome (`check-result red|green`). A conflict (`CONFLICT=<task> WITH=<earlier> FILES=…`) stacks the
+later task on the earlier one for its fix round; a red run gets a fix round on the branch the failing
+test covers. After a green run, a reviewer in **feature review** mode reads the spec against the
+combined diff and reports each FR, scenario and SC as `met`, `not met` or `not verifiable`
+(`review.sh record --feature`). `check-copy` counts attempts (`feature_rounds:`), refuses a combination
+it already saw fail (`UNCHANGED=`), and waits while the feature has an open spec PR.
+
 Merge stacked PRs **parents first**. Once a parent's PR is merged, `implement.sh [feature] restack` moves
 each stacked branch, in `ORDER`, onto the base (or onto its next unmerged ancestor), and a child whose
 parent got new commits onto the parent's new head. It works in its own worktree `<repo>-<feature>-run`,
@@ -202,6 +212,7 @@ the source. landspec's reviewer runs in its own copy of the reviewed commit (`is
 | `review_model` | *(empty: `sonnet`)* | the model of the independent and plan reviews, run in the plugin's `landspec:reviewer` agent: `sonnet`, `opus` or `fable`; never `haiku`, any other value is refused. It is passed on every launch, so on a cheap session the review costs more than the session. `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` overrides it (the record then warns). The plugin's hook that blocks a review launch on a model outside `sonnet`, `opus` and `fable`, in a fork, or without `isolation: "worktree"`, exists only where the plugin is installed. A project whose landspec copy predates that rule is refused until `/landspec:init` updates it |
 | `worktree_setup` | *(empty)* | one command each `/landspec:implement` implementer runs first in its own copy (a new worktree has no git-ignored files: `pnpm install`, say); when it fails, that task is `failed` with its output |
 | `implement_model` | *(empty: the session's)* | the model of `/landspec:implement`'s implementers: `sonnet`, `opus` or `fable`; any other value is refused |
+| `feature_rounds` | `3` | how many whole-feature check attempts `/landspec:implement` makes (a conflict, a red run or a `changes needed` feature review each count once per new combination of task heads) before it stops and asks: a number from `1` to `9` |
 | `parallel_tasks` | `4` | how many tasks `/landspec:implement` runs at once (`implement.sh status` puts at most this many, minus the running ones, in `START=`): a number from `1` to `16`, any other value is refused |
 
 ### The reviewer's copy

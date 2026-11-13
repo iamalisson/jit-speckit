@@ -24,7 +24,7 @@ fork.
 Wait for its report. The reviewer writes it to a file itself and names it on its first line,
 `Report file: <path>`: record that file as it is, never a copy you typed or edited:
 `bash .specify/extensions/landspec/scripts/review.sh record <file>` (`record --plan <file>` for a plan
-review, `record --delta <file>` for a fix round). The record is tied to the exact diff (or `tasks.md`): `pr.sh` and `issues.sh` refuse to
+review, `record --delta <file>` for a fix round, `record --feature <file>` for a feature review). The record is tied to the exact diff (or `tasks.md`): `pr.sh` and `issues.sh` refuse to
 open anything without a recorded review that said `ready` for the current state, at every level,
 so a commit after the review means another review. Recording removes the reviewer's copy (its
 `Copy:` line) once it is safe to.
@@ -53,6 +53,9 @@ Facts the author passes:
 - the base branch and the branch under review, and `base:` the ref the branch is diffed against
   (`base_ref` in landspec's `lib.sh`: `origin/<base>`, or the parent task branch of a stacked
   branch), or, for a plan review, the feature folder `specs/NNN-*/`;
+- for a feature review: "feature review", the feature folder, `commit:` the check copy's merge result
+  (`refs/landspec/check/<feature>`, a local ref your copy can reach), `base:` `origin/<base>`, and the
+  test command's output on that combination;
 - the task's line from `tasks.md` with its sub-bullets, "plan review", or, for a PR that is not a
   task (`pr.sh fix`), one line on what it changes and why;
 - the path of the PR body draft, if there is one;
@@ -69,6 +72,22 @@ commits is reported at its true severity and does not change the assessment. `re
 recorded on this branch, `<sha>` is still on the branch, something was committed since, and the fix
 changes at most 20 lines outside the previous findings' files (test files aside); otherwise run a
 new full review.
+
+**A feature review** checks the whole feature, all its task branches merged together, against its
+spec: read `spec.md` (every FR, every acceptance scenario, every SC), `plan.md`, `tasks.md` and `git diff
+<base>...<commit>`, and the test output in the facts. Its report has, in place of the risk map and the
+findings, one line per item, exactly:
+
+```
+- met: FR-004 — pr.sh:36 targets base_ref(); tests/pr.test.sh:212 "when a parent is set, then …"
+- not met: SC-005 — no check covers merging in ORDER without conflicts
+- not verifiable: SC-001 — needs a timed run (quickstart 2)
+```
+
+`met` names the file, test or output that shows it; `not met` what is missing; `not verifiable` what
+it would take. Then `Copy:`, `Reviewed: <git merge-base <commit> <base>>..<commit>` and `Model:`, and
+`Assessment: ready` only when no line is `not met` (`record --feature` makes any `not met` "changes
+needed" whatever the last line says). It is kept per feature, not per branch; `pr.sh` does not read it.
 
 ## Method
 

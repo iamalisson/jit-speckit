@@ -3,6 +3,8 @@
 #   review.sh record <report-file>          task review: tied to the branch's exact diff against the base
 #   review.sh record --delta <report-file>  fix round: reviews <last reviewed>..HEAD, after any recorded round
 #   review.sh record --plan <report-file>   plan review: tied to the feature's plan.md and tasks.md (issue numbers aside)
+#   review.sh record --feature <report-file>  feature review: the whole feature's check copy against its spec,
+#                                           one "- met|not met|not verifiable: <item> — <evidence>" line per item
 #   review.sh check [--plan]                exit 0 when a review that said "ready" matches the current state
 #   check, report and record take --branch <b>: that branch, read by name from any HEAD (default: the current one)
 #   review.sh report [--plan]               check, then print the recorded facts: the patch id, "Assessment: ready",
@@ -18,13 +20,16 @@ source "$(dirname "$0")/lib.sh"
 landspec_cd_root
 
 action="${1:-}"; shift || true
-plan=false; delta=false; bopt=""
-while [[ "${1:-}" == --plan || "${1:-}" == --delta || "${1:-}" == --branch ]]; do
+plan=false; delta=false; bopt=""; feat=false
+while [[ "${1:-}" == --plan || "${1:-}" == --delta || "${1:-}" == --branch || "${1:-}" == --feature ]]; do
   case "$1" in
-    --plan) plan=true ;; --delta) delta=true ;;
+    --plan) plan=true ;; --delta) delta=true ;; --feature) feat=true ;;
     --branch) bopt="${2:-}"; [[ -n "$bopt" ]] || die "usage: review.sh <action> --branch <branch> ..."; shift ;;
   esac; shift
 done
+if $feat && { $plan || $delta || [[ -n "$bopt" || "$action" != record ]]; }; then
+  die "a feature review is recorded alone: review.sh record --feature <report-file> (no --plan, --delta or --branch)"
+fi
 if $plan && [[ -n "$bopt" ]]; then die "a plan review belongs to the feature, not a branch: drop --branch"; fi
 if $plan && $delta; then die "a plan review is always full: review.sh record --plan <report-file>"; fi
 if $plan && [[ "$action" == risk ]]; then die "risk maps a diff; a plan review has none"; fi
@@ -38,7 +43,7 @@ if $plan; then
   state() { # plan.md and tasks.md, without the issue numbers issues.sh appends
     { cat "$fdir/plan.md" 2>/dev/null; sed -E 's/ — #[0-9]+[[:space:]]*$//' "$fdir/tasks.md"; } | sha256
   }
-elif [[ "$action" != risk ]]; then # risk reads only the diff, so it needs no branch
+elif [[ "$action" != risk ]] && ! $feat; then # risk reads only the diff, and a feature review no branch, so neither needs one
   branch="${bopt:-$(git branch --show-current)}"; [[ -n "$branch" ]] || die "not on a branch (detached HEAD); switch to the task's branch first"
   # --branch <b> reads <b> by name, from any HEAD: its tip, not this checkout, is what is reviewed.
   if [[ -n "$bopt" ]]; then
@@ -170,6 +175,30 @@ remove_copy() {
   fi
 }
 
+# The feature review: one record per feature, for the check copy's merge result (refs/landspec/check/<feature>).
+# Its verdict comes from its lines: any "not met" is "changes needed". Only a "ready" after a green run
+# resets the whole-feature check's round counter (implement.sh check-copy).
+if $feat; then
+  report="${1:-}"; [[ -f "$report" ]] || die "usage: review.sh record --feature <report-file>"
+  fdir="$(feature_dir)"; fname="$(basename "$fdir")"
+  c="$(git rev-parse --verify --quiet "refs/landspec/check/$fname^{commit}" || true)"
+  [[ -n "$c" ]] || die "no check copy for $fname: run implement.sh check-copy first"
+  lre='^- (met|not met|not verifiable): '
+  grep -qE "$lre" "$report" || die "the report has no '- met: …', '- not met: …' or '- not verifiable: …' line"
+  verdict="$(grep -iE '^\**assessment\**: *(ready|changes needed)\**\.?$' "$report" | tail -1 | grep -oiE 'changes needed|ready' | tr '[:upper:]' '[:lower:]' || true)"
+  [[ -n "$verdict" ]] || die "the report has no line that is exactly 'Assessment: ready' or 'Assessment: changes needed'"
+  if grep -qE '^- not met: ' "$report"; then verdict="changes needed"; fi
+  rre='^([0-9a-f]{7,40})[.][.]([0-9a-f]{7,40})$'
+  [[ "$(field reviewed)" =~ $rre && "$(commit "${BASH_REMATCH[2]}")" == "$c" ]] \
+    || die "the report must state Reviewed: <base>..$c (the check copy's merge result): run the feature review again"
+  model="$(field model)"; [[ -n "$model" ]] || die "the report must state Model: <id>: run the feature review again"
+  { echo "state: $c"; echo "assessment: $verdict"; echo "model: $model"; echo; cat "$report"; } > "$dir/feature-$fname.tmp"
+  mv "$dir/feature-$fname.tmp" "$dir/feature-$fname"
+  rf="$dir/feature-$fname-round"
+  if [[ "$verdict" == ready && -f "$rf" ]] && grep -qx 'outcome=green' "$rf"; then rm -f "$rf"; fi
+  remove_copy "$report" "$c"
+  echo "REVIEW=$verdict"; exit 0
+fi
 case "$action" in
   record)
     report="${1:-}"; [[ -f "$report" ]] || die "usage: review.sh record [--plan|--delta] <report-file>"
@@ -257,5 +286,5 @@ case "$action" in
   risk)
     from="${1:-$(db)}"; c="$(commit "$from")"; [[ -n "$c" ]] || die "usage: review.sh risk [<from>] (no commit '$from')"
     risk "$c" ;;
-  *) die "usage: review.sh record [--plan|--delta] <report-file> | review.sh check|report [--plan] | review.sh risk [<from>]" ;;
+  *) die "usage: review.sh record [--plan|--delta|--feature] <report-file> | review.sh check|report [--plan] | review.sh risk [<from>]" ;;
 esac

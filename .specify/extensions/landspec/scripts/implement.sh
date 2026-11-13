@@ -15,6 +15,13 @@
 #       RESTACKED=<task> REVIEW=kept|needed|none, RESTACK_SKIPPED=<task> (<why>), RESTACK_CONFLICT=<task>,
 #       RESTACK_NOT_READY=<task>, and RETARGETED=<task> for a PR a failed `gh pr edit` left on its old base.
 #   implement.sh [feature] stack <task> <onto-task>   the same move, onto another task's branch
+#   implement.sh [feature] check-copy [--remove]
+#       The whole-feature check: <repo>-<feature>-check, detached at origin/<base>, with every unmerged
+#       task branch merged in ORDER (git merge --no-ff --no-edit), kept at refs/landspec/check/<feature>.
+#       Prints CHECK=<path> ROUND=<n>, or CONFLICT=<task> WITH=<earlier task> FILES=<a,b>; UNCHANGED=<n>
+#       (the same task heads as the last attempt that was not green), ROUNDS_EXHAUSTED=<max> or
+#       SPEC_PR=<url> (merge it first) create nothing. --remove removes the copy and the ref.
+#   implement.sh [feature] check-result red|green   the outcome of the test command in the check copy
 # The record is <git common dir>/landspec-run/<feature>/<task>: phase=, head=, round=, report=, failed=.
 set -euo pipefail
 # shellcheck source=lib.sh
@@ -22,7 +29,7 @@ source "$(dirname "$0")/lib.sh"
 landspec_cd_root
 
 feature=""
-case "${1:-}" in status|mark|fail|retry|restack|stack|"") ;; *) feature="$1"; shift ;; esac
+case "${1:-}" in status|mark|fail|retry|restack|stack|check-copy|check-result|"") ;; *) feature="$1"; shift ;; esac
 action="${1:-}"; shift || true
 if [[ -n "$feature" ]]; then fdir="$(resolve_feature "$feature")"; else fdir="$(feature_dir)"; fi
 [[ -f "$fdir/tasks.md" ]] || die "$fdir/tasks.md not found; run /speckit-tasks first"
@@ -291,5 +298,61 @@ case "$action" in
     why="$(why_not "$t" "$b" "$(grep "^TASK=$t " <<<"$st")" "$prl")"
     [[ -z "$why" ]] || die "$t cannot be stacked now: $why"
     move "$t" "$b" "refs/heads/$ob" "$(diff_base "$b")" "$ob" "${pr:--}" "$ob" ;;
-  *) die "usage: implement.sh [feature] status [--running T001,T002] | mark <task> <phase> [<report>] | fail <task> <reason> | retry <task> | restack | stack <task> <onto-task>" ;;
+  check-copy)
+    fname="$(basename "$fdir")"; ref="refs/landspec/check/$fname"
+    main="$(git worktree list --porcelain | sed -n '1s/^worktree //p')"; w="$main-$num-check"
+    rf="$(git rev-parse --git-common-dir)/landspec-review/feature-$fname-round"
+    drop() { if git -C "$w" rev-parse --git-dir >/dev/null 2>&1; then git worktree remove --force "$w"; fi; git update-ref -d "$ref" 2>/dev/null || true; }
+    if [[ "${1:-}" == --remove ]]; then drop; exit 0; fi
+    max="$(cfg feature_rounds 3)"
+    [[ "$max" =~ ^[1-9]$ ]] || die "feature_rounds must be a number from 1 to 9"
+    sp="$(gh pr list --head "spec/$fname" --state open --json url --jq '.[0].url // empty')" \
+      || die "cannot look up the open spec PR of $fname; fix gh's error above"
+    if [[ -n "$sp" ]]; then echo "SPEC_PR=$sp"; exit 0; fi
+    base="$(base_branch)"
+    st="$(bash "$0" "$num" status)" || exit 1 # fetches; dies with gh's or git's error
+    tasks=""; combo=""
+    for t in $(sed -n 's/^ORDER=//p' <<<"$st"); do
+      l="$(grep "^TASK=$t " <<<"$st")"; [[ "$l" != *" STATE=merged "* ]] || continue
+      b="$(sed -E 's/.* BRANCH=([^ ]+).*/\1/' <<<"$l")"
+      # a check of only part of the feature would pass for the whole: every unmerged task is in it
+      [[ "$b" != - ]] && git show-ref --verify --quiet "refs/heads/$b" \
+        || die "$t has no branch in this clone (${b/#-/not started}): start it, or fetch it (git branch $b origin/$b), then run check-copy again"
+      tasks+="$t "; combo+="$t:$(git rev-parse "refs/heads/$b") "
+    done
+    [[ -n "$tasks" ]] || die "no unmerged task branch in this clone to check"
+    combo="$(git rev-parse "origin/$base") $combo"
+    round=0; last=""; outcome=""
+    if [[ -f "$rf" ]]; then round="$(sed -n 's/^round=//p' "$rf")"; last="$(sed -n 's/^combo=//p' "$rf")"; outcome="$(sed -n 's/^outcome=//p' "$rf")"; fi
+    if [[ "$combo" == "$last" && "$outcome" != green ]]; then echo "UNCHANGED=$round"; exit 0; fi
+    if [[ "$combo" != "$last" ]]; then
+      if ((round + 1 > max)); then echo "ROUNDS_EXHAUSTED=$max"; exit 0; fi
+      round=$((round + 1)); mkdir -p "${rf%/*}"; printf 'round=%s\ncombo=%s\noutcome=\n' "$round" "$combo" > "$rf"
+    fi
+    drop; git worktree add --quiet --detach "$w" "origin/$base" || die "cannot make the check copy $w"
+    done_t=""
+    for t in $tasks; do
+      b="$(task_branch "$t")"
+      if ! merr="$(git -C "$w" merge --quiet --no-ff --no-edit "refs/heads/$b" 2>&1)"; then
+        files="$(git -C "$w" diff --name-only --diff-filter=U | paste -sd, -)"
+        [[ -n "$files" ]] || { git -C "$w" merge --abort 2>/dev/null || true; echo "$merr" >&2; die "could not merge $b in the check copy (not a conflict); fix git's error above"; }
+        git -C "$w" merge --abort
+        with=""
+        for e in $done_t; do # the latest earlier task that touched one of those files
+          ef="$(git diff --name-only "origin/$base...refs/heads/$(task_branch "$e")")"
+          for f in ${files//,/ }; do if grep -qxF -- "$f" <<<"$ef"; then with="$e"; fi; done
+        done
+        sed -i.bak 's/^outcome=.*/outcome=conflict/' "$rf"; rm -f "$rf.bak"
+        echo "CONFLICT=$t WITH=${with:--} FILES=$files"; exit 0
+      fi
+      done_t+="$t "
+    done
+    git update-ref "$ref" "$(git -C "$w" rev-parse HEAD)"
+    echo "CHECK=$w ROUND=$round" ;;
+  check-result)
+    o="${1:-}"; [[ "$o" == red || "$o" == green ]] || die "usage: implement.sh check-result red|green"
+    rf="$(git rev-parse --git-common-dir)/landspec-review/feature-$(basename "$fdir")-round"
+    [[ -f "$rf" && -z "$(sed -n 's/^outcome=//p' "$rf")" ]] || die "no check attempt is waiting for its result: run check-copy first"
+    sed -i.bak "s/^outcome=.*/outcome=$o/" "$rf"; rm -f "$rf.bak"; echo "OUTCOME=$o" ;;
+  *) die "usage: implement.sh [feature] status [--running T001,T002] | mark <task> <phase> [<report>] | fail <task> <reason> | retry <task> | restack | stack <task> <onto-task> | check-copy [--remove] | check-result red|green" ;;
 esac

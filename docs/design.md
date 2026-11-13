@@ -77,6 +77,11 @@ still shows only its own task's work and is reviewed alone, and GitHub cannot me
 its parent. Once the parent merges, `restack` moves the child onto the base, and the review it
 already has still counts unless the move changed its diff.
 
+Each task's review reads one diff. Only a check of all of them merged together, against the spec,
+answers "nothing is left and nothing breaks the others": so the run ends with one, in a copy that holds
+every task branch at once (made by the main session, since an agent's copy holds one), and its
+rounds are capped so a fix that changes nothing never loops.
+
 The main session starts every agent: implementers and reviewers are its background agents, and none
 starts another. Only the main session can watch them all, keep the review independent (the agent
 that wrote a branch never picks its reviewer), and wait for every one of them before it stops.

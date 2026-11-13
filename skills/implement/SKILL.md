@@ -56,6 +56,32 @@ Each pass:
 4. Wait for the next agent to return, then go back to 1. Stop when `status` lists nothing in
    `START`, `REVIEW`, `FIX` and `OPEN`, and nothing is in flight (no implementer and no reviewer).
 
+## The whole-feature check
+
+When the loop has stopped and every task is `pr` or `merged`, check them together, at most
+`feature_rounds:` rounds (`check-copy` counts them, across runs):
+
+1. `I check-copy`. It prints one of:
+   - `SPEC_PR=<url>`: the feature has an open spec PR (gaps already filed wait for it); skip the
+     check, and the report says `merge <url> first`.
+   - `UNCHANGED=<n>`: the same task heads as the last attempt that was not green (the fix round
+     changed nothing, or the test is flaky); `ROUNDS_EXHAUSTED=<n>`: `feature_rounds:` attempts are
+     used up. Either way, stop, and ask the developer at the end.
+   - `CONFLICT=<task> WITH=<earlier task> FILES=<paths>`: `I stack <task> <earlier task>` (so the fix
+     round sees both), then a fix round on `<task>` (as `FIX` above, with the conflict and its files as
+     the report), and back to the loop. When `stack` prints `RESTACK_CONFLICT=<task>`, the same fix
+     round resolves it on `<task>` alone (both branches and the files in its report). When the task
+     already has a parent (`stack` refuses), stop, and report both tasks and the files.
+   - `CHECK=<path> ROUND=<n>`: go on.
+2. In `<path>`, the project's test command. Red: `I check-result red`, then a fix round on the task
+   branch whose files the failing test covers, stacked first (`I stack`) on the other task branch it
+   needs, and back to the loop. Green: `I check-result green`.
+3. After a green run only: the **feature review**, as `review.md` says (its feature review mode), with
+   the facts: `feature review`, the feature folder, `commit:` `git rev-parse refs/landspec/check/<feature
+   dir name>`, `checkout:` the repository root, `base:` `origin/<base>`, the test command and its output.
+   Record it with `review.sh record --feature <report>`. Its `not met` lines go into the run report.
+4. `I check-copy --remove`.
+
 ## When an implementer returns
 
 Run `I mark <task> implemented` before anything else, then remove it from `in flight`.
@@ -75,10 +101,11 @@ Show the run report, then only what is left for the developer:
 - each task's state from the last `status`, and `DONE=`;
 - the PRs to merge, in `ORDER` (parents first: a child's draft becomes ready once its parent is
   merged and `/landspec:implement` runs again), then "run `/landspec:implement` again";
+- the whole-feature check: its round, the test result, and each `not met` line of the feature review;
 - each `failed` task with its reason (`I retry <task>` lifts it), each `RESTACK_CONFLICT=`, each
   skipped task.
 
-Last line: `the whole-feature check is not built yet: check the feature with /speckit-converge after
-merging`.
+Last line, when the feature review has `not met` lines: `filing the gaps as tasks is not built yet: add
+them with /speckit-converge after merging`.
 
 The skill never merges a PR: the developer merges, in `ORDER`.
