@@ -437,4 +437,39 @@ check "when it was reviewed and scanned, then it opens the PR into the base, wit
   '[[ "$out" == *"PR=https://github.com/acme/app/pull/99" ]] && grep -q "^pr create --base main --head fix/typo" "$GH_LOG" \
    && grep -q "Independent review" "$GH_LOG" && ! grep -q "Closes #" "$GH_LOG"'
 
+# ── Spec 004 T003: a stacked task's PR goes into its parent, as a draft ──
+rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"; rm -f "$GH_PR" "$GH_PR.head"; : > "$GH_LOG"
+new_repo standard
+commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5
+- [ ] T002 Add filters in `src/filters.ts` — #6'
+P=feat/001-t001-add-search; C=feat/001-t002-add-filters
+range() { printf 'Reviewed: %s..%s\nModel: claude-sonnet-4-7\n' "$(git merge-base HEAD origin/develop)" "$(git rev-parse HEAD)"; }
+"$SCRIPTS/branch.sh" T001 >/dev/null 2>&1
+mkdir -p .github/workflows; printf 'on:\n  pull_request:\n    branches: [develop]\njobs: {}\n' > .github/workflows/w.yml
+echo 'export const search = 1' > search.ts; git add search.ts .github; git commit --quiet -m "feat: search"
+reviewed; scanned
+"$SCRIPTS/branch.sh" T002 --from "$P" >/dev/null 2>&1
+echo 'export const f = 1' > filters.ts; git add filters.ts; git commit --quiet -m "feat: filters"
+range() { printf 'Reviewed: %s..%s\nModel: claude-sonnet-4-7\n' "$(git merge-base HEAD "$P")" "$(git rev-parse HEAD)"; }
+reviewed; scanned
+printf 'Adds filters.\n\n## Review\n\nready\n\n## Evidence\n\nran\n' > "$TMP/body.md"
+check "when the parent has no PR yet, then the stacked PR refuses" \
+  'fails_with "open the PR of $P first" "$p" task T002 "feat: filters" "$TMP/body.md" && ! grep -q "^pr create" "$GH_LOG"'
+parent_pr() { echo "https://github.com/acme/app/pull/98" > "$GH_PR"; echo "$P" > "$GH_PR.head"; : > "$GH_LOG"; }
+parent_pr
+out="$("$p" task T002 "feat: filters" "$TMP/body.md" 2>"$TMP/pr.err")" || true
+check "when the parent has a PR, then the stacked PR is a draft into the parent, with the Stacked on line" \
+  'grep -q "^pr create --draft --base $P --head $C" "$GH_LOG" && grep -q "Stacked on #98 (merge it first)" "$GH_LOG" && [[ "$out" == *PR=* ]]'
+check "then a workflow whose pull_request branches leave out the parent is warned about" \
+  'grep -qxF "landspec: warning: .github/workflows/w.yml never runs on a PR into $P: its pull_request branches filter it out" "$TMP/pr.err"'
+parent_pr
+out="$(GH_NO_DRAFT=1 "$p" task T002 "feat: filters" "$TMP/body.md" 2>"$TMP/pr.err")" || true
+check "when gh refuses --draft, then a normal PR opens with the drafts warning" \
+  'grep -q "^pr create --base $P --head $C" "$GH_LOG" && grep -qxF "landspec: warning: drafts are not available: merge #98 first, and only after this PR'"'"'s review is current" "$TMP/pr.err" && [[ "$out" == *PR=* ]]'
+git switch --quiet "$P"; rm -f "$GH_PR" "$GH_PR.head"; : > "$GH_LOG"
+range() { printf 'Reviewed: %s..%s\nModel: claude-sonnet-4-7\n' "$(git merge-base HEAD origin/develop)" "$(git rev-parse HEAD)"; }
+"$p" task T001 "feat: search" "$TMP/body.md" >/dev/null 2>"$TMP/pr.err" || true
+check "when the branch is not stacked, then its PR goes into the base, not as a draft, with no filter warning and no Stacked line" \
+  'grep -q "^pr create --base develop --head $P" "$GH_LOG" && ! grep -q -- "--draft" "$GH_LOG" && ! grep -q "never runs" "$TMP/pr.err" && ! grep -q "Stacked on" "$GH_LOG"'
+
 exit "$FAIL"

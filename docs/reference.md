@@ -95,7 +95,12 @@ A task branch can also start **stacked** on another task's branch: `branch.sh [f
 records the parent (`branch.<new>.landspec-parent`). Until it is moved onto the base, the stacked
 branch's diff, review range and risk map are against its parent, not the base, so each task's PR
 shows only its own work. `review.sh check|report|record --branch <b>` reads any branch by name, from
-any checkout.
+any checkout. Its PR (`pr.sh task`) opens into the parent's branch as a **draft**, so GitHub cannot
+merge it into the parent, with `Stacked on #<parent's PR> (merge it first)` in the body; it refuses
+until the parent has a PR. Where drafts are not available, it opens a normal PR and warns to merge
+the parent first. A workflow whose `pull_request` branches leave out the parent never runs on that
+PR, and `pr.sh` warns about each one (landspec's generated CI has no such filter). `security-scan.sh
+--changed` scans only the stacked branch's own files.
 
 A task is **claimed** the moment it starts: its branch is pushed to origin, empty. From then on
 `next` in every clone and worktree shows it as in progress and never picks it; the clone that

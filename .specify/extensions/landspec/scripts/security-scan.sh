@@ -30,8 +30,7 @@ finish() { if $changed; then cp "$summary" "$rec"; fi; echo "REPORT_DIR=$dir"; e
 
 files=()
 if $changed; then
-  base="$(base_branch)"
-  ref="origin/$base"; git show-ref --verify --quiet "refs/remotes/$ref" || ref="$base"
+  ref="$(base_ref)" # a stacked branch scans only its own files, not its parent's
   while IFS= read -r f; do [[ -f "$f" ]] && files+=("$f"); done \
     < <(git diff --name-only --diff-filter=ACMR "$(git merge-base HEAD "$ref" 2>/dev/null || echo HEAD)" HEAD; git diff --name-only --diff-filter=ACMR)
   if ((${#files[@]} == 0)); then echo "all skipped no changed files" | tee "$summary"; finish; fi

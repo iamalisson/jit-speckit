@@ -41,6 +41,14 @@ git switch --quiet -c feat/x; echo "x = 1" > app.py; git add app.py; git commit 
 : > "$TMP/semgrep.log"
 PATH="$TMP/tools:$PATH" bash "$scan" --changed >/dev/null
 check "when --changed, then semgrep only scans the files this branch changed" 'grep -q " app.py$" "$TMP/semgrep.log" && ! grep -q " \.$" "$TMP/semgrep.log"'
+# Spec 004 T003: a branch stacked on feat/x (branch.sh --from sets the parent) scans only its own files.
+git switch --quiet -c feat/y; git config branch.feat/y.landspec-parent feat/x
+echo "y = 1" > other.py; git add other.py; git commit --quiet -m other
+: > "$TMP/semgrep.log"
+PATH="$TMP/tools:$PATH" bash "$scan" --changed >/dev/null
+check "when --changed on a stacked branch, then semgrep scans only its own files, not its parent's" \
+  'grep -q " other.py$" "$TMP/semgrep.log" && ! grep -q "app.py" "$TMP/semgrep.log"'
+git switch --quiet feat/x
 
 out="$(PATH="$TMP/none" bash "$scan" --changed)"
 check "when --changed, then its summary lines are recorded for this diff (what pr.sh task requires)" \
