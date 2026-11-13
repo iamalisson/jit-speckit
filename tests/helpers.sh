@@ -65,7 +65,8 @@ case "$1 $2" in
   "pr list") if [[ -n "${GH_FAIL_PR_LIST:-}" ]]; then echo "HTTP 502: Bad Gateway" >&2; exit 1; fi
              # --head <branch>: only the PR created for that branch (its head is kept in $GH_PR.head)
              h=""; a=("$@"); for ((i = 0; i < ${#a[@]}; i++)); do if [[ "${a[i]}" == --head ]]; then h="${a[i+1]:-}"; fi; done
-             if [[ "$*" == *headRefName* && "$*" == *"--state all"* ]]; then cat "$GH_ALL" 2>/dev/null # implement.sh restack: every PR, with its state
+             if [[ "$*" == *mergeCommit* ]]; then cat "$GH_REL" 2>/dev/null # implement.sh release-plan: "<n>\t<title>\t<head>\t<state>\t<merge sha>\t<merged at>"
+             elif [[ "$*" == *headRefName* && "$*" == *"--state all"* ]]; then cat "$GH_ALL" 2>/dev/null # implement.sh restack: every PR, with its state
              elif [[ "$*" == *headRefName* ]]; then cat "$GH_OPEN" 2>/dev/null
              elif [[ -n "$h" ]]; then if [[ -f "$GH_PR" && "$(cat "$GH_PR.head" 2>/dev/null)" == "$h" ]]; then cat "$GH_PR"; fi
              elif [[ -f "$GH_PR" ]]; then cat "$GH_PR"; fi; exit 0 ;;
@@ -76,13 +77,14 @@ case "$1 $2" in
                 cat "$GH_CLOSED" 2>/dev/null; exit 0 ;;
   "repo view") exit 1 ;;
   "issue view") printf '%s\n%s\n' "${GH_VIEW_STATE:-OPEN}" "${GH_VIEW_BODY:-an older body}"; exit 0 ;; # as --jq '.state + "\n" + .body
+  "release view") if grep -qxF "$3" "$GH_RELEASES" 2>/dev/null; then echo "{\"tagName\":\"$3\"}"; else echo "release not found" >&2; exit 1; fi ;;
   "pr ready") if [[ -n "${GH_FAIL_READY:-}" ]]; then echo "GraphQL: Pull request is in clean status" >&2; exit 1; fi ;;
   "issue edit"|"pr edit") if [[ -n "${GH_FAIL_EDIT:-}" ]]; then echo "GraphQL: Could not resolve to a ProjectV2" >&2; exit 1; fi ;;
   *) exit 0 ;;
 esac
 EOF
   chmod +x "$TMP/bin/gh"
-  export PATH="$TMP/bin:$PATH" GH_LOG="$TMP/gh.log" GH_N="$TMP/gh.n" GH_PR="$TMP/gh.pr" GH_CLOSED="$TMP/gh.closed" GH_OPEN="$TMP/gh.open" GH_ALL="$TMP/gh.all"
+  export PATH="$TMP/bin:$PATH" GH_LOG="$TMP/gh.log" GH_N="$TMP/gh.n" GH_PR="$TMP/gh.pr" GH_CLOSED="$TMP/gh.closed" GH_OPEN="$TMP/gh.open" GH_ALL="$TMP/gh.all" GH_REL="$TMP/gh.rel" GH_RELEASES="$TMP/gh.releases"
 }
 
 # no_scanners: builds $TMP/none, a PATH with every system tool except the scanners (and the tools

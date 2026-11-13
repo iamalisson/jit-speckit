@@ -99,6 +99,28 @@ When the loop has stopped and every task is `pr` or `merged`, check them togethe
    Gap tasks are ordinary tasks: the next run starts them from the base, once the developer has
    merged the spec PR, and checks the whole feature again.
 
+## The release
+
+When every task is `merged` and no gaps were filed (on this run or a later one), run `I release-plan`
+and act on the **one** `RELEASE=` line it prints, never on anything else; each step happens once, and the
+next run reads where it stands from git and GitHub:
+
+- `RELEASE=bump X.Y.Z FILES=… NOTES=<path> PRS=…`: in the run's worktree `<repo>-<feature>-run`
+  (`git fetch origin`, `git switch -c chore/release-X.Y.Z origin/<base>`): `I release-bump X.Y.Z`
+  there, then write the notes to `<path>`: grouped by user story, one line per PR in `PRS=` (its
+  title and number), and an "Upgrading" section when a task changed a config key or a command. Commit
+  them by name (`chore(release): X.Y.Z`), push, then the review and `pr.sh fix "chore(release): X.Y.Z"
+  <body>` as `pr.md` says for a PR that is not a task, then `git switch --detach origin/<base>` there.
+  `NOTES=-` (no `release_notes:`): write the notes to a `mktemp` file instead and keep them for
+  `publish`.
+- `RELEASE=tag V COMMIT=<sha>`: `git tag vV <sha>` and `git push origin vV`.
+- `RELEASE=publish V`: `gh release create vV --title "<project> V" --notes-file <the notes>` (the
+  release notes file of V, or the kept `mktemp` file).
+- `RELEASE=pending X.Y.Z PR=<n>`: the release PR waits for its merge; say so.
+- `RELEASE=done V`: the feature is released; say so.
+- `RELEASE=none (no version_files:)`: write the notes to a `mktemp` file and say the project has no
+  release convention (`version_files:` and `release_notes:` in `landspec-config.yml` set one).
+
 ## When an implementer returns
 
 Run `I mark <task> implemented` before anything else, then remove it from `in flight`.
@@ -121,7 +143,9 @@ Show the run report, then only what is left for the developer:
 - the whole-feature check: its round, the test result, and each `not met` line of the feature review;
 - each `failed` task with its reason (`I retry <task>` lifts it), each `RESTACK_CONFLICT=`, each
   skipped task;
-- the gap tasks filed, with their issues and the spec PR.
+- the gap tasks filed, with their issues and the spec PR;
+- the release: the `RELEASE=` line and what was done for it (the release PR to merge, the tag, the
+  published release).
 
 Last line, when gaps were filed: `merge the PRs in ORDER and <spec PR>, then run /landspec:implement
 again`.

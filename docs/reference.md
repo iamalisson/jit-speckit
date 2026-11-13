@@ -124,6 +124,11 @@ becomes a new task, appended to `tasks.md` through a new spec PR (plan review, i
 the run's worktree, before anything is merged; gap tasks are ordinary tasks, started from the base by
 the next run once that spec PR is merged.
 
+When every task of the feature is merged, `/landspec:implement` makes the **release**, one step per
+run, read each time from git and GitHub (`implement.sh release-plan`): a release PR `chore(release):
+X.Y.Z` with the bump (`release-bump`) and the notes, through `pr.sh fix` and its review; once you merge
+it, the tag `vX.Y.Z` on its merge commit; then the published release with those notes. It never merges.
+
 `/landspec:implement` is the default after `/speckit-tasks`: the spec PR's last line names it, and
 `next.sh` prints `RUN=/landspec:implement <feature>` before `FEATURE=` when two or more tasks can start.
 
@@ -219,6 +224,8 @@ the source. landspec's reviewer runs in its own copy of the reviewed commit (`is
 | `worktree_setup` | *(empty)* | one command each `/landspec:implement` implementer runs first in its own copy (a new worktree has no git-ignored files: `pnpm install`, say); when it fails, that task is `failed` with its output |
 | `implement_model` | *(empty: the session's)* | the model of `/landspec:implement`'s implementers: `sonnet`, `opus` or `fable`; any other value is refused |
 | `feature_rounds` | `3` | how many whole-feature check attempts `/landspec:implement` makes (a conflict, a red run or a `changes needed` feature review each count once per new combination of task heads) before it stops and asks: a number from `1` to `9` |
+| `version_files` | *(empty)* | the files that carry the version (`version: "X.Y.Z"` or `"version": "X.Y.Z"`), comma separated, the first one read as the current version; `/landspec:implement` bumps them for the release (minor; patch when every task is a `Fix`). Empty: no release step, only notes |
+| `release_notes` | *(empty)* | the folder for each release's notes, `<folder>/X.Y.Z.md`; they are also the published release's body |
 | `parallel_tasks` | `4` | how many tasks `/landspec:implement` runs at once (`implement.sh status` puts at most this many, minus the running ones, in `START=`): a number from `1` to `16`, any other value is refused |
 
 ### The reviewer's copy

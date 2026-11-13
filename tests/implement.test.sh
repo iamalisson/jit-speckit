@@ -372,5 +372,60 @@ edit "$B2" s 's/B1/l1/; s/l3/B3/'; out="$("$I" stack T002 T001 2>&1)" || true; c
 check "after a fix commit on the later one and stack T002 T001, then check-copy prints CHECK=" 'grep -q "^CHECK=.* ROUND=2$" <<<"$out"'
 cc --remove
 
+# ── Spec 004 T009: the release, one step at a time, read from git and GitHub ──
+rp() { out="$("$I" release-plan 2>&1)" || true; }
+# on_main <msg> <file> <content>: a commit on origin's main, printing its sha.
+on_main() {
+  git -C "$TMP/w" switch --quiet --detach origin/main; printf '%b' "$3" > "$TMP/w/$2"; git -C "$TMP/w" add "$2"
+  git -C "$TMP/w" commit --quiet -m "$1"; git -C "$TMP/w" push --quiet origin HEAD:refs/heads/main; git -C "$TMP/w" rev-parse HEAD; git -C "$TMP/w" switch --quiet --detach
+  git fetch --quiet origin
+}
+rl_setup() {
+  rs_setup; : > "$GH_REL"; : > "$GH_RELEASES"
+  on_main version package.json '{\n  "name": "x",\n  "version": "1.4.2"\n}\n' >/dev/null
+  on_main version extension.yml 'extension:\n  id: x\n  version: "1.4.2"\nrequires:\n  speckit_version: ">=1.0"\n' >/dev/null
+  git switch --quiet --detach origin/main; git branch --quiet -f main origin/main; git switch --quiet main; DEV="$(git rev-parse HEAD)"; HEAD0="$DEV"
+  printf 'version_files: package.json, extension.yml\nrelease_notes: docs/releases\n' >> .specify/extensions/landspec/landspec-config.yml
+  n=10
+  for b in "$B1" "$B2" "$B3"; do
+    n=$((n + 1)); mkb "$b" origin/main "f$n"; squash "$b" $((n - 10))
+    printf '%s\tfeat: %s\t%s\tMERGED\t%s\t2026-11-0%sT10:00:00Z\n' "$n" "$b" "$b" "$(git rev-parse origin/main)" $((n - 10)) >> "$GH_REL"
+  done
+}
+rel() { printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$@" >> "$GH_REL"; } # rel <n> <title> <head> <state> <merge sha> <merged at>
+
+rl_setup; rp
+check "when every task issue is closed, then release-plan prints bump 1.5.0 with the files, the notes path and the merged task PRs" \
+  '[[ "$out" == "RELEASE=bump 1.5.0 FILES=package.json,extension.yml NOTES=docs/releases/1.5.0.md PRS=11,12,13" ]] && [[ "$(git rev-parse HEAD)" == "$DEV" && -z "$(git status --porcelain --untracked-files=no)" ]]'
+sed -i.bak 's/^\(- \[ \] T00[0-9]\) Add /\1 Fix /' specs/001-demo/tasks.md; rm -f specs/001-demo/tasks.md.bak; rp; git checkout --quiet -- specs/001-demo/tasks.md
+check "when every task starts with Fix, then it is a patch: bump 1.4.3" '[[ "$out" == "RELEASE=bump 1.4.3 "* ]]'
+sed -i.bak '/^3$/d' "$GH_CLOSED"; rm -f "$GH_CLOSED.bak"; rp
+check "when one task issue is open, then release-plan refuses naming the task" 'grep -q "T003 (#3) is still open" <<<"$out" && ! grep -q "^RELEASE=" <<<"$out"'
+echo 3 >> "$GH_CLOSED"
+rel 20 "chore(release): 1.5.0" chore/release-1.5.0 OPEN "" ""; rp
+check "when a chore(release): 1.5.0 PR is open and the files are still at 1.4.2, then pending 1.5.0, not bump" '[[ "$out" == "RELEASE=pending 1.5.0 PR=20" ]]'
+rl_setup; r="$(on_main "chore(release): 1.4.2" notes.md 'notes\n')"
+rel 21 "chore(release): 1.4.2" chore/release-1.4.2 MERGED "$r" 2026-11-09T10:00:00Z; rp
+check "when the release PR is merged and not tagged, then tag 1.4.2 with its merge commit, not bump" '[[ "$out" == "RELEASE=tag 1.4.2 COMMIT=$r" ]]'
+git -C "$TMP/w" tag v1.4.2 "$r"; git -C "$TMP/w" push --quiet origin v1.4.2; rp
+check "when it is tagged and not published, then publish 1.4.2" '[[ "$out" == "RELEASE=publish 1.4.2" ]]'
+echo v1.4.2 > "$GH_RELEASES"; rp
+check "when it is published, then done 1.4.2" '[[ "$out" == "RELEASE=done 1.4.2" ]]'
+mkb feat/001-t001-second-feature origin/main g; squash feat/001-t001-second-feature 1
+rel 30 "feat: second" feat/001-t001-second-feature MERGED "$(git rev-parse origin/main)" 2026-11-10T10:00:00Z; rp
+check "when a second feature is merged after v1.4.2 was published, then bump 1.5.0, not done" '[[ "$out" == "RELEASE=bump 1.5.0 "* ]]'
+sed -i.bak '/^version_files:/d' .specify/extensions/landspec/landspec-config.yml; rm -f .specify/extensions/landspec/landspec-config.yml.bak; rp
+check "when version_files: is not set, then RELEASE=none" '[[ "$out" == "RELEASE=none (no version_files:)" ]]'
+echo 'version_files: package.json, extension.yml' >> .specify/extensions/landspec/landspec-config.yml
+out="$("$I" release-bump 1.5.0 2>&1)" || true
+check "when release-bump 1.5.0 runs, then only the version line of each file changes" \
+  '[[ "$out" == BUMPED=1.5.0 && "$(git diff --numstat -- package.json extension.yml)" == $'"'"'1\t1\textension.yml\n1\t1\tpackage.json'"'"' ]] \
+   && grep -qx "  \"version\": \"1.5.0\"" package.json && grep -qx "  version: \"1.5.0\"" extension.yml && grep -qF "speckit_version: \">=1.0\"" extension.yml'
+git checkout --quiet -- package.json extension.yml; echo plain > notes.txt
+sed -i.bak 's/^version_files:.*/version_files: package.json, notes.txt/' .specify/extensions/landspec/landspec-config.yml; rm -f .specify/extensions/landspec/landspec-config.yml.bak
+check "when a listed file has no version line, then release-bump refuses and changes nothing" \
+  'fails_with "notes.txt has no version line" "$I" release-bump 1.5.0 && [[ -z "$(git diff -- package.json)" ]]'
+rm -f notes.txt
+
 check "then the current HEAD is the same after every call" '[[ ! -e "$TMP/head.moved" ]]'
 exit "$FAIL"
