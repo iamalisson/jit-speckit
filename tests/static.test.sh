@@ -295,6 +295,10 @@ check "then each pass runs restack, then status with --running, and reviews agai
   'grep -qF "I restack" <<<"$im" && grep -qF "I status --running" <<<"$im" && grep -qF "base: <base_ref <branch>>" <<<"$im"'
 check "then it has a step for each of START, REVIEW, FIX and OPEN, and reads ORDER=" \
   'for k in START REVIEW FIX OPEN; do grep -qF "**\`$k\`**" <<<"$im" || exit 1; done; grep -qF "ORDER=" <<<"$im"'
+check "then a task under review is in flight, so a second reviewer never starts on it, and the run waits for reviewers too" \
+  'r="$(sed -n "/\*\*\`REVIEW\`\*\*/,/\*\*\`FIX\`\*\*/p" <<<"$im")"; grep -qF "Add the task to \`in flight\`" <<<"$r" && grep -qF "remove it from \`in flight\`" <<<"$r" && grep -qF "no implementer and no reviewer" <<<"$im"'
+check "then a fix round reads the review from the <task>.report file of the run record, and every review is a full one" \
+  'grep -qF "landspec-run/<feature dir name>/<task>.report" <<<"$im" && grep -qF "never \`--delta\`" <<<"$im"'
 check "then a returning implementer is marked implemented before anything else" \
   'grep -qF "Run \`I mark <task> implemented\` before anything else" <<<"$im"'
 check "then the PR step switches to the branch first, runs gh pr ready after pr.sh task on a draft that targets the base, and detaches last" \

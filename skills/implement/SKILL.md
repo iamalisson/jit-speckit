@@ -12,7 +12,7 @@ You are the main session: you start every agent, and no agent starts another. `I
 run `/landspec:init` first, and stop. Make sure the working tree is clean; if it isn't, stop and say
 so: never stash or discard. Ask nothing while the loop runs: every question waits for the end.
 
-Keep, for the whole run, the tasks whose agents are in flight (`in flight`), and for each task its
+Keep, for the whole run, the tasks whose agents (implementers and reviewers) are in flight (`in flight`), and for each task its
 copy (`Copy:`) and branch (`BRANCH=`).
 
 ## The loop
@@ -36,10 +36,14 @@ Each pass:
      says (its copy, its model, its record), in the background, with the facts: `commit:` the branch's
      head, `checkout:` the task's copy, `branch:` its branch, and `base: <base_ref <branch>>`
      (`bash -c 'source .specify/extensions/landspec/scripts/lib.sh; base_ref "$0"' <branch>`), so a
-     stacked task is reviewed against its parent. When it returns: `review.sh record --branch
+     stacked task is reviewed against its parent. It is a full review every time, a fix round's too
+     (`review.sh record`, never `--delta`). Add the task to `in flight`, so the next pass does not
+     review it again. When it returns, remove it from `in flight`, then: `review.sh record --branch
      <branch> <report>`, then `I mark <task> ready <report>` or `I mark <task> changes <report>` from
      its Assessment.
-   - **`FIX`** → a fix round with the record's `report=` (in the task's `TASK=` line): if the task's
+   - **`FIX`** → a fix round with the review that asked for it, the file
+     `$(git rev-parse --git-common-dir)/landspec-run/<feature dir name>/<task>.report` (`mark … changes`
+     keeps it there): if the task's
      implementer is still in flight, SendMessage it the report; if SendMessage is not available, or the
      agent is gone, launch a new implementer as in `START`, on the existing branch, with the report.
      Either way the task is in flight again until it returns.
@@ -50,7 +54,7 @@ Each pass:
      `pr.sh task`; never while `landspec-parent` is set. Then `I mark <task> pr` and `git switch
      --detach` in that copy.
 4. Wait for the next agent to return, then go back to 1. Stop when `status` lists nothing in
-   `START`, `REVIEW`, `FIX` and `OPEN`, and nothing is in flight.
+   `START`, `REVIEW`, `FIX` and `OPEN`, and nothing is in flight (no implementer and no reviewer).
 
 ## When an implementer returns
 
