@@ -156,7 +156,9 @@ Run `I mark <task> implemented` before anything else, then remove it from `in fl
 
 Show the run report, then only what is left for the developer:
 
-- each task's state from the last `status`, and `DONE=`;
+- each task's state from the last `status`, and `DONE=`; each `waiting` task with its `REASON=` (`waits
+  for Tnnn`, or `merge Tnnn or Tmmm first`); for `REASON=locked worktree <path>` (an agent stopped
+  mid-task), the commands to free it: `git worktree unlock <path>`, then `git worktree remove <path>`;
 - the PRs to merge, in `ORDER` (parents first: a child's draft becomes ready once its parent is
   merged and `/landspec:implement` runs again), then "run `/landspec:implement` again";
 - the whole-feature check: its round, the test result, and each `not met` line of the feature review;
