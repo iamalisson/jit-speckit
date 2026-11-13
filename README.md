@@ -96,6 +96,7 @@ branches start there. What `new` asks and sets up: [docs/reference.md](docs/refe
 | | merge the spec PR | |
 | **Once per task** | `/landspec:next` | progress, then the next open task: **its branch → code → checks (tests, mutants) → review → PR**. Several features? `next 002` |
 | | merge the PR | the issue closes |
+| *(or, once per feature)* | `/landspec:implement` | every startable task at once, each in its own copy, through the same review and PR; a task that depends on another is stacked on its PR. You merge the PRs in the order it prints |
 | **When every task is done** | `/speckit-converge` | compares the code with the spec; anything unbuilt becomes new tasks with issues |
 
 **Small fixes don't need the feature loop.** A typo, a one-line bug fix or a dependency bump
@@ -123,7 +124,7 @@ Why one task = one issue = one branch = one PR, with the evidence: [docs/design.
 | **every commit** | refuses `.env`, keys and credential files, and tokens or passwords in the code. Under a second. |
 | **every command Claude runs** | blocks `--no-verify`, `git add -A`, commits on base branches and pushes to them, and `gh pr create` outside `pr.sh` (a promotion between long-lived branches aside) |
 | **every push** | re-checks every outgoing commit, including ones made with `--no-verify` |
-| **before each PR** | an **independent review** by a fresh agent (`landspec:reviewer`, on Sonnet unless `review_model:` says `opus` or `fable`), in its own copy of the reviewed commit, that reads the diff and the code around it in one fast pass (following personal data and secrets into the helpers that log them), like Copilot code review, with no subscription needed, scanners on the changed files (the PR is refused until they ran on its exact diff), `/security-review` |
+| **before each PR** (one per task, `/landspec:implement` too) | an **independent review** by a fresh agent (`landspec:reviewer`, on Sonnet unless `review_model:` says `opus` or `fable`), in its own copy of the reviewed commit, that reads the diff and the code around it in one fast pass (following personal data and secrets into the helpers that log them), like Copilot code review, with no subscription needed, scanners on the changed files (the PR is refused until they ran on its exact diff), `/security-review` |
 | **every PR, and weekly** | CI gate (standard and full): Gitleaks, OSV-Scanner and zizmor (Semgrep with the OWASP rules on `full`, from its image pinned by digest, its rules fetched from the Semgrep registry at run time; trivy on Dockerfiles and Terraform when the project has them), all pinned and checksum-verified |
 | **before a release** | `/landspec:security`, the full audit |
 

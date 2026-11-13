@@ -287,6 +287,34 @@ if [[ "$v_plugin" == 1.8.0 ]]; then
     'for n in 13 14 15 16 17 18 19 20 21; do grep -q "^| T0$n |" "$notes" || exit 1; done'
 fi
 
+# /landspec:implement (spec 004 T006): the loop's steps, the order around the PR, and the implementer's rules.
+im="$(cat skills/implement/SKILL.md)"; ag="$(cat agents/implementer.md)"
+check "when /landspec:implement launches an implementer, then it uses landspec:implementer with isolation worktree, in the background" \
+  'grep -qF "subagent_type: \"landspec:implementer\"" <<<"$im" && grep -qF "isolation: \"worktree\"" <<<"$im" && grep -qF "run_in_background: true" <<<"$im"'
+check "then each pass runs restack, then status with --running, and reviews against base: <base_ref <branch>>" \
+  'grep -qF "I restack" <<<"$im" && grep -qF "I status --running" <<<"$im" && grep -qF "base: <base_ref <branch>>" <<<"$im"'
+check "then it has a step for each of START, REVIEW, FIX and OPEN, and reads ORDER=" \
+  'for k in START REVIEW FIX OPEN; do grep -qF "**\`$k\`**" <<<"$im" || exit 1; done; grep -qF "ORDER=" <<<"$im"'
+check "then a returning implementer is marked implemented before anything else" \
+  'grep -qF "Run \`I mark <task> implemented\` before anything else" <<<"$im"'
+check "then the PR step switches to the branch first, runs gh pr ready after pr.sh task on a draft that targets the base, and detaches last" \
+  'o="$(sed -n "/\*\*\`OPEN\`\*\*/,/^4\. /p" <<<"$im" | tr "\n" " ")"; [[ "$o" =~ git\ switch\ \<branch\>.*pr\.sh\ task.*gh\ pr\ ready.*git\ switch\ +--detach ]] && grep -qF "never while \`landspec-parent\` is set" <<<"$o"'
+check "then nothing in the skill or the implementer merges a PR" '! grep -qF "gh pr merge" skills/implement/SKILL.md agents/implementer.md'
+check "then a missing Copy: is recreated detached beside the repository" 'grep -qF "git worktree add --detach <repo>-<feature>-<task> <branch>" <<<"$im"'
+check "then a fix round without SendMessage launches a new implementer on the branch" 'grep -qF "if SendMessage is not available, or the" <<<"$im" && grep -qF "launch a new implementer as in \`START\`, on the existing branch" <<<"$im"'
+check "then a failed worktree_setup fails the task with its output" 'grep -qF "I fail <task> \"worktree_setup: <its output>\"" <<<"$im"'
+check "then branch.sh exit 3 makes the task elsewhere and the next one starts" 'grep -qF "\`branch.sh\` exit 3" <<<"$im" && grep -qF "the task is \`elsewhere\`" <<<"$im"'
+check "then, until the whole-feature check exists, it ends pointing to /speckit-converge" \
+  'grep -qF "the whole-feature check is not built yet: check the feature with /speckit-converge after" <<<"$im"'
+check "then it reads implement_model and refuses any model but sonnet, opus or fable" 'grep -qF "implement_model must be sonnet, opus or" <<<"$im"'
+check "when agents/implementer.md is read, then it is named implementer, isolated in a worktree, never git add -A, and detaches last" \
+  'grep -qx "name: implementer" agents/implementer.md && grep -qx "isolation: worktree" agents/implementer.md && grep -qF "never \`git add -A\`" <<<"$ag" \
+   && grep -qF "Last, \`git switch --detach\`" <<<"$ag" && grep -qF "branch.sh <feature> <task> [--from <parent>]\`, first" <<<"$ag"'
+check "then it runs worktree_setup, stays in its copy, and returns Copy: and BRANCH=" \
+  'grep -qF "worktree_setup:" <<<"$ag" && grep -qF "never touch a path outside it" <<<"$ag" && grep -qF "\`Copy: <git rev-parse --show-toplevel>\` and \`BRANCH=<branch>\`" <<<"$ag"'
+check "then README, help and the reference list /landspec:implement, worktree_setup and implement_model" \
+  'grep -qF "/landspec:implement" README.md && grep -qF "\`implement\`" skills/help/SKILL.md && grep -q "^| \`worktree_setup\` |" docs/reference.md && grep -q "^| \`implement_model\` |" docs/reference.md'
+
 # /landspec:report: public issues, so nothing is filed without a yes and nothing private leaves the project.
 rp="$(cat skills/report/SKILL.md)"
 check "when /landspec:report drafts an issue, then it files on the plugin's repository only after a yes" \
