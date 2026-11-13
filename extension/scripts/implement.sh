@@ -44,6 +44,12 @@ case "$action" in
     [[ "$phase" =~ ^(implemented|changes|ready|pr)$ ]] || die "usage: implement.sh mark <task> implemented|changes|ready|pr [<report>]"
     b="$(task_branch "$t")"; [[ -n "$b" ]] || die "$t has no branch in this clone"
     head="$(git rev-parse "refs/heads/$b")"; round="$(rec "$t" round)"; round="${round:-0}"
+    # A failure a new commit lifted (its head is not this one) is gone, its rounds with it; one
+    # recorded before the branch existed (empty head) stays until retry.
+    oldh="$(rec "$t" head)"
+    if [[ -n "$(rec "$t" failed)" && -n "$oldh" && "$oldh" != "$head" ]]; then
+      grep -vE '^(failed|round)=' "$rdir/$t" > "$rdir/$t.tmp" || true; mv "$rdir/$t.tmp" "$rdir/$t"; round=0
+    fi
     set -- "phase=$phase" "head=$head"
     if [[ "$phase" == changes ]]; then
       [[ -f "$report" ]] || die "usage: implement.sh mark <task> changes <report> (the review that asked for them)"
@@ -78,6 +84,8 @@ case "$action" in
       [[ -f "$marker" && "$(cat "$marker")" == "$(git show "origin/$base:$fdir/tasks.md" | sha256)" ]] \
         || die "level 'full' requires /speckit-analyze on the current tasks.md before implementing"
     fi
+    # The tasks, their issues and dependencies come from the base's tasks.md, the one checked above.
+    tasks="$(git show "origin/$base:$fdir/tasks.md" | grep -E '^- \[.\] T[0-9]{3,} ' || true)"
     closed="$(closed_issues "$fdir")" || die "cannot read the state of feature $num's task issues; fix gh's error above"
     prs="$(gh pr list --state open --limit 500 --json number,headRefName,headRefOid,baseRefName,isDraft \
       --jq '.[] | [.number, .headRefName, .headRefOid, .baseRefName, .isDraft] | @tsv')" \
@@ -116,7 +124,8 @@ case "$action" in
         elif [[ "$running_list" == *" $t "* ]]; then st=running
         elif [[ -n "$wt" && "${wt##*$'\t'}" == 1 ]]; then st=running; why="locked worktree ${wt%%$'\t'*}"
         elif [[ -n "$prl" && "$(cut -f3 <<<"$prl")" == "$head" && "$phase" == pr \
-                && "$(cut -f5 <<<"$prl")" == false && "$(cut -f4 <<<"$prl")" == "$base" ]]; then st="pr"
+                && ( "$(cut -f4 <<<"$prl")" != "$base" || "$(cut -f5 <<<"$prl")" == false ) ]]; then
+          st="pr" # open into its parent (a draft until restack), or ready on the base; a draft on the base is "reviewed"
         elif [[ -n "$prl" && "$(cut -f5 <<<"$prl")" == true && "$(cut -f4 <<<"$prl")" == "$base" && -n "$p" ]]; then
           # GitHub retargets a child onto the base when its parent's branch goes (so its review cannot
           # even be read against that parent): until restack moves it, it waits.
@@ -128,13 +137,13 @@ case "$action" in
         fi
       fi
       put ST "$t" "$st"; put BR "$t" "${b:--}"; put PA "$t" "${p:--}"; put PRN "$t" "$pr"; put WHY "$t" "$why"
-    done < <(grep -E '^- \[.\] T[0-9]{3,} ' "$fdir/tasks.md")
+    done <<<"$tasks"
     # No branch yet: startable when every dependency is reviewed, in a PR or merged, with at most one
     # unmerged (a branch stacks on one parent only); otherwise waiting.
     for t in $ids; do
       [[ -z "$(get ST "$t")" ]] || continue
       ok=true; unmerged=0
-      for d in $(grep -oiE 'depends on T[0-9]{3,}([, ]+(and )?T[0-9]{3,})*' <<<"$(task_line "$fdir" "$t")" | grep -oE 'T[0-9]{3,}'); do
+      for d in $(grep -oiE 'depends on T[0-9]{3,}([, ]+(and )?T[0-9]{3,})*' <<<"$(grep -m1 -E "^- \[.\] $t " <<<"$tasks")" | grep -oE 'T[0-9]{3,}'); do
         case "$(get ST "$d")" in merged) ;; reviewed|pr) unmerged=$((unmerged + 1)) ;; *) ok=false ;; esac
       done
       if $ok && ((unmerged <= 1)); then put ST "$t" startable; else put ST "$t" waiting; fi

@@ -90,13 +90,17 @@ check "when T001 is marked changes with a report, then it is fix, in FIX, and th
 "$I" mark T001 changes "$TMP/rep1.md" >/dev/null; "$I" mark T001 changes "$TMP/rep1.md" >/dev/null; st
 check "when the third changes is marked, then T001 is failed (review rounds)" \
   'line_of T001 | grep -qF "STATE=failed" && line_of T001 | grep -qF "REASON=review rounds"'
+commit_on "$B1"; "$I" mark T001 changes "$TMP/rep1.md" >/dev/null; st
+check "when a new commit lifts a review-rounds failure, then the next changes starts the rounds again (fix, not failed)" '[[ "$(state_of T001)" == fix ]]'
 mk "$B2"; "$I" fail T002 "tests red" >/dev/null; st
 check "when T002 is failed, then it is failed and T004 never startable" \
   '[[ "$(state_of T002)" == failed && "$(state_of T004)" != startable ]] && line_of T002 | grep -qF "REASON=tests red"'
 commit_on "$B2"; st
 check "when a new commit lands on a failed task, then it is lifted" '[[ "$(state_of T002)" == resume ]]'
+"$I" mark T002 implemented >/dev/null; st
+check "then marking that new work implemented does not bring the failure back" '[[ "$(state_of T002)" == implemented ]]'
 "$I" fail T002 "tests red" >/dev/null; "$I" retry T002 >/dev/null; st
-check "when a failed task is retried, then it is lifted" '[[ "$(state_of T002)" == resume ]]'
+check "when a failed task is retried, then it is lifted (back to implemented)" '[[ "$(state_of T002)" == implemented ]]'
 "$I" fail T004 "no idea" >/dev/null; mk "$B4"; commit_on "$B4"; st
 check "when a task failed before its branch existed, then it stays failed until retry" '[[ "$(state_of T004)" == failed ]]'
 "$I" retry T004 >/dev/null; st
@@ -132,6 +136,10 @@ check "when that PR still has landspec-parent set (retargeted by GitHub), then i
 git config --unset "branch.$B1.landspec-parent"; "$I" mark T001 pr >/dev/null
 printf '12\t%s\t%s\tdevelop\tfalse\n' "$B1" "$(git rev-parse "refs/heads/$B1")" > "$GH_OPEN"; st
 check "when the PR is ready on the base and marked pr, then the task is pr" '[[ "$(state_of T001)" == pr ]]'
+mk "$B3" "$B1"; git config "branch.$B3.landspec-parent" "$B1"; ready "$B3"; "$I" mark T003 pr >/dev/null
+printf '12\t%s\t%s\tdevelop\tfalse\n13\t%s\t%s\t%s\ttrue\n' "$B1" "$(git rev-parse "refs/heads/$B1")" "$B3" "$(git rev-parse "refs/heads/$B3")" "$B1" > "$GH_OPEN"; st
+check "when a stacked draft PR into its parent is marked pr, then the task is pr, not in OPEN" \
+  '[[ "$(state_of T003)" == pr ]] && ! grep -q "^OPEN=.*T003" <<<"$out"'
 
 check "then the current HEAD is the same after every call" '[[ ! -e "$TMP/head.moved" ]]'
 exit "$FAIL"
