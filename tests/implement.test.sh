@@ -355,6 +355,11 @@ echo "feature_rounds: 2" >> .specify/extensions/landspec/landspec-config.yml
 edit "$B3" c 's/l4/F4/'; cc; "$I" check-result red >/dev/null; cc --remove; edit "$B3" c 's/l5/F5/'; cc
 check "when feature_rounds is 2, then the third attempt on new heads prints ROUNDS_EXHAUSTED=2 and makes no copy" '[[ "$out" == ROUNDS_EXHAUSTED=2 && ! -d "$(CW)" ]]'
 
+rs_setup
+mkb "$B1" origin/main a; mkb "$B2" origin/main b; git branch -D --quiet "$B2"; cc
+check "when an unmerged task's branch is not in this clone, then check-copy stops naming it and makes no copy" \
+  'grep -q "T002 has no branch in this clone" <<<"$out" && ! grep -q "^CHECK=" <<<"$out" && [[ ! -d "$(CW)" ]]'
+
 # A conflict: two unstacked branches edit the same line.
 rs_setup
 git -C "$TMP/w" switch --quiet --detach origin/main; printf 'l1\nl2\nl3\n' > "$TMP/w/s"; git -C "$TMP/w" add s; git -C "$TMP/w" commit --quiet -m s

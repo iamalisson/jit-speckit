@@ -314,7 +314,10 @@ case "$action" in
     tasks=""; combo=""
     for t in $(sed -n 's/^ORDER=//p' <<<"$st"); do
       l="$(grep "^TASK=$t " <<<"$st")"; [[ "$l" != *" STATE=merged "* ]] || continue
-      b="$(sed -E 's/.* BRANCH=([^ ]+).*/\1/' <<<"$l")"; git show-ref --verify --quiet "refs/heads/$b" || continue
+      b="$(sed -E 's/.* BRANCH=([^ ]+).*/\1/' <<<"$l")"
+      # a check of only part of the feature would pass for the whole: every unmerged task is in it
+      [[ "$b" != - ]] && git show-ref --verify --quiet "refs/heads/$b" \
+        || die "$t has no branch in this clone (${b/#-/not started}): start it, or fetch it (git branch $b origin/$b), then run check-copy again"
       tasks+="$t "; combo+="$t:$(git rev-parse "refs/heads/$b") "
     done
     [[ -n "$tasks" ]] || die "no unmerged task branch in this clone to check"
@@ -330,8 +333,9 @@ case "$action" in
     done_t=""
     for t in $tasks; do
       b="$(task_branch "$t")"
-      if ! git -C "$w" merge --quiet --no-ff --no-edit "refs/heads/$b" >/dev/null 2>&1; then
+      if ! merr="$(git -C "$w" merge --quiet --no-ff --no-edit "refs/heads/$b" 2>&1)"; then
         files="$(git -C "$w" diff --name-only --diff-filter=U | paste -sd, -)"
+        [[ -n "$files" ]] || { git -C "$w" merge --abort 2>/dev/null || true; echo "$merr" >&2; die "could not merge $b in the check copy (not a conflict); fix git's error above"; }
         git -C "$w" merge --abort
         with=""
         for e in $done_t; do # the latest earlier task that touched one of those files
