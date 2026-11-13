@@ -133,14 +133,25 @@ feature_dir() {
   echo "$d"
 }
 
-# base_ref: the base branch as a ref to diff against: origin's copy when it exists, else the local one.
+# base_ref [<branch>]: what <branch> (default: the current one) is diffed against: its parent task
+# branch while it is stacked on one (branch.<b>.landspec-parent), else the base branch. The base is
+# origin's copy when it exists, else the local one; a parent is the local branch first (the child
+# starts from its reviewed head, which may not be pushed yet), else origin's copy.
 base_ref() {
-  local b; b="$(base_branch)"
-  if git rev-parse --verify --quiet "origin/$b" >/dev/null; then echo "origin/$b"; else echo "$b"; fi
+  local b="${1-}" p=""
+  [[ $# -gt 0 ]] || b="$(git branch --show-current 2>/dev/null || true)"
+  [[ -z "$b" ]] || p="$(git config --get "branch.$b.landspec-parent" 2>/dev/null || true)"
+  if [[ -n "$p" ]] && git show-ref --verify --quiet "refs/heads/$p"; then echo "$p"; return; fi
+  [[ -n "$p" ]] || p="$(base_branch)"
+  if git rev-parse --verify --quiet "origin/$p" >/dev/null; then echo "origin/$p"; else echo "$p"; fi
 }
 
-# diff_base: the commit where the branch left the base (HEAD itself when they share no history).
-diff_base() { git merge-base HEAD "$(base_ref)" 2>/dev/null || git rev-parse HEAD; }
+# branch_tip [<branch>]: the commit a diff of <branch> ends at: HEAD without a branch.
+branch_tip() { if [[ -n "${1-}" ]]; then echo "refs/heads/$1"; else echo HEAD; fi; }
+
+# diff_base [<branch>]: the commit where the branch left what it is diffed against (its tip itself
+# when they share no history).
+diff_base() { local t; t="$(branch_tip "$@")"; git merge-base "$t" "$(base_ref "$@")" 2>/dev/null || git rev-parse "$t"; }
 
 # Every diff whose bytes decide a record: the same text whatever the user's git config says.
 LANDSPEC_DIFF_FLAGS=(--no-color --no-ext-diff --no-textconv --ignore-submodules=none --submodule=short -U3 --inter-hunk-context=0 --no-renames --diff-algorithm=myers --src-prefix=a/ --dst-prefix=b/)
@@ -154,17 +165,18 @@ landspec_numstat() { landspec_diff --numstat "$@" | sed '/^$/,$d'; }
 # in keeps it, any edit changes it. --verbatim keeps whitespace, so a re-indent (Python, YAML,
 # Makefiles) counts. Dies when an empty id would not mean an empty diff: callers read it in a plain
 # assignment, `|| exit 1`.
+# shellcheck disable=SC2120 # review.sh --branch passes the branch
 diff_id() {
-  local from id ref opt=--verbatim; from="$(diff_base)"; ref="$(base_ref)"
+  local from id ref t opt=--verbatim; from="$(diff_base "$@")"; ref="$(base_ref "$@")"; t="$(branch_tip "$@")"
   git patch-id --verbatim </dev/null >/dev/null 2>&1 || opt=--stable # git < 2.39: whitespace-only edits slip
-  id="$(landspec_diff "$from" HEAD | git patch-id "$opt" | cut -d' ' -f1)"
-  if ! git merge-base HEAD "$ref" >/dev/null 2>&1; then
+  id="$(landspec_diff "$from" "$t" | git patch-id "$opt" | cut -d' ' -f1)"
+  if ! git merge-base "$t" "$ref" >/dev/null 2>&1; then
     if [[ "$(git rev-parse --is-shallow-repository)" == true ]]; then
       die "this shallow clone has no merge base with $ref; run git fetch --unshallow"
     fi
     die "this branch shares no history with $ref, so it has no diff to review"
   fi
-  [[ -n "$id" ]] || landspec_diff --quiet "$from" HEAD || die "git patch-id gave no id for this diff against $ref"
+  [[ -n "$id" ]] || landspec_diff --quiet "$from" "$t" || die "git patch-id gave no id for this diff against $ref"
   echo "$id"
 }
 

@@ -50,8 +50,9 @@ If you are that subagent:
 Facts the author passes:
 - `commit:` the reviewed commit (`git rev-parse HEAD`) and `checkout:` the repository root
   (absolute), so the reviewer can check it is not in your checkout and move its copy to that commit;
-- the base branch and the branch under review, or, for a plan review, the feature folder
-  `specs/NNN-*/`;
+- the base branch and the branch under review, and `base:` the ref the branch is diffed against
+  (`base_ref` in landspec's `lib.sh`: `origin/<base>`, or the parent task branch of a stacked
+  branch), or, for a plan review, the feature folder `specs/NNN-*/`;
 - the task's line from `tasks.md` with its sub-bullets, "plan review", or, for a PR that is not a
   task (`pr.sh fix`), one line on what it changes and why;
 - the path of the PR body draft, if there is one;
@@ -77,8 +78,9 @@ step 2 allows.
 
 1. **Read the rules**, from the branch: `.specify/memory/constitution.md`, `AGENTS.md`, `CLAUDE.md`
    and `.github/copilot-instructions.md` where they exist, and the task's line in `tasks.md`.
-2. **Read the diff and what it touches.** Run `bash .specify/extensions/landspec/scripts/review.sh risk`
-   (for a delta, `review.sh risk <sha>`), then read `git diff origin/<base>...HEAD` once, and open
+2. **Read the diff and what it touches.** Run `bash .specify/extensions/landspec/scripts/review.sh risk
+   "$(git merge-base HEAD <base>)"` with the facts' `base:` (for a delta, `review.sh risk <sha>`),
+   then read `git diff <base>...HEAD` once, and open
    what each changed function calls and what calls it. Look for real bugs in the changed lines:
    a wrong result, data loss, a crash, a broken upgrade on existing state, a write to the user's
    files, a secret, personal data or a secret that reaches a log, including inside a helper the
@@ -153,7 +155,7 @@ sibling is not a defense: a defect copied from an existing file is still a defec
   never into a public PR.
 - Before the last line, each on its own line: `Copy: <git rev-parse --show-toplevel>` (your copy,
   or `Copy: none (<reason>)`), then `Reviewed: <from>..<head>`, the full shas you
-  reviewed (`git merge-base HEAD origin/<base>`, the local `<base>` only without an origin copy, and `git rev-parse HEAD`; for a delta, `<sha>` and
+  reviewed (`git merge-base HEAD <base>`, with the facts' `base:`, and `git rev-parse HEAD`; for a delta, `<sha>` and
   `git rev-parse HEAD`), and `Model: <your model id>`. A delta report also has `Delta from: <sha>`. A plan report
   has only `Copy:` and `Model:`. `review.sh record` refuses a report without them, a range that is not the
   branch's (or the delta's), and a commit made after the review started.

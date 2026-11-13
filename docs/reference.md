@@ -90,6 +90,13 @@ or `staging`, and its job fails, naming `could not close: #N`, when one of them 
 A task whose line says `(depends on T003)` is **blocked** until T003's issue closes, so `next`
 never offers work whose prerequisite has not merged.
 
+A task branch can also start **stacked** on another task's branch: `branch.sh [feature] T003 --from
+<branch>` starts it from that branch's head, only when that head has a recorded `ready` review, and
+records the parent (`branch.<new>.landspec-parent`). Until it is moved onto the base, the stacked
+branch's diff, review range and risk map are against its parent, not the base, so each task's PR
+shows only its own work. `review.sh check|report|record --branch <b>` reads any branch by name, from
+any checkout.
+
 A task is **claimed** the moment it starts: its branch is pushed to origin, empty. From then on
 `next` in every clone and worktree shows it as in progress and never picks it; the clone that
 started it sees it as `resume` and picks it first. When origin refuses that push (no network, no

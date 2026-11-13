@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
 # Switch to the branch for one task, creating it from the base branch if needed.
-# Usage: branch.sh [feature] T003      feature: a number (002) or folder name, else the active one
+# Usage: branch.sh [feature] T003 [--from <branch>]   feature: a number (002) or folder name, else the active one
+#   --from <branch>: a new branch starts from that task branch's reviewed head (a stack), not the base
 # A new branch is pushed to origin at once, so the task shows as in progress to every clone.
 # Prints: BRANCH=<name> ISSUE=<n> TASK=<id> BASE=<base>
 set -euo pipefail
 # shellcheck source=lib.sh
 source "$(dirname "$0")/lib.sh"
 
-task=""; feature=""
-for a in "$@"; do
-  case "$a" in
-    T[0-9]*) [[ -z "$task" ]] || die "usage: branch.sh [feature] T001 (exactly one task ID)"; task="$a" ;;
-    *) [[ -z "$feature" ]] || die "usage: branch.sh [feature] T001 (one feature at most)"; feature="$a" ;;
-  esac
+task=""; feature=""; parent=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --from) parent="${2:-}"; [[ -n "$parent" ]] || die "usage: branch.sh [feature] T001 --from <branch>"; shift ;;
+    T[0-9]*) [[ -z "$task" ]] || die "usage: branch.sh [feature] T001 (exactly one task ID)"; task="$1" ;;
+    *) [[ -z "$feature" ]] || die "usage: branch.sh [feature] T001 (one feature at most)"; feature="$1" ;;
+  esac; shift
 done
 [[ "$task" =~ ^T[0-9]{3,}$ ]] || die "usage: branch.sh [feature] T001 (exactly one task ID)"
 landspec_cd_root
@@ -54,8 +56,20 @@ if [[ "$(git branch --show-current)" != "$branch" ]]; then
   if git show-ref --verify --quiet "refs/heads/$branch"; then git switch --quiet "$branch"
   elif git show-ref --verify --quiet "refs/remotes/origin/$branch"; then git switch --quiet --track "origin/$branch"
   else
+    if [[ -n "$parent" ]]; then
+      # A stack starts from the parent's reviewed head, read by name (it may be checked out elsewhere).
+      git show-ref --verify --quiet "refs/heads/$parent" || die "--from $parent: no branch '$parent' in this clone"
+      why="$(bash "$(dirname "$0")/review.sh" check --branch "$parent" 2>&1 >/dev/null)" \
+        || die "--from $parent: its head has no recorded ready review ($(sed 's/^landspec: //' <<<"$why" | tail -1))"
+      from="refs/heads/$parent"
+    fi
     start="$(git branch --show-current)"; start_head="$(git rev-parse HEAD)"
     git switch --quiet --no-track -c "$branch" "$from"
+    if [[ -n "$parent" ]]; then
+      git config "branch.$branch.landspec-parent" "$parent"
+      d="$(git rev-parse --git-common-dir)/landspec-review"; mkdir -p "$d"
+      git rev-parse "$from" > "$d/parent-head-${branch//\//__}"
+    fi
     # The claim: an empty branch on origin tells every other clone's `next` this task is taken.
     # Of two clones starting the same task, only one wins: the lease refuses a branch already on
     # origin at another commit, and an up-to-date ref ("=": both claims are the same empty commit)
@@ -64,7 +78,8 @@ if [[ "$(git branch --show-current)" != "$branch" ]]; then
     if [[ $rc == 0 ]] && ! printf '%s\n' "$err" | grep -q '^='; then echo "claim: $branch pushed to origin" >&2
     elif [[ $rc == 0 ]] || git ls-remote --exit-code origin "refs/heads/$branch" >/dev/null 2>&1; then
       if [[ -n "$start" ]]; then git switch --quiet "$start"; else git switch --quiet --detach "$start_head"; fi
-      git branch --quiet -D "$branch"
+      git branch --quiet -D "$branch" # also drops its branch.<name>.* settings
+      rm -f "$(git rev-parse --git-common-dir)/landspec-review/parent-head-${branch//\//__}"
       echo "landspec: $task was claimed elsewhere ($branch is on origin)" >&2; exit 3
     else echo "landspec: warning: could not claim $branch on origin: $(tr '\n' ' ' <<<"${err:-unknown error}" | sed 's/ *$//'); other clones may start this task" >&2
     fi

@@ -392,4 +392,36 @@ check "when the author's checkout is a linked worktree, then a copy under the ma
   'out="$("$r" record "$TMP/report.md" 2>&1)" && grep -qF "removed the reviewer'"'"'s copy" <<<"$out" && [[ ! -e "$main/.claude/worktrees/agent-l" ]]'
 cd "$main"
 
+# ── Spec 004 T002: a stacked branch is diffed against its parent; any branch is read by name ──
+rm -rf "$TMP/origin.git" "$TMP/repo"; cd "$TMP"
+new_repo standard
+commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5
+- [ ] T002 Add filters in `src/filters.ts` — #6'
+P=feat/001-t001-add-search; C=feat/001-t002-add-filters
+"$SCRIPTS/branch.sh" T001 >/dev/null 2>&1
+mkdir -p .github/workflows; echo 'on: push' > .github/workflows/x.yml; git add .github; git commit --quiet -m "ci: parent change"
+printf -- '- deep: .github/workflows/x.yml — ci: read\n\n%s\nModel: claude-sonnet-4-7\n\nAssessment: ready\n' "$(range)" > "$TMP/report.md"
+"$r" record "$TMP/report.md" >/dev/null
+"$SCRIPTS/branch.sh" T002 --from "$P" >/dev/null 2>&1
+echo 'export const f = 1' > filters.ts; git add filters.ts; git commit --quiet -m "feat: filters"
+check "on a stacked branch, then review.sh risk covers only its own commit (not the parent's workflow)" \
+  '[[ "$("$r" risk)" == "RISK=none" ]]'
+printf 'Reviewed: %s..%s\nModel: claude-sonnet-4-7\n\nAssessment: ready\n' "$(git merge-base HEAD origin/develop)" "$(git rev-parse HEAD)" > "$TMP/report.md"
+check "on a stacked branch, then a report reviewed from the base's merge base is refused with the existing message" \
+  'fails_with "the report must state Reviewed: <from>..<head>" "$r" record "$TMP/report.md"'
+printf 'Reviewed: %s..%s\nModel: claude-sonnet-4-7\n\nAssessment: ready\n' "$(git merge-base HEAD "$P")" "$(git rev-parse HEAD)" > "$TMP/report.md"
+check "on a stacked branch, then a report reviewed from the merge base with the parent is recorded" \
+  '"$r" record "$TMP/report.md" 2>/dev/null | grep -q "^REVIEW=ready"'
+export SCRIPTS; id_on="$(bash -c 'source "$SCRIPTS/lib.sh"; diff_id')"; ck_on="$("$r" check 2>&1 || true)"; git switch --quiet --detach
+check "from a detached HEAD, then review.sh check --branch <b> gives the same answer as on <b>" \
+  '[[ "$("$r" check --branch "$C" 2>&1 || true)" == "$ck_on" && "$ck_on" == REVIEW=ready ]] && fails_with "no branch" "$r" check --branch feat/001-t009-none'
+check "from a detached HEAD, then diff_id <b> equals diff_id run on <b>" \
+  '[[ "$(bash -c "source \"$SCRIPTS/lib.sh\"; diff_id \"$C\"")" == "$id_on" && -n "$id_on" ]]'
+check "from a detached HEAD without --branch, then check still refuses as before" 'fails_with "detached HEAD" "$r" check'
+git switch --quiet "$P"
+git switch --quiet -c spec/001-demo origin/develop
+check "on a spec branch (pr.sh spec mode), then base_ref is the base: it never has a parent" '[[ "$(bash -c "source \"$SCRIPTS/lib.sh\"; base_ref")" == origin/develop ]]'
+git switch --quiet "$P"
+check "on the parent (no parent of its own), then base_ref is still the base" '[[ "$(bash -c "source \"$SCRIPTS/lib.sh\"; base_ref")" == origin/develop ]]'
+
 exit "$FAIL"
