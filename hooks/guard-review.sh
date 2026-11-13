@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # Claude Code PreToolUse hook (Agent, and Task on older clients). A review launch, landspec:reviewer
 # or any agent whose prompt holds the reviewer sentinel, must run on sonnet, opus or fable, passed as
-# the call's model (never the session's, which may be cheap), and in a fresh agent: a fork inherits
-# the author's context, so it is not independent. Every other launch passes untouched.
+# the call's model (never the session's, which may be cheap), in a fresh agent (a fork inherits the
+# author's context, so it is not independent), and in its own copy of the repository (isolation:
+# worktree), so it never writes to the author's checkout. Every other launch passes untouched.
+# For a review, the fork and model checks only refuse: the one exit 0 is after the isolation check.
+# The decision reads the call's fields only, never a project file.
 # Exit 2 blocks the launch; stderr tells Claude why. This is the plugin's own copy, as guard-git.sh.
 set -uo pipefail
 input="$(cat)"
@@ -23,9 +26,14 @@ if [[ "$type" == fork ]]; then
 fi
 model="$(field model)"
 case "$model" in
-  sonnet|opus|fable) exit 0 ;;
+  sonnet|opus|fable) ;;
   "") # A session that forces one subagent model decides it; the record warns.
-      if [[ -n "${CLAUDE_CODE_SUBAGENT_MODEL_FORCE:-}" ]]; then exit 0; fi
-      model="the session's model" ;;
+      if [[ -z "${CLAUDE_CODE_SUBAGENT_MODEL_FORCE:-}" ]]; then
+        echo "landspec: the review must run on sonnet, opus or fable (review_model:), not the session's model" >&2; exit 2
+      fi ;;
+  *) echo "landspec: the review must run on sonnet, opus or fable (review_model:), not $model" >&2; exit 2 ;;
 esac
-echo "landspec: the review must run on sonnet, opus or fable (review_model:), not $model" >&2; exit 2
+if [[ "$(field isolation)" != worktree ]]; then
+  echo 'landspec: the review must run in its own copy of the repository: pass isolation: "worktree" (an older landspec copy in this project? run /landspec:init; Claude Code too old to take it? update it)' >&2; exit 2
+fi
+exit 0
