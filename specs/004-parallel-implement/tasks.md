@@ -444,3 +444,154 @@ Task: "T004 Derive every task's state and the next step for each …"
    branches and PRs, restack.
 2. **MVP**: T006: the parallel run, ending with reviewed, stacked PRs and the merge order.
 3. T007 + T008: the whole-feature check, its gaps, and the default. T009: the release.
+
+## Phase 7: Convergence
+
+**Goal**: close the gaps `/speckit-converge` found between the merged T001-T010 and the spec, research
+and contracts.
+
+**Independent Test**: `tests/run.sh`, and quickstart scenarios 2, 4 and 5.
+
+- [ ] T011 [US2] Make `implement.sh status` print `PARENT=<branch>` for a `startable` task whose one unmerged dependency is `reviewed` or `pr`, so `/landspec:implement` starts it with `--from` that branch and its PR targets it, with a test, in extension/scripts/implement.sh and tests/implement.test.sh — CRITICAL, per FR-004, US2/AC1 (contradicts) — #151
+  - Comes from: FR-004, US2 scenario 1; data-model "Task state" (startable)
+  - What: in `status`'s startable pass (`implement.sh`, the loop after "No branch yet"), when a task's one
+    unmerged dependency is `reviewed` or `pr`, record that dependency's branch as the task's `PARENT`, so
+    its line reads `TASK=T002 STATE=startable … PARENT=feat/…-t001-…`; with every dependency merged it
+    stays `PARENT=-`. The skill already passes `--from <PARENT>` on START (`skills/implement/SKILL.md`,
+    START bullet); ORDER skips a task with no branch and no PR, so the value is harmless there
+  - Impact: `implement.sh` status only; `tests/implement.test.sh` (rs_setup: T002 depends on T001)
+  - Completed when: `bash tests/implement.test.sh` passes with checks: T001 reviewed, T002 depending on it
+    → `TASK=T002 STATE=startable` with `PARENT=<T001's branch>`; T001 merged → `PARENT=-`; `tests/run.sh` passes
+- [ ] T012 [US3] When every task of the feature is merged, run the whole-feature check on `origin/<base>` instead of refusing (`check-copy` now dies "no unmerged task branch in this clone to check"), once per base commit, then go on to the release, and drop the `/speckit-converge` pointer from the next skill and README, in extension/scripts/implement.sh, extension/scripts/review.sh, skills/implement/SKILL.md, skills/next/SKILL.md, README.md and tests (depends on T017) — per FR-013, FR-017, US4/AC1, SC-006 (contradicts) — #152
+  - Comes from: FR-013, FR-017 ("the whole-feature check (in place of a separate converge step)"), US4
+    scenario 1, SC-006; research R8
+  - What: `check-copy` with every task merged makes the check copy detached at `origin/<base>` (no
+    merges) and prints `CHECK=<path> ROUND=<n> FROM=<sha>`, where `FROM` is the first parent of the
+    merge commit of the feature's earliest merged task PR (read from the same `gh pr list --state all
+    … mergeCommit,mergedAt` as `release-plan`), so the feature review's facts carry `base: <FROM>` and
+    `git diff <FROM>...<check ref>` is the feature's whole change; `review.sh record --feature` already accepts
+    `Reviewed: <FROM>..<check ref sha>` (it compares only the right side: no change there, a test
+    only). "Every task merged" means every `TASK=` line of `status` is `STATE=merged` (not an empty
+    ORDER, which also leaves out unstarted tasks). It prints `CHECKED=<origin/<base> sha>` and makes
+    nothing when the feature record (`landspec-review/feature-<name>`, kept after `record --feature`
+    removes the round file) has `state:` that sha and `assessment: ready` and no round file says
+    `outcome=red` for it; a new base commit is a new combination. The skill runs `release-plan` first
+    and this check only on `RELEASE=bump` or `RELEASE=none`, never on `pending`, `tag`, `publish` or
+    `done` (so the release PR's own bump commit is not checked again). The feature review's facts say
+    the diff from `FROM` may hold unrelated commits merged meanwhile, and the reviewer judges only the
+    feature's FRs and files. Green and `ready` → the release; red, or a `not met` line → each becomes a gap task
+    through a spec PR (step 5 of the whole-feature check), with no release, since there is no task
+    branch to fix. The next skill's done branch and README stop sending the developer to
+    `/speckit-converge`. The copy is removed with `check-copy --remove` as today
+  - Impact: `implement.sh` check-copy (the `no unmerged task branch` die, the round file's `combo=`),
+    `review.sh` (no change: its `record --feature` range test), `skills/implement/SKILL.md` ("The whole-feature
+    check" red step and its precondition, "The release" precondition), `skills/next/SKILL.md`
+    (IN_PROGRESS=0 branch), `README.md` (the converge sentence after the loop table),
+    `docs/reference.md` (the whole-feature check paragraph); `tests/implement.test.sh` (check-copy
+    cases), `tests/review.test.sh` or wherever `record --feature` is tested, `tests/static.test.sh`
+    (T010's next/README pin)
+  - Completed when: `bash tests/implement.test.sh` passes with checks: every task issue closed →
+    `check-copy` prints `CHECK=` at origin/main's commit, `ROUND=1`, `FROM=<the parent of the first
+    task PR's merge commit>`; after `check-result green` and `review.sh record --feature` of a `ready`
+    report (the round file then gone) → `CHECKED=<sha>`, no copy; main moves → `CHECK=` again; one
+    task unstarted, the others merged → no all-merged check (the die or the normal path, as today); `record --feature` accepts a report with
+    `Reviewed: <FROM>..<check ref>`; `tests/static.test.sh` pins the red → gap task rule, the check only on `RELEASE=bump|none`, and that the
+    next skill no longer names `/speckit-converge` for a merged feature; `tests/run.sh` passes
+- [ ] T013 [US1] Say what each waiting or locked task needs: `REASON=waits for Tnnn` or `REASON=merge Tnnn or Tmmm first` on `waiting` lines, and `git worktree unlock <path>` in the run report for a `locked worktree`, in extension/scripts/implement.sh, skills/implement/SKILL.md and tests (depends on T011) — per US2/AC4, FR-007, T004 (partial) — #153
+  - Comes from: US2 scenario 4, edge case "two open PRs", FR-007; T004 (locked worktree)
+  - What: `status` sets, on a `waiting` line: `REASON=waits for Tnnn` naming the first dependency that
+    is not `reviewed`, `pr` or `merged` (this wins whenever there is one); else, with two or more
+    unmerged `reviewed`/`pr` dependencies, `REASON=merge Tnnn or Tmmm first`. The run report
+    (`skills/implement/SKILL.md`, "## End") prints each `waiting` task with its reason, and for
+    `REASON=locked worktree <path>` (already printed by `status`) the lines `git worktree unlock
+    <path>`, then `git worktree remove <path>`
+  - Impact: `implement.sh` status (the `put ST "$t" waiting` line, next to T011's change);
+    `skills/implement/SKILL.md` End; `tests/implement.test.sh`, `tests/static.test.sh`
+  - Completed when: `bash tests/implement.test.sh` passes with checks: T002 depending on an unstarted
+    T001 → `REASON=waits for T001`; a task depending on two reviewed tasks → `REASON=merge T001 or T002
+    first`; one unstarted and one reviewed dependency → `waits for` the unstarted one;
+    `tests/static.test.sh` pins `git worktree unlock` in End; `tests/run.sh` passes
+- [ ] T014 [US4] Make `implement.sh audit-record` refuse a commit that is not on `origin/<base>`, and align contracts/implement-sh.md's audit-plan line with the merged `AUDIT=needed|done|hold`, in extension/scripts/implement.sh, specs/004-parallel-implement/contracts/implement-sh.md and tests/implement.test.sh — per T010 (partial) — #154
+  - Comes from: T010's "Completed when" (`audit-record` on a commit that is not on origin's base
+    refuses); contracts/implement-sh.md (audit-plan)
+  - What: after its argument checks, `audit-record` fetches the base and refuses a commit that is not
+    an ancestor of `origin/<base>` (`landspec: <sha> is not on origin/<base>`), writing nothing. The
+    merged `AUDIT=needed|done|hold` stays (the skill and tests use it, not T010's `run|reuse`); the
+    contract line 43 gains those three states, as `audit-plan` prints them
+  - Impact: `implement.sh` audit-record; `contracts/implement-sh.md:43`; `tests/implement.test.sh`
+    (the T010 audit cases)
+  - Completed when: `bash tests/implement.test.sh` passes with a check: a commit on a side branch, not on
+    origin/main → refused, the audit record unchanged; `grep -F "AUDIT=needed" contracts/implement-sh.md`
+    finds the line; `tests/run.sh` passes
+- [ ] T015 [US1] Apply research R7's limits: only implementers take `parallel_tasks:` slots, while every in-flight task (reviewers too) is still kept from `restack`, and a task whose tests stay red after its implementer said it was done twice is `failed`, in skills/implement/SKILL.md, extension/scripts/implement.sh, docs/reference.md and tests — per research R7 (contradicts) — #155
+  - Comes from: research R7
+  - What: the skill passes only the implementers in flight to `status --running`, and every task in
+    flight (implementers and reviewers) to `restack --running`, so a stacked task under review is never
+    rebased mid-review; a task under review is kept from a second review by the skill's own list. When
+    an implementer returns done, the main session runs the test command in the task's copy: red →
+    `I mark <task> red`, which adds 1 to `red=` in the task record and leaves `phase`, `head` and
+    `round` as they are (kept across sessions, as `round=` is); at 2, `I fail <task> "tests red twice"`;
+    green → `I mark <task> implemented` as today, which also resets `red=`. `retry` and the "failure
+    lifted by a new commit" path of `mark` clear `red=` with `failed=` and `round=`. `docs/reference.md`'s `parallel_tasks` row says reviewers take no slot
+  - Impact: `skills/implement/SKILL.md` (the in-flight list, step 1-2, "When an implementer returns");
+    `implement.sh` mark (a `red` phase) and its usage line; `docs/reference.md:233`;
+    `tests/implement.test.sh`, `tests/static.test.sh`
+  - Completed when: `bash tests/implement.test.sh` passes with checks: `mark T001 red` twice → `red=2`
+    in the record with `phase=` unchanged (`status` still shows `implemented`); `mark T001 implemented`
+    → no `red=`; `retry T001` → no `red=`; `restack --running T001` skips T001 as running; `tests/static.test.sh` pins
+    implementers-only `status --running`, all in flight for `restack --running`, and the red-twice
+    fail; `tests/run.sh` passes
+- [ ] T016 [US4] Without `release_notes:`, publish the notes landspec wrote in the release PR's body (its text before `## Evidence` or `## Review`) instead of `--generate-notes`, in extension/scripts/implement.sh, skills/implement/SKILL.md and tests (depends on T017) — per US4/AC2, T009 (partial) — #156
+  - Comes from: US4 scenario 2 ("publishes the release with its notes"); T009
+  - What: `release-plan` prints `RELEASE=publish V NOTES=pr:<n>` without `release_notes:`, `<n>` the
+    merged PR titled exactly `chore(release): V` it already finds; the skill then `gh pr view <n>
+    --json body -q .body`, keeps the text before the first `## Evidence` or `## Review` line,
+    whichever comes first (the notes: the skill writes the release PR's body notes first, then those
+    sections; `pr.sh fix` adds the review details after them), writes it to a `mktemp` file and `gh
+    release create vV --title "<project> V" --notes-file <file>`
+  - Impact: `implement.sh` release-plan (the publish line); `skills/implement/SKILL.md` ("The
+    release", publish and bump bullets); `tests/implement.test.sh` (the `NOTES=-` publish case),
+    `tests/static.test.sh` (T009's publish pin, which today expects `--generate-notes`)
+  - Completed when: `bash tests/implement.test.sh` passes with a check: tagged, no release, no
+    `release_notes:` → `RELEASE=publish 1.4.2 NOTES=pr:21`; `tests/static.test.sh` pins the notes-first body,
+    the cut at the first `## Evidence` or `## Review`, and no `--generate-notes`; `tests/run.sh` passes
+- [ ] T017 [US4] Make `release-plan` read the feature's `tasks.md` from `origin/<base>` (the open-issue refusal and the patch rule), as `status` does, with a test for a stale checkout, in extension/scripts/implement.sh and tests/implement.test.sh — per FR-013, T009 (partial) — #157
+  - Comes from: FR-013, T009 ("when every task issue of the feature is closed")
+  - What: `release-plan` reads the task lines from `git show origin/<base>:<feature dir>/tasks.md`
+    (after its fetch), for the open-issue refusal and the patch rule, as `status` does
+  - Impact: `implement.sh` release-plan (its two `"$fdir/tasks.md"` reads); `tests/implement.test.sh`
+  - Completed when: `bash tests/implement.test.sh` passes with a check: a task line added on
+    origin/main with an open issue, the checkout not updated → `release-plan` refuses naming it;
+    `tests/run.sh` passes
+- [ ] T018 [US1] Without `worktree_setup:`, the implementer prepares its own copy from the project's README and reports `Failed: setup:` for a task it could not prepare, in agents/implementer.md and tests/static.test.sh — per the edge case "files git does not track", research R2 (partial) — #158
+  - Comes from: edge case "files git does not track"; research R2
+  - What: `agents/implementer.md` step 2 gains: without `worktree_setup:`, the implementer prepares its
+    own copy (never the developer's checkout) as the project's README says (install dependencies);
+    if it still cannot run the test command there, it returns `Failed: setup: <what is missing>` and stops
+  - Impact: `agents/implementer.md`; `tests/static.test.sh` (the implementer pins)
+  - Completed when: `tests/static.test.sh` pins the README fallback in its own copy and `Failed:
+    setup:`; `tests/run.sh` passes
+- [ ] T019 [US4] Finish the audit's skill text as T010 says: the main session runs `/code-review high` and `/security-review` for the unattended audit, with an unavailable one named in the report's coverage; with `HOLD=0`, the notes' "Known issues" by repository visibility; missing scanners named in the final message, in skills/implement/SKILL.md, skills/security/SKILL.md and tests/static.test.sh (depends on T013, T016) — per T010, FR-017 (missing) — #159
+  - Comes from: T010's "What" (#136)
+  - What: in "The audit before the bump", the main session runs `/code-review high` and
+    `/security-review` in the run's worktree at the audited commit and gives their output to the audit
+    subagent (the security skill's Unattended section says it takes them from its prompt, and names one
+    that was not available in the report's coverage, as a missing scanner is). The report's findings
+    table carries severity and `confirmed`/`plausible` per row (step 6); with `HOLD=0` the main session
+    copies from it into the release notes' "Known issues": on a public repository (`gh repo view --json
+    visibility -q .visibility`; a failed call stops the step) only a count per severity and a neutral
+    category; on a private one each confirmed Medium or Low and each plausible finding with its title
+    and category; never an exploit detail. The final message names the missing scanners; they do not
+    hold the release
+  - Impact: `skills/implement/SKILL.md` ("The audit before the bump", the bump notes, End);
+    `skills/security/SKILL.md` (Unattended, step 6's table); `docs/reference.md` (the audit
+    paragraph); `tests/static.test.sh` (the T010 pins)
+  - Completed when: `tests/static.test.sh` pins the main session running `/code-review high` and
+    `/security-review`, "Known issues" with the visibility rule for both kinds of repository, no
+    exploit detail, and missing scanners in End; `tests/run.sh` passes
+
+## Dependencies (Phase 7)
+
+- T011, T014, T017 and T018 can start at once. T013 after T011 (the same block of `status`); T012 and
+  T016 after T017 (`release-plan`, then the skill's release text); T019 after T013 and T016 (the End
+  and release sections). T015 alone edits the in-flight list; it rebases on whichever lands first in the skill.
