@@ -62,7 +62,8 @@ case "$mode" in
       [[ -n "$branch" ]] && ! is_protected "$branch" \
         || die "on '${branch:-a detached HEAD}': a PR comes from its own branch (git switch -c fix/<slug>), never a base branch"
     fi
-    [[ -z "$(git status --porcelain)" ]] || die "uncommitted changes; commit the work first"
+    # A reviewer's copy (Claude Code puts it under .claude/worktrees) is not the author's work.
+    [[ -z "$(git status --porcelain -- . ':(exclude).claude/worktrees')" ]] || die "uncommitted changes; commit the work first"
     git fetch --quiet origin "$base" 2>/dev/null || true
     [[ -n "$(git log --oneline "origin/$base..HEAD" 2>/dev/null || git log --oneline -1)" ]] || die "no commits ahead of $base"
 

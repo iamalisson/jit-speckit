@@ -23,6 +23,10 @@ check "when not on the task's branch, then it refuses" 'fails_with "not on T001"
 echo 'export const search = 1' > search.ts
 check "when there are uncommitted changes, then it refuses" 'fails_with "uncommitted" "$p" task T001 "feat: add search"'
 git add search.ts; git commit --quiet -m "feat(search): add search"
+mkdir -p .claude/worktrees/agent-x; echo x > .claude/worktrees/agent-x/f
+check "when only an untracked .claude/worktrees/agent-x/ folder is there, then it does not refuse for uncommitted changes" \
+  'out="$("$p" task T001 "feat: add search" 2>&1 || true)"; [[ "$out" != *uncommitted* ]]'
+rm -rf .claude
 
 printf 'Adds search.\n\n## Review\n\nready: no findings\n\n## Evidence\n\n`npm test` passed\n' > "$TMP/body.md"
 printf 'Adds search.\n\n## Evidence\n\n`npm test` passed\n' > "$TMP/unreviewed.md"
