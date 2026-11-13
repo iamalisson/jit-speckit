@@ -68,6 +68,20 @@ the head it starts from, and refuses a fix that grew past 20 lines outside the p
 a rebase, or a range that is not the delta's. Each report states the range and model it reviewed,
 so a commit made while the review ran is never recorded as reviewed.
 
+## Parallel tasks, stacked PRs
+
+`/landspec:implement` runs every task that can start at once, each in its own copy, so a feature
+takes the time of its longest chain of dependent tasks, not the sum of all of them. A task that
+depends on one still unmerged starts on that task's branch and its PR is a draft into it: each PR
+still shows only its own task's work and is reviewed alone, and GitHub cannot merge the child before
+its parent. Once the parent merges, `restack` moves the child onto the base, and the review it
+already has still counts unless the move changed its diff.
+
+The main session starts every agent: implementers and reviewers are its background agents, and none
+starts another. Only the main session can watch them all, keep the review independent (the agent
+that wrote a branch never picks its reviewer), and wait for every one of them before it stops.
+Agents that start agents would leave work that nobody watches.
+
 ## Levels instead of one setup
 
 A prototype and a payment service do not need the same ceremony, and a checklist that is too

@@ -20,7 +20,7 @@ question needs:
 
 1. **No argument**: show a short overview.
    - The loop: what you run once per feature, and what you run once per task.
-   - The commands in one table: `/landspec:new`, `init`, `adopt`, `level`, `next`,
+   - The commands in one table: `/landspec:new`, `init`, `adopt`, `level`, `next`, `implement`,
      `security`, `report`, `remove`, `help`, and the spec-kit commands they hook into.
    - The levels in one line each.
    - The config keys in `.specify/extensions/landspec/landspec-config.yml`.
