@@ -314,5 +314,58 @@ check "when stack T003 T002 runs, then T003's diff against T002 holds only its o
   'grep -q "^RESTACKED=T003" <<<"$out" && [[ "$(own "$B3" "refs/heads/$B2")" == c && "$(git config --get "branch.$B3.landspec-parent")" == "$B2" ]] && run_ok "$B3"'
 check "then a second stack refuses" 'fails_with "already stacked" "$I" stack T003 T001'
 
+# ── Spec 004 T007: the whole-feature check copy, its rounds, and the feature review ──
+cc() { out="$("$I" check-copy "$@" 2>&1)" || true; }
+fname() { basename "$(ls -d specs/*/ | head -1)"; }
+CW() { echo "$(cd "$TMP" && pwd -P)/repo-001-check"; } # as git prints it (macOS: /private/var)
+# frep <lines>: a feature review of the current check ref, with those item lines.
+frep() {
+  c="$(git rev-parse "refs/landspec/check/$(fname)")"
+  printf '%b\nCopy: none (test)\nReviewed: %s..%s\nModel: claude-sonnet-4-7\n\nAssessment: ready\n' "$1" "$(git merge-base "$c" origin/main)" "$c" > "$TMP/f.md"
+  "$SCRIPTS/review.sh" record --feature "$TMP/f.md" 2>&1
+}
+rnd() { sed -n 's/^round=//p' ".git/landspec-review/feature-$(fname)-round" 2>/dev/null; }
+
+rs_setup
+mkb "$B1" origin/main a; mkb "$B2" origin/main b; mkb "$B3" origin/main c; cc
+check "when three task branches merge cleanly, then check-copy prints CHECK= and the ref holds all three files" \
+  'grep -q "^CHECK=$(CW) ROUND=1$" <<<"$out" && for f in a b c; do git cat-file -e "refs/landspec/check/$(fname):$f" || exit 1; done \
+   && [[ "$(git rev-parse HEAD)" == "$DEV" && "$(git branch --show-current)" == main && -z "$(git status --porcelain --untracked-files=no)" ]]'
+cc
+check "when check-copy runs again on the same heads with no result, then UNCHANGED=1 and round stays 1" '[[ "$out" == UNCHANGED=1 && "$(rnd)" == 1 ]]'
+cc --remove
+check "when check-copy --remove runs, then the copy and the ref are gone" '[[ -z "$out" && ! -d "$(CW)" ]] && ! git show-ref --quiet "refs/landspec/check/$(fname)"'
+cc --remove
+check "then a second --remove is silent" '[[ -z "$out" ]]'
+"$I" check-result red >/dev/null; cc
+check "when the same heads as the last red attempt are checked, then UNCHANGED= and no copy is made" '[[ "$out" == UNCHANGED=1 && ! -d "$(CW)" ]]'
+edit "$B3" c 's/l1/F1/'; cc
+check "when a fix commit makes new heads, then round goes up" 'grep -q "^CHECK=.* ROUND=2$" <<<"$out" && [[ "$(rnd)" == 2 ]]'
+"$I" check-result red >/dev/null; edit "$B3" c 's/l2/F2/'; cc; "$I" check-result green >/dev/null
+out="$(frep '- met: FR-001 — a\n- not verifiable: SC-001 — needs a timed run')"
+check "when a feature review has only met and not verifiable lines, then it records ready" 'grep -qx "REVIEW=ready" <<<"$out"'
+check "then a ready review after a green run resets the round counter" '[[ -z "$(rnd)" ]]'
+edit "$B3" c 's/l3/F3/'; cc; "$I" check-result red >/dev/null
+out="$(frep '- met: FR-001 — a')"
+check "when a ready feature review follows a red run, then the round counter is kept" 'grep -qx "REVIEW=ready" <<<"$out" && [[ "$(rnd)" == 1 ]]'
+out="$(frep '- met: FR-001 — a\n- not met: FR-002 — nothing does it')"
+check "when a feature review has a not met line, then it records changes needed, whatever its last line says" 'grep -qx "REVIEW=changes needed" <<<"$out"'
+check "when record --feature is given with --plan, then it is refused" 'fails_with "a feature review is recorded alone" "$SCRIPTS/review.sh" record --feature --plan "$TMP/f.md"'
+echo "feature_rounds: 2" >> .specify/extensions/landspec/landspec-config.yml
+edit "$B3" c 's/l4/F4/'; cc; "$I" check-result red >/dev/null; cc --remove; edit "$B3" c 's/l5/F5/'; cc
+check "when feature_rounds is 2, then the third attempt on new heads prints ROUNDS_EXHAUSTED=2 and makes no copy" '[[ "$out" == ROUNDS_EXHAUSTED=2 && ! -d "$(CW)" ]]'
+
+# A conflict: two unstacked branches edit the same line.
+rs_setup
+git -C "$TMP/w" switch --quiet --detach origin/main; printf 'l1\nl2\nl3\n' > "$TMP/w/s"; git -C "$TMP/w" add s; git -C "$TMP/w" commit --quiet -m s
+git -C "$TMP/w" push --quiet origin HEAD:refs/heads/main; git -C "$TMP/w" switch --quiet --detach; git fetch --quiet origin
+mkb "$B1" origin/main a; edit "$B1" s 's/l1/A1/'; mkb "$B2" origin/main b; edit "$B2" s 's/l1/B1/'; cc
+check "when two unstacked branches edit the same line, then CONFLICT names the later, the earlier and the file, with no merge left in progress" \
+  '[[ "$out" == "CONFLICT=T002 WITH=T001 FILES=s" ]] && ! git -C "$(CW)" rev-parse -q --verify MERGE_HEAD >/dev/null'
+check "then the conflict counts as an attempt" '[[ "$(rnd)" == 1 ]] && grep -qx "outcome=conflict" ".git/landspec-review/feature-$(fname)-round"'
+edit "$B2" s 's/B1/l1/; s/l3/B3/'; out="$("$I" stack T002 T001 2>&1)" || true; cc
+check "after a fix commit on the later one and stack T002 T001, then check-copy prints CHECK=" 'grep -q "^CHECK=.* ROUND=2$" <<<"$out"'
+cc --remove
+
 check "then the current HEAD is the same after every call" '[[ ! -e "$TMP/head.moved" ]]'
 exit "$FAIL"
