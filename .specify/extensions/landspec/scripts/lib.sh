@@ -342,3 +342,18 @@ pr_skips_base() { # pr_skips_base <workflow> [<branch>]: its pull_request filter
     if [[ "$b" == $p ]]; then return 1; fi
   done <<<"$list"
 }
+
+# closed_issues <feature dir>: " n1 n2 " the closed issues among its tasks' (fails with gh's error).
+# One API call per feature, by issue number, so a renamed issue still counts. None when no task
+# has an issue (an empty repository { } is an invalid query).
+# shortcut: one query per feature, fine for hundreds of tasks; split into batches of ~100 if a feature ever nears GitHub's 10 s timeout
+closed_issues() {
+  local nums q="" i out
+  nums="$(sed -nE '/^- \[.\] T[0-9]{3,} /s/.* — #([0-9]+)[[:space:]]*$/\1/p' "$1/tasks.md" | sort -u)"
+  [[ -n "$nums" ]] || { echo " "; return 0; }
+  for i in $nums; do q+="i$i: issue(number: $i) { number state } "; done
+  out="$(gh api graphql -F owner='{owner}' -F name='{repo}' \
+    -f query="query(\$owner: String!, \$name: String!) { repository(owner: \$owner, name: \$name) { $q} }" \
+    --jq '.data.repository[] | select(.state == "CLOSED") | .number')" || return 1
+  echo " $(tr '\n' ' ' <<<"$out") "
+}
