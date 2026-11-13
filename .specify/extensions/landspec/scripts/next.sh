@@ -94,11 +94,15 @@ scan "$fdir" true
 # The worktree is origin's base, so a task of an unmerged spec PR has no line: it could not start.
 num="$(feature_key "$fdir")"
 on_base="$(git show "origin/$(base_branch):$fdir/tasks.md" 2>/dev/null || true)"
+can=0; [[ -z "$NEXT_ID" ]] || can=1
 for id in $PAR; do
   [[ "$id" != "$NEXT_ID" ]] || continue
   [[ "$(task_issue "$(grep -m1 -E "^- \[.\] $id " <<<"$on_base" || true)")" == "$(task_issue "$(task_line "$fdir" "$id")")" ]] || continue
   wt="$(printf %q "$PWD-$num-$(tr '[:upper:]' '[:lower:]' <<<"$id")")"
   echo "parallel $id (git worktree add --quiet --detach $wt origin/$(base_branch) && cd $wt && bash .specify/extensions/landspec/scripts/branch.sh $num $id)"
+  can=$((can + 1))
 done
+# Two or more tasks can start: the whole feature runs in parallel with /landspec:implement.
+if ((can >= 2)); then echo "RUN=/landspec:implement $num"; fi
 echo "FEATURE=$num"
 echo "DONE=$DONE_N/$TOTAL IN_PROGRESS=$BUSY NEXT=$NEXT_ID"

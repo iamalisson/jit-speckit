@@ -94,9 +94,9 @@ branches start there. What `new` asks and sets up: [docs/reference.md](docs/refe
 | | `/speckit-tasks` | the task list, grounded in the real code, **one issue per task**, and a spec PR |
 | | *(optional)* `/speckit-analyze` | a consistency check (required on `full`) |
 | | merge the spec PR | |
-| **Once per task** | `/landspec:next` | progress, then the next open task: **its branch → code → checks (tests, mutants) → review → PR**. Several features? `next 002` |
-| | merge the PR | the issue closes |
-| *(or, once per feature)* | `/landspec:implement` | every startable task at once, each in its own copy, through the same review and PR; a task that depends on another is stacked on its PR. You merge the PRs in the order it prints |
+| **Then, once per feature** | `/landspec:implement` | every startable task at once, each in its own copy: **its branch → code → checks (tests, mutants) → review → PR**; a task that depends on another is stacked on its PR. Then all of them checked together against the suite and the spec, and any gap filed as a new task |
+| | merge the PRs, in the order it prints | the issues close; run it again for what is left |
+| *(or, once per task)* | `/landspec:next` | progress, then the next open task, the same way, one at a time; it offers `/landspec:implement` when two or more can start. Several features? `next 002` |
 | **When every task is done** | `/speckit-converge` | compares the code with the spec; anything unbuilt becomes new tasks with issues |
 
 **Small fixes don't need the feature loop.** A typo, a one-line bug fix or a dependency bump

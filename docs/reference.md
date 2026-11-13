@@ -119,7 +119,13 @@ later task on the earlier one for its fix round; a red run gets a fix round on t
 test covers. After a green run, a reviewer in **feature review** mode reads the spec against the
 combined diff and reports each FR, scenario and SC as `met`, `not met` or `not verifiable`
 (`review.sh record --feature`). `check-copy` counts attempts (`feature_rounds:`), refuses a combination
-it already saw fail (`UNCHANGED=`), and waits while the feature has an open spec PR.
+it already saw fail (`UNCHANGED=`), and waits while the feature has an open spec PR. Each `not met` item
+becomes a new task, appended to `tasks.md` through a new spec PR (plan review, issues, `pr.sh spec`) in
+the run's worktree, before anything is merged; gap tasks are ordinary tasks, started from the base by
+the next run once that spec PR is merged.
+
+`/landspec:implement` is the default after `/speckit-tasks`: the spec PR's last line names it, and
+`next.sh` prints `RUN=/landspec:implement <feature>` before `FEATURE=` when two or more tasks can start.
 
 Merge stacked PRs **parents first**. Once a parent's PR is merged, `implement.sh [feature] restack` moves
 each stacked branch, in `ORDER`, onto the base (or onto its next unmerged ancestor), and a child whose

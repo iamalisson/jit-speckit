@@ -1,6 +1,6 @@
 ---
 name: next
-description: "Show a spec-kit feature's progress (a task is done when its issue is closed) and start the next open task with /speckit-implement; with several features, asks which. Use when the user asks what's next or has just merged a task PR."
+description: "Show a spec-kit feature's progress (a task is done when its issue is closed) and start the next open task with /speckit-implement, or, when two or more can start, offer /landspec:implement for the whole feature; with several features, asks which. Use when the user asks what's next or has just merged a task PR."
 argument-hint: "[feature]"
 ---
 
@@ -36,6 +36,9 @@ argument-hint: "[feature]"
      suggest `/landspec:security` before the next release, and `/speckit-specify` for the
      next feature. Stop.
 3. Make sure the working tree is clean. If it isn't, stop and say so; never stash or discard.
+   - If it printed `RUN=/landspec:implement <feature>`, two or more tasks can start: ask once "Run
+     the whole feature with `/landspec:implement <feature>` (every startable task in parallel, each
+     through review and PR)?" On yes, run that command, and stop here. On no, go on with step 4.
 4. If it printed `parallel` lines, those `[P]` tasks can start now beside NEXT. Ask once: "Also
    start <ids> in their own worktrees?" On yes, run each line exactly as printed, one at a time,
    never two at once: each makes a worktree beside the repository (`<repo>-<feature>-<task>`) and

@@ -308,8 +308,19 @@ check "then a missing Copy: is recreated detached beside the repository" 'grep -
 check "then a fix round without SendMessage launches a new implementer on the branch" 'grep -qF "if SendMessage is not available, or the" <<<"$im" && grep -qF "launch a new implementer as in \`START\`, on the existing branch" <<<"$im"'
 check "then a failed worktree_setup fails the task with its output" 'grep -qF "I fail <task> \"worktree_setup: <its output>\"" <<<"$im"'
 check "then branch.sh exit 3 makes the task elsewhere and the next one starts" 'grep -qF "\`branch.sh\` exit 3" <<<"$im" && grep -qF "the task is \`elsewhere\`" <<<"$im"'
-check "then, until gaps are filed as tasks, it ends pointing to /speckit-converge" \
-  'grep -qF "filing the gaps as tasks is not built yet: add" <<<"$im"'
+check "then no \"not built yet\" line is left: the gaps are filed" '! grep -qF "not built yet" skills/implement/SKILL.md'
+gp="$(sed -n "/^5\. \*\*The gaps\*\*/,/^## /p" skills/implement/SKILL.md)"
+check "then each not met becomes a task through pr.sh spec, in the run worktree, which is detached last" \
+  'grep -qF "<repo>-<feature>-run" <<<"$gp" && grep -qF "pr.sh spec" <<<"$gp" && grep -qF "issues.sh" <<<"$gp" && grep -qF "review.sh record --plan" <<<"$gp" \
+   && [[ "$(grep -n "pr.sh spec" <<<"$gp" | head -1 | cut -d: -f1)" -lt "$(grep -n "git switch --detach\` there, last" <<<"$gp" | cut -d: -f1)" ]]'
+check "then a spec branch checked out elsewhere is SKIPPED=, and the check never runs with an open spec PR" \
+  'grep -qF "SKIPPED=spec/<feature dir name> (checked out in <path>)" <<<"$gp" && grep -qF "SPEC_PR=<url>" <<<"$im" && grep -qF "skip the" <<<"$im"'
+check "then, when gaps were filed, the report ends with the merge … then run again line" \
+  'grep -qF "Last line, when gaps were filed: \`merge the PRs in ORDER and <spec PR>, then run /landspec:implement" <<<"$im"'
+check "when issues.md ends, then step 6 names /landspec:implement for the whole feature" \
+  'grep -qF "merge it, then run \`/landspec:implement\`" extension/commands/issues.md'
+check "when next.sh prints RUN=, then the next skill offers /landspec:implement" \
+  'grep -qF "If it printed \`RUN=/landspec:implement <feature>\`" skills/next/SKILL.md && grep -qF "/landspec:implement" <<<"$(sed -n 3p skills/next/SKILL.md)"'
 rv="$(cat extension/commands/review.md)"
 check "when review.md describes the feature review, then it has the three line kinds and record --feature" \
   'for k in "- met: " "- not met: " "- not verifiable: "; do grep -qF -- "$k" <<<"$rv" || exit 1; done; grep -qF "record --feature <file>" <<<"$rv" && grep -qF "only when no line is \`not met\`" <<<"$rv"'
