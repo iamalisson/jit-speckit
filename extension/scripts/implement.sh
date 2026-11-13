@@ -9,6 +9,12 @@
 #   implement.sh [feature] mark <task> implemented|changes|ready|pr [<report>]
 #   implement.sh [feature] fail <task> <reason>
 #   implement.sh [feature] retry <task>
+#   implement.sh [feature] restack [--running T001,T002]
+#       Moves each stacked branch, parents first, in the run's worktree <repo>-<feature>-run: onto the
+#       base once its parent's PR is merged, onto its parent's new head when the parent moved. Prints
+#       RESTACKED=<task> REVIEW=kept|needed|none, RESTACK_SKIPPED=<task> (<why>), RESTACK_CONFLICT=<task>,
+#       RESTACK_NOT_READY=<task>, and RETARGETED=<task> for a PR a failed `gh pr edit` left on its old base.
+#   implement.sh [feature] stack <task> <onto-task>   the same move, onto another task's branch
 # The record is <git common dir>/landspec-run/<feature>/<task>: phase=, head=, round=, report=, failed=.
 set -euo pipefail
 # shellcheck source=lib.sh
@@ -16,7 +22,7 @@ source "$(dirname "$0")/lib.sh"
 landspec_cd_root
 
 feature=""
-case "${1:-}" in status|mark|fail|retry|"") ;; *) feature="$1"; shift ;; esac
+case "${1:-}" in status|mark|fail|retry|restack|stack|"") ;; *) feature="$1"; shift ;; esac
 action="${1:-}"; shift || true
 if [[ -n "$feature" ]]; then fdir="$(resolve_feature "$feature")"; else fdir="$(feature_dir)"; fi
 [[ -f "$fdir/tasks.md" ]] || die "$fdir/tasks.md not found; run /speckit-tasks first"
@@ -37,6 +43,69 @@ write_rec() {
   for k in "$@"; do grep -v "^${k%%=*}=" "$f" > "$f.tmp" || true; echo "$k" >> "$f.tmp"; mv "$f.tmp" "$f"; done
 }
 valid_task() { [[ "$1" =~ ^T[0-9]{3,}$ && -n "$(task_line "$fdir" "$1")" ]] || die "$1 is not a task of $fdir"; }
+
+# run_wt: the run's worktree, detached at origin/<base>, made when missing; restack works only there.
+run_wt() {
+  local main w; main="$(git worktree list --porcelain | sed -n '1s/^worktree //p')"; w="$main-$num-run"
+  if ! git -C "$w" rev-parse --git-dir >/dev/null 2>&1; then
+    git worktree add --quiet --detach "$w" "origin/$(base_branch)" || die "cannot make the run's worktree $w"
+  fi
+  echo "$w"
+}
+# all_prs: "<n>\t<head branch>\t<head sha>\t<base branch>\t<draft>\t<state>" for every PR.
+all_prs() {
+  gh pr list --state all --limit 500 --json number,headRefName,headRefOid,baseRefName,isDraft,state \
+    --jq '.[] | [.number, .headRefName, .headRefOid, .baseRefName, .isDraft, .state] | @tsv'
+}
+# why_not <task> <branch> <status line> <PR line|"">: why that branch must not be moved now, or nothing.
+why_not() {
+  local wt; wt="$(git worktree list --porcelain | awk -v b="refs/heads/$2" '/^worktree / { p = substr($0, 10) } $0 == "branch " b { print p; exit }')"
+  if [[ -n "$wt" ]]; then echo "checked out in $wt"
+  elif [[ "$3" == *" STATE=running"* ]]; then echo running
+  elif ! git show-ref --verify --quiet "refs/remotes/origin/$2"; then echo "not on origin"
+  elif [[ -n "$4" && "$(cut -f3 <<<"$4")" != "$(git rev-parse "refs/remotes/origin/$2")" ]]; then echo "origin moved"
+  elif [[ -n "$(git rev-list "refs/heads/$2..refs/remotes/origin/$2")" ]]; then echo "behind origin"
+  elif [[ -n "$(git rev-list "refs/remotes/origin/$2..refs/heads/$2")" ]]; then echo "local commits not on origin"
+  fi
+}
+# retarget <task> <branch> <PR> <new base>: a PR a failed `gh pr edit` left on its old base.
+retarget() {
+  gh pr edit "$3" --base "$4" >/dev/null || die "could not move PR #$3 onto $4; fix gh's error above, then run restack again"
+  if [[ "$4" == "$(base_branch)" ]] && bash "$(dirname "$0")/review.sh" check --branch "$2" >/dev/null 2>&1 \
+    && ! gh pr ready "$3" >/dev/null; then echo "RESTACK_NOT_READY=$1"; fi
+  echo "RETARGETED=$1"
+}
+# move <task> <branch> <onto ref> <upstream> <new parent|""> <PR number|-> <new base name>:
+# rebase <branch> --onto <onto ref> from <upstream> in the run's worktree, push it with a lease on the
+# origin head this run fetched, and carry the parent setting, parent-head, record, review and PR along.
+move() {
+  local t="$1" b="$2" onto="$3" up="$4" np="$5" pr="$6" nb="$7" w old oh new had=false oid="" rv=none ph
+  w="$(run_wt)"; old="$(git rev-parse "refs/heads/$b")"; oh="$(git rev-parse "refs/remotes/origin/$b")"
+  if bash "$(dirname "$0")/review.sh" check --branch "$b" >/dev/null 2>&1; then had=true; oid="$(diff_id "$b")"; fi
+  git -C "$w" switch --quiet --detach "$old"
+  if ! git -C "$w" rebase --quiet --onto "$onto" "$up" >/dev/null 2>&1; then
+    git -C "$w" rebase --abort >/dev/null 2>&1 || true
+    git -C "$w" switch --quiet --detach "origin/$base"; echo "RESTACK_CONFLICT=$t"; return 0
+  fi
+  new="$(git -C "$w" rev-parse HEAD)"
+  git -C "$w" push --quiet --force-with-lease="refs/heads/$b:$oh" origin "HEAD:refs/heads/$b" \
+    || { git -C "$w" switch --quiet --detach "origin/$base"; die "could not push $b (moved on origin meanwhile?); run restack again"; }
+  git update-ref "refs/heads/$b" "$new" "$old"
+  git -C "$w" switch --quiet --detach "origin/$base"
+  ph="$(git rev-parse --git-common-dir)/landspec-review/parent-head-${b//\//__}"
+  if [[ -n "$np" ]]; then git config "branch.$b.landspec-parent" "$np"; mkdir -p "${ph%/*}"; git rev-parse "$onto" > "$ph"
+  else git config --unset "branch.$b.landspec-parent" || true; rm -f "$ph"; fi
+  if [[ -f "$rdir/$t" ]]; then write_rec "$t" "head=$new"; fi
+  if $had; then
+    if [[ "$(diff_id "$b")" == "$oid" ]]; then rv=kept; else rv=needed; bash "$0" "$num" mark "$t" implemented >/dev/null; fi
+  fi
+  if [[ "$pr" != - ]]; then
+    gh pr edit "$pr" --base "$nb" >/dev/null || die "could not move PR #$pr onto $nb; fix gh's error above, then run restack again"
+    # only a PR now on the base with its review kept is ready; a stacked one stays a draft
+    if [[ -z "$np" && "$rv" == kept ]] && ! gh pr ready "$pr" >/dev/null; then echo "RESTACK_NOT_READY=$t"; fi
+  fi
+  echo "RESTACKED=$t REVIEW=$rv"
+}
 
 case "$action" in
   mark)
@@ -176,5 +245,51 @@ case "$action" in
     done
     echo "START=${start# }"; echo "REVIEW=${review# }"; echo "FIX=${fix# }"; echo "OPEN=${open# }"
     echo "ORDER=${order# }"; echo "DONE=$done_n/$total" ;;
-  *) die "usage: implement.sh [feature] status [--running T001,T002] | mark <task> <phase> [<report>] | fail <task> <reason> | retry <task>" ;;
+  restack)
+    base="$(base_branch)"
+    st="$(bash "$0" "$num" status "$@")" || exit 1 # fetches; dies with gh's or git's error
+    prs="$(all_prs)" || die "cannot list the pull requests; fix gh's error above"
+    for t in $(sed -n 's/^ORDER=//p' <<<"$st"); do
+      l="$(grep "^TASK=$t " <<<"$st")"; b="$(sed -E 's/.* BRANCH=([^ ]+).*/\1/' <<<"$l")"
+      p="$(git config --get "branch.$b.landspec-parent" || true)"
+      [[ "$b" != - ]] || continue
+      [[ "$(sed -E 's/.* STATE=([^ ]+).*/\1/' <<<"$l")" != merged ]] || continue
+      prl="$(awk -F'\t' -v b="$b" '$2 == b && $6 == "OPEN" { print; exit }' <<<"$prs")"; pr="$(cut -f1 <<<"$prl")"; pr="${pr:--}"
+      if [[ -z "$p" ]]; then # not stacked (any more): finish a move whose `gh pr edit` failed
+        # only off a base whose own PR is merged: a PR stacked in another clone has no setting here
+        ob="$(cut -f4 <<<"$prl")"
+        if [[ "$pr" != - && "$ob" != "$base" ]] && awk -F'\t' -v b="$ob" '$2 == b && $6 == "MERGED" { f = 1 } END { exit !f }' <<<"$prs"; then
+          retarget "$t" "$b" "$pr" "$base"
+        fi
+        continue
+      fi
+      ppr="$(awk -F'\t' -v b="$p" '$2 == b && $6 != "CLOSED" { print; exit }' <<<"$prs")"
+      ph="$(cat "$(git rev-parse --git-common-dir)/landspec-review/parent-head-${b//\//__}" 2>/dev/null || true)"
+      # What it would move onto, if anything: a merged parent's PR base, or a parent that moved.
+      if [[ "$(cut -f6 <<<"$ppr")" == MERGED ]]; then
+        nb="$(cut -f4 <<<"$ppr")"; onto="origin/$nb"; up="$(cut -f3 <<<"$ppr")"; np=""; [[ "$nb" == "$base" ]] || np="$nb"
+      else
+        nb="$p"; onto="refs/heads/$p"; git show-ref --verify --quiet "$onto" || onto="refs/remotes/origin/$p"
+        up="$ph"; np="$p"
+        if [[ -z "$up" || "$(git rev-parse "$onto")" == "$up" ]]; then
+          if [[ "$pr" != - && "$(cut -f4 <<<"$prl")" != "$p" ]]; then retarget "$t" "$b" "$pr" "$p"; fi
+          continue
+        fi
+      fi
+      why="$(why_not "$t" "$b" "$l" "$prl")"
+      if [[ -n "$why" ]]; then echo "RESTACK_SKIPPED=$t ($why)"; continue; fi
+      move "$t" "$b" "$onto" "$up" "$np" "$pr" "$nb"
+    done ;;
+  stack)
+    t="${1:-}"; o="${2:-}"; valid_task "$t"; valid_task "$o"; base="$(base_branch)"
+    b="$(task_branch "$t")"; ob="$(task_branch "$o")"
+    [[ -n "$b" && -n "$ob" ]] || die "both $t and $o need a branch in this clone"
+    [[ -z "$(git config --get "branch.$b.landspec-parent" || true)" ]] || die "$t is already stacked on $(git config --get "branch.$b.landspec-parent")"
+    st="$(bash "$0" "$num" status)" || exit 1 # fetches; dies with gh's or git's error
+    prs="$(all_prs)" || die "cannot list the pull requests; fix gh's error above"
+    prl="$(awk -F'\t' -v b="$b" '$2 == b && $6 == "OPEN" { print; exit }' <<<"$prs")"; pr="$(cut -f1 <<<"$prl")"
+    why="$(why_not "$t" "$b" "$(grep "^TASK=$t " <<<"$st")" "$prl")"
+    [[ -z "$why" ]] || die "$t cannot be stacked now: $why"
+    move "$t" "$b" "refs/heads/$ob" "$(diff_base "$b")" "$ob" "${pr:--}" "$ob" ;;
+  *) die "usage: implement.sh [feature] status [--running T001,T002] | mark <task> <phase> [<report>] | fail <task> <reason> | retry <task> | restack | stack <task> <onto-task>" ;;
 esac
