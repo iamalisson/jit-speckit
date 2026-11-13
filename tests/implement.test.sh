@@ -196,7 +196,7 @@ check "when T001 is squash-merged, then restack moves T002 onto main, keeps its 
   'grep -qx "RESTACKED=T002 REVIEW=kept" <<<"$out" && [[ "$(own "$B2" origin/main)" == b ]] && ! git config --get "branch.$B2.landspec-parent" \
    && grep -q "^pr edit 12 --base main" "$GH_LOG" && grep -q "^pr ready 12$" "$GH_LOG"'
 check "then the run's worktree is detached, the branch can be checked out, the developer's checkout is unchanged" 'run_ok "$B2"'
-rs
+printf '11 %s main false MERGED\n12 %s main false OPEN\n' "$B1" "$B2" | prs; rs # as GitHub shows it after the edit
 check "when restack runs again, then it prints nothing" '[[ -z "$out" ]]'
 
 rs_setup
@@ -250,6 +250,35 @@ check "when origin's head differs from the PR's head, then it is skipped (origin
 printf '11 %s main false MERGED\n12 %s %s true OPEN\n' "$B1" "$B2" "$B1" | prs
 git -C "$TMP/w" switch --quiet "$B2"; echo y > "$TMP/w/y"; git -C "$TMP/w" add -A; git -C "$TMP/w" commit --quiet -m y; git -C "$TMP/w" switch --quiet --detach; rs
 check "when it has local commits not on origin, then it is skipped, saying so" 'grep -qx "RESTACK_SKIPPED=T002 (local commits not on origin)" <<<"$out"'
+
+# A failed gh pr edit after the push: a second restack finishes it.
+rs_setup
+mkb "$B1" origin/main a; mkb "$B2" "$B1" b "$B1"; ready "$B2"; squash "$B1" 1
+printf '11 %s main false MERGED\n12 %s %s true OPEN\n' "$B1" "$B2" "$B1" | prs
+out="$(GH_FAIL_EDIT=1 "$I" restack 2>&1)" && ebrc=0 || ebrc=$?
+check "when gh pr edit fails after the move, then restack stops naming the PR" '[[ $ebrc != 0 ]] && grep -q "could not move PR #12 onto main" <<<"$out" && run_ok "$B2"'
+: > "$GH_LOG"; rs
+check "then a second restack moves the PR onto main and marks it ready" \
+  'grep -qx "RETARGETED=T002" <<<"$out" && grep -q "^pr edit 12 --base main" "$GH_LOG" && grep -q "^pr ready 12$" "$GH_LOG"'
+
+# A local branch behind origin is not moved, so origin keeps the commits this clone lacks.
+rs_setup
+mkb "$B1" origin/main a; mkb "$B2" "$B1" b "$B1"; old2="$(git rev-parse "refs/heads/$B2")"; edit "$B2" b 's/l2/N2/'
+git update-ref "refs/heads/$B2" "$old2"; squash "$B1" 1; 
+printf '11 %s main false MERGED\n12 %s %s true OPEN\n' "$B1" "$B2" "$B1" | prs
+out="$("$I" restack --running T002 2>&1)" || true
+check "when T002 is running, then restack skips it, saying so" 'grep -qx "RESTACK_SKIPPED=T002 (running)" <<<"$out"'
+rs
+check "when the local branch is behind origin, then it is fast-forwarded first and the move keeps origin's commit" \
+  'grep -qx "RESTACKED=T002 REVIEW=none" <<<"$out" && git merge-base --is-ancestor origin/main "refs/heads/$B2" && grep -q N2 <(git show "refs/heads/$B2:b") \
+   && [[ "$(git rev-parse "refs/remotes/origin/$B2")" == "$(git rev-parse "refs/heads/$B2")" ]]'
+
+# stack has the same guards.
+rs_setup
+mkb "$B1" origin/main a; mkb "$B2" origin/main b; git worktree add --quiet "$TMP/c" "$B2"
+check "when stack's branch is checked out in a worktree, then stack refuses and leaves it" \
+  'h="$(git rev-parse "refs/heads/$B2")"; fails_with "cannot be stacked now: checked out in" "$I" stack T002 T001 && [[ "$(git rev-parse "refs/heads/$B2")" == "$h" ]]'
+git worktree remove --force "$TMP/c"
 
 # A move keeps the record's state: implemented, fix and failed stay so, and none is in START.
 for ph in implemented changes failed; do

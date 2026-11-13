@@ -13,7 +13,7 @@
 #       Moves each stacked branch, parents first, in the run's worktree <repo>-<feature>-run: onto the
 #       base once its parent's PR is merged, onto its parent's new head when the parent moved. Prints
 #       RESTACKED=<task> REVIEW=kept|needed|none, RESTACK_SKIPPED=<task> (<why>), RESTACK_CONFLICT=<task>,
-#       RESTACK_NOT_READY=<task>.
+#       RESTACK_NOT_READY=<task>, and RETARGETED=<task> for a PR a failed `gh pr edit` left on its old base.
 #   implement.sh [feature] stack <task> <onto-task>   the same move, onto another task's branch
 # The record is <git common dir>/landspec-run/<feature>/<task>: phase=, head=, round=, report=, failed=.
 set -euo pipefail
@@ -56,6 +56,24 @@ run_wt() {
 all_prs() {
   gh pr list --state all --limit 500 --json number,headRefName,headRefOid,baseRefName,isDraft,state \
     --jq '.[] | [.number, .headRefName, .headRefOid, .baseRefName, .isDraft, .state] | @tsv'
+}
+# why_not <task> <branch> <status line> <PR line|"">: why that branch must not be moved now, or nothing.
+why_not() {
+  local wt; wt="$(git worktree list --porcelain | awk -v b="refs/heads/$2" '/^worktree / { p = substr($0, 10) } $0 == "branch " b { print p; exit }')"
+  if [[ -n "$wt" ]]; then echo "checked out in $wt"
+  elif [[ "$3" == *" STATE=running"* ]]; then echo running
+  elif ! git show-ref --verify --quiet "refs/remotes/origin/$2"; then echo "not on origin"
+  elif [[ -n "$4" && "$(cut -f3 <<<"$4")" != "$(git rev-parse "refs/remotes/origin/$2")" ]]; then echo "origin moved"
+  elif [[ -n "$(git rev-list "refs/heads/$2..refs/remotes/origin/$2")" ]]; then echo "behind origin"
+  elif [[ -n "$(git rev-list "refs/remotes/origin/$2..refs/heads/$2")" ]]; then echo "local commits not on origin"
+  fi
+}
+# retarget <task> <branch> <PR> <new base>: a PR a failed `gh pr edit` left on its old base.
+retarget() {
+  gh pr edit "$3" --base "$4" >/dev/null || die "could not move PR #$3 onto $4; fix gh's error above, then run restack again"
+  if [[ "$4" == "$(base_branch)" ]] && bash "$(dirname "$0")/review.sh" check --branch "$2" >/dev/null 2>&1 \
+    && ! gh pr ready "$3" >/dev/null; then echo "RESTACK_NOT_READY=$1"; fi
+  echo "RETARGETED=$1"
 }
 # move <task> <branch> <onto ref> <upstream> <new parent|""> <PR number|-> <new base name>:
 # rebase <branch> --onto <onto ref> from <upstream> in the run's worktree, push it with a lease on the
@@ -231,13 +249,16 @@ case "$action" in
     base="$(base_branch)"
     st="$(bash "$0" "$num" status "$@")" || exit 1 # fetches; dies with gh's or git's error
     prs="$(all_prs)" || die "cannot list the pull requests; fix gh's error above"
-    wts="$(git worktree list --porcelain | awk '/^worktree / { p = substr($0, 10) } /^branch refs\/heads\// { print substr($0, 19) "\t" p }')"
     for t in $(sed -n 's/^ORDER=//p' <<<"$st"); do
       l="$(grep "^TASK=$t " <<<"$st")"; b="$(sed -E 's/.* BRANCH=([^ ]+).*/\1/' <<<"$l")"
       p="$(git config --get "branch.$b.landspec-parent" || true)"
-      [[ -n "$p" && "$b" != - ]] || continue
+      [[ "$b" != - ]] || continue
       [[ "$(sed -E 's/.* STATE=([^ ]+).*/\1/' <<<"$l")" != merged ]] || continue
       prl="$(awk -F'\t' -v b="$b" '$2 == b && $6 == "OPEN" { print; exit }' <<<"$prs")"; pr="$(cut -f1 <<<"$prl")"; pr="${pr:--}"
+      if [[ -z "$p" ]]; then # not stacked (any more): finish a move whose `gh pr edit` failed
+        if [[ "$pr" != - && "$(cut -f4 <<<"$prl")" != "$base" ]]; then retarget "$t" "$b" "$pr" "$base"; fi
+        continue
+      fi
       ppr="$(awk -F'\t' -v b="$p" '$2 == b && $6 != "CLOSED" { print; exit }' <<<"$prs")"
       ph="$(cat "$(git rev-parse --git-common-dir)/landspec-review/parent-head-${b//\//__}" 2>/dev/null || true)"
       # What it would move onto, if anything: a merged parent's PR base, or a parent that moved.
@@ -246,14 +267,13 @@ case "$action" in
       else
         nb="$p"; onto="refs/heads/$p"; git show-ref --verify --quiet "$onto" || onto="refs/remotes/origin/$p"
         up="$ph"; np="$p"
-        [[ -n "$up" && "$(git rev-parse "$onto")" != "$up" ]] || continue
+        if [[ -z "$up" || "$(git rev-parse "$onto")" == "$up" ]]; then
+          if [[ "$pr" != - && "$(cut -f4 <<<"$prl")" != "$p" ]]; then retarget "$t" "$b" "$pr" "$p"; fi
+          continue
+        fi
       fi
-      wt="$(awk -F'\t' -v b="$b" '$1 == b { print $2; exit }' <<<"$wts")"
-      if [[ -n "$wt" ]]; then echo "RESTACK_SKIPPED=$t (checked out in $wt)"; continue; fi
-      if [[ "$l" == *" STATE=running"* ]]; then echo "RESTACK_SKIPPED=$t (running)"; continue; fi
-      if ! git show-ref --verify --quiet "refs/remotes/origin/$b"; then echo "RESTACK_SKIPPED=$t (not on origin)"; continue; fi
-      if [[ "$pr" != - && "$(cut -f3 <<<"$prl")" != "$(git rev-parse "refs/remotes/origin/$b")" ]]; then echo "RESTACK_SKIPPED=$t (origin moved)"; continue; fi
-      if [[ -n "$(git rev-list "refs/remotes/origin/$b..refs/heads/$b")" ]]; then echo "RESTACK_SKIPPED=$t (local commits not on origin)"; continue; fi
+      why="$(why_not "$t" "$b" "$l" "$prl")"
+      if [[ -n "$why" ]]; then echo "RESTACK_SKIPPED=$t ($why)"; continue; fi
       move "$t" "$b" "$onto" "$up" "$np" "$pr" "$nb"
     done ;;
   stack)
@@ -261,10 +281,11 @@ case "$action" in
     b="$(task_branch "$t")"; ob="$(task_branch "$o")"
     [[ -n "$b" && -n "$ob" ]] || die "both $t and $o need a branch in this clone"
     [[ -z "$(git config --get "branch.$b.landspec-parent" || true)" ]] || die "$t is already stacked on $(git config --get "branch.$b.landspec-parent")"
-    git fetch --quiet origin || die "cannot fetch origin; fix the error above"
-    git show-ref --verify --quiet "refs/remotes/origin/$b" || die "$b is not on origin"
+    st="$(bash "$0" "$num" status)" || exit 1 # fetches; dies with gh's or git's error
     prs="$(all_prs)" || die "cannot list the pull requests; fix gh's error above"
-    pr="$(awk -F'\t' -v b="$b" '$2 == b && $6 == "OPEN" { print $1; exit }' <<<"$prs")"
+    prl="$(awk -F'\t' -v b="$b" '$2 == b && $6 == "OPEN" { print; exit }' <<<"$prs")"; pr="$(cut -f1 <<<"$prl")"
+    why="$(why_not "$t" "$b" "$(grep "^TASK=$t " <<<"$st")" "$prl")"
+    [[ -z "$why" ]] || die "$t cannot be stacked now: $why"
     move "$t" "$b" "refs/heads/$ob" "$(diff_base "$b")" "$ob" "${pr:--}" "$ob" ;;
   *) die "usage: implement.sh [feature] status [--running T001,T002] | mark <task> <phase> [<report>] | fail <task> <reason> | retry <task> | restack | stack <task> <onto-task>" ;;
 esac
