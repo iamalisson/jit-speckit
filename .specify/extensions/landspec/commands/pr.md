@@ -35,7 +35,8 @@ promotion between long-lived branches (`develop` into `main`), whose PRs were ea
    never use `--no-verify`.
 4. **Independent review**, the gate that catches what this session cannot see about its own
    work. Launch the reviewer exactly as `commands/review.md` (`/speckit-landspec-review`) says: one
-   `landspec:reviewer` subagent, with `model` and `isolation: "worktree"` as review.md says, given that file and the facts it lists, and nothing of what you
+   `landspec:reviewer` subagent, with `model` and `isolation: "worktree"` as review.md says, given that file and the facts it lists (`base:` is
+   `bash -c 'source .specify/extensions/landspec/scripts/lib.sh; base_ref'`), and nothing of what you
    think about the code. While it runs, run `/security-review` on the branch.
 
    Save the report as it came to a file outside the repository (`mktemp`) and record it:

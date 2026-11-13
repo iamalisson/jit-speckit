@@ -186,8 +186,13 @@ check "when init's step 1 is read, then it checks for a GitHub repository and of
   'grep -qE "gh repo view.*gh repo create .*--source \. --remote origin" <<<"$(sed -n "/^1\. \*\*Tools/,/^2\. /p" skills/init/SKILL.md | tr "\n" " ")"'
 
 # review.sh record compares against the merge-base with origin's base (lib.sh base_ref): the prompt names the same one.
-check "the review prompt takes the range's start from origin/<base>, as review.sh record does" \
-  'grep -qF "git merge-base HEAD origin/<base>" extension/commands/review.md && ! grep -qF "git merge-base HEAD <base>" extension/commands/review.md'
+# Spec 004 T002: the reviewer runs detached in its own copy, so the facts' base: (the parent of a
+# stacked branch, else origin/<base>) decides the diff, the risk map and Reviewed:, as record does.
+check "the review prompt reads the facts' base: for the diff, the risk map and the Reviewed: range" \
+  'f="$(tr "\n" " " < extension/commands/review.md | tr -s " ")"; [[ "$f" == *"\`base:\` the ref the branch is diffed against"* \
+   && "$f" == *"review.sh risk \"\$(git merge-base HEAD <base>)\"\` with the facts'"'"' \`base:\`"* && "$f" == *"git diff <base>...HEAD"* \
+   && "$f" == *"(\`git merge-base HEAD <base>\`, with the facts'"'"' \`base:\`"* ]] && ! grep -qF "origin/<base>...HEAD" extension/commands/review.md'
+check "pr.md passes base: from base_ref" 'grep -qF "\`base:\` is" extension/commands/pr.md && grep -qF "base_ref" extension/commands/pr.md'
 
 # FR-034: every review runs in the plugin's reviewer agent on a pinned strong model; FR-035: no fast-model checker.
 check "when agents/reviewer.md is read, then it has name: reviewer, model: sonnet, effort: medium and no ## Method (review.md is the only copy)" \

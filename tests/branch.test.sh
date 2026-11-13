@@ -182,4 +182,29 @@ check "when origin is unreachable, then the warning is printed and the branch ke
   '[[ $brc == 0 && "$(git branch --show-current)" == feat/001-t002-add-filters ]] && grep -q "landspec: warning: could not claim feat/001-t002-add-filters on origin" <<<"$out"'
 cd "$TMP/repo"
 
+# ── Spec 004 T002: branch.sh --from stacks a task on another task's reviewed branch ──
+cd "$TMP"; rm -rf "$TMP/origin.git" "$TMP/repo" "$TMP/b" "$TMP/wt"
+new_repo standard
+commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5
+- [ ] T002 Add filters in `src/filters.ts` — #6'
+r="$SCRIPTS/review.sh"; P=feat/001-t001-add-search; C=feat/001-t002-add-filters
+review_ready() { printf 'Reviewed: %s..%s\nModel: claude-sonnet-4-7\n\nAssessment: ready\n' "$(git merge-base HEAD origin/develop)" "$(git rev-parse HEAD)" > "$TMP/rep.md"; "$r" record "$TMP/rep.md" >/dev/null 2>&1; }
+"$b" T001 >/dev/null 2>&1; echo a > a.txt; git add a.txt; git commit --quiet -m "feat: a"
+check "when --from names a branch with no recorded review, then it refuses naming the branch and starts nothing" \
+  'fails_with "--from $P" "$b" T002 --from "$P" && [[ "$(git branch --show-current)" == "$P" ]] && ! git show-ref --verify --quiet "refs/heads/$C"'
+check "when --from names a branch that does not exist, then it refuses naming it" \
+  'fails_with "--from feat/nope: no branch" "$b" T002 --from feat/nope && ! git show-ref --verify --quiet "refs/heads/$C"'
+review_ready
+echo b >> a.txt; git commit --quiet -am "feat: more a"
+check "when --from names a branch whose review is of an older head, then it refuses" \
+  'fails_with "--from $P" "$b" T002 --from "$P" && ! git show-ref --verify --quiet "refs/heads/$C"'
+review_ready
+# The parent stays checked out here; the child is started from another worktree, so it is read by name.
+git worktree add --quiet --detach "$TMP/wt" origin/develop; cp -a .specify "$TMP/wt/"; cd "$TMP/wt"
+check "when --from names a branch with a ready review, checked out in another worktree, then the new branch starts from its head" \
+  '"$b" T002 --from "$P" >/dev/null 2>&1 && [[ "$(git branch --show-current)" == "$C" && "$(git rev-parse HEAD)" == "$(git rev-parse "$P")" ]]'
+check "then it records the parent setting and the parent's head" \
+  '[[ "$(git config --get "branch.$C.landspec-parent")" == "$P" && "$(cat "$(git rev-parse --git-common-dir)/landspec-review/parent-head-${C//\//__}")" == "$(git rev-parse "$P")" ]]'
+cd "$TMP/repo"
+
 exit "$FAIL"

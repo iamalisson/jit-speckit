@@ -4,6 +4,7 @@
 #   review.sh record --delta <report-file>  fix round: reviews <last reviewed>..HEAD, after any recorded round
 #   review.sh record --plan <report-file>   plan review: tied to the feature's plan.md and tasks.md (issue numbers aside)
 #   review.sh check [--plan]                exit 0 when a review that said "ready" matches the current state
+#   check, report and record take --branch <b>: that branch, read by name from any HEAD (default: the current one)
 #   review.sh report [--plan]               check, then print the recorded facts: the patch id, "Assessment: ready",
 #                                           the model, any warning and the risk maps as paths
 #                                           (never the report's text: pr.sh puts this in the public PR body)
@@ -17,10 +18,14 @@ source "$(dirname "$0")/lib.sh"
 landspec_cd_root
 
 action="${1:-}"; shift || true
-plan=false; delta=false
-while [[ "${1:-}" == --plan || "${1:-}" == --delta ]]; do
-  if [[ "$1" == --plan ]]; then plan=true; else delta=true; fi; shift
+plan=false; delta=false; bopt=""
+while [[ "${1:-}" == --plan || "${1:-}" == --delta || "${1:-}" == --branch ]]; do
+  case "$1" in
+    --plan) plan=true ;; --delta) delta=true ;;
+    --branch) bopt="${2:-}"; [[ -n "$bopt" ]] || die "usage: review.sh <action> --branch <branch> ..."; shift ;;
+  esac; shift
 done
+if $plan && [[ -n "$bopt" ]]; then die "a plan review belongs to the feature, not a branch: drop --branch"; fi
 if $plan && $delta; then die "a plan review is always full: review.sh record --plan <report-file>"; fi
 if $plan && [[ "$action" == risk ]]; then die "risk maps a diff; a plan review has none"; fi
 # A fix round may change this many lines outside the previous findings' files (tests aside);
@@ -34,10 +39,18 @@ if $plan; then
     { cat "$fdir/plan.md" 2>/dev/null; sed -E 's/ — #[0-9]+[[:space:]]*$//' "$fdir/tasks.md"; } | sha256
   }
 elif [[ "$action" != risk ]]; then # risk reads only the diff, so it needs no branch
-  branch="$(git branch --show-current)"; [[ -n "$branch" ]] || die "not on a branch (detached HEAD); switch to the task's branch first"
-  name="task-${branch//\//__}"; what="this branch's diff"
-  state() { local id; id="$(diff_id)" || exit 1; echo "$id"; }
+  branch="${bopt:-$(git branch --show-current)}"; [[ -n "$branch" ]] || die "not on a branch (detached HEAD); switch to the task's branch first"
+  # --branch <b> reads <b> by name, from any HEAD: its tip, not this checkout, is what is reviewed.
+  if [[ -n "$bopt" ]]; then
+    git show-ref --verify --quiet "refs/heads/$bopt" || die "no branch '$bopt' in this clone"
+    [[ "$bopt" != "$(git branch --show-current)" ]] || bopt=""
+  fi
+  name="task-${branch//\//__}"; what="this branch's diff"; [[ -z "$bopt" ]] || what="the diff of $bopt"
+  state() { local id; id="$(diff_id ${bopt:+"$bopt"})" || exit 1; echo "$id"; }
 fi
+tip="$(branch_tip ${bopt:+"$bopt"})"
+# db: diff_base of the branch this call is about.
+db() { diff_base ${bopt:+"$bopt"}; }
 record="$dir/${name:-}"
 
 # hdr <key> [file]: the record's header values for <key>. The header ends at the first blank line,
@@ -53,7 +66,7 @@ commit() { git rev-parse --verify --quiet "$1^{commit}" 2>/dev/null || true; }
 # risk <from>: one "RISK=<category> <path>" line per risky path of <from>..HEAD, by fixed rules on
 # the paths and the added lines; only paths and categories are printed, never a line's content.
 risk() {
-  { landspec_diff --name-status "$1" HEAD | awk '{ print "S\t" $0 }'; landspec_diff -U0 "$1" HEAD; } | SKIP="$TEST_SKIP_RE" awk '
+  { landspec_diff --name-status "$1" "$tip" | awk '{ print "S\t" $0 }'; landspec_diff -U0 "$1" "$tip"; } | SKIP="$TEST_SKIP_RE" awk '
     function flag(c, p) { print "RISK=" c " " p }
     /^S\t/ {
       split($0, f, "\t"); p = f[3]; l = tolower(p)
@@ -88,8 +101,8 @@ checked() {
   while IFS= read -r l; do
     if [[ "$l" =~ $pre ]]; then
       p="${BASH_REMATCH[1]}"; f="${BASH_REMATCH[2]}"; n="${BASH_REMATCH[3]}"
-      if grep -qE -- "$re" <<<"$f" && git cat-file -e "HEAD:$f" 2>/dev/null \
-        && ((10#$n >= 1 && 10#$n <= $(git show "HEAD:$f" | awk 'END { print NR }'))); then continue; fi
+      if grep -qE -- "$re" <<<"$f" && git cat-file -e "$tip:$f" 2>/dev/null \
+        && ((10#$n >= 1 && 10#$n <= $(git show "$tip:$f" | awk 'END { print NR }'))); then continue; fi
     else
       p="$(sed -E 's/^- proven: ([^ ]*).*/\1/' <<<"$l")"; f="<file>"; n="<n>"
     fi
@@ -119,7 +132,7 @@ outside() {
   while IFS=$'\t' read -r a d f; do
     if grep -qxF -- "$f" <<<"$found" || grep -qE -- "$re" <<<"$f"; then continue; fi
     if [[ "$a" == - ]]; then n=$((n + DELTA_LINES + 1)); else n=$((n + a + d)); fi
-  done < <(landspec_numstat "$1" HEAD)
+  done < <(landspec_numstat "$1" "$tip")
   echo "$n"
 }
 
@@ -164,14 +177,14 @@ case "$action" in
     verdict="$(grep -iE '^\**assessment\**: *(ready|changes needed)\**\.?$' "$report" | tail -1 | grep -oiE 'changes needed|ready' | tr '[:upper:]' '[:lower:]' || true)"
     [[ -n "$verdict" ]] || die "the report has no line that is exactly 'Assessment: ready' or 'Assessment: changes needed'"
     # Untracked files (the report itself, kept outside the repo anyway) cannot be part of the diff.
-    if ! $plan && [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then die "commit the work first: the review is recorded for the committed diff"; fi
+    if ! $plan && [[ -z "$bopt" && -n "$(git status --porcelain --untracked-files=no)" ]]; then die "commit the work first: the review is recorded for the committed diff"; fi
     st="$(state)"
     want="$(review_model)" || exit 1
     model="$(field model)"; from=""; head=""; carried=""
     if $plan; then
       [[ -n "$model" ]] || die "the report must state Model: <id> for the plan: run the review again"
     else
-      head="$(git rev-parse HEAD)"; df="$(field 'delta from')"
+      head="$(git rev-parse "$tip")"; df="$(field 'delta from')"
       rf=""; rh=""; rre='^([0-9a-f]{7,40})[.][.]([0-9a-f]{7,40})$'
       if [[ "$(field reviewed)" =~ $rre ]]; then
         rf="$(commit "${BASH_REMATCH[1]}")"; rh="$(commit "${BASH_REMATCH[2]}")"
@@ -181,7 +194,7 @@ case "$action" in
           || die "a delta follows a recorded full review of this branch: run a new full review, then record it with review.sh record <report-file>"
         from="$(hdr head)"
         [[ -n "$df" ]] || die "a delta report names its base: Delta from: $from; run the delta review again"
-        git merge-base --is-ancestor "$from" HEAD 2>/dev/null || die "$from is no longer on this branch (rebased?): run a new full review"
+        git merge-base --is-ancestor "$from" "$tip" 2>/dev/null || die "$from is no longer on this branch (rebased?): run a new full review"
         [[ "$head" != "$from" ]] || die "nothing was committed since the last review ($from): commit the fixes, then run the delta review"
         # The specific delta line wins over the generic one when the range is there but wrong.
         if [[ -n "$rf" && ( "$(commit "$df")" != "$from" || "$rf" != "$from" || "$rh" != "$head" ) ]]; then
@@ -194,7 +207,7 @@ case "$action" in
         carried="$(hdr map-full)"
       else
         [[ -z "$df" ]] || die "this is a delta report: record it with --delta, or run a new full review"
-        from="$(diff_base)"
+        from="$(db)"
         [[ -n "$model" && "$rf" == "$from" && "$rh" == "$head" ]] \
           || die "the report must state Reviewed: <from>..<head> and Model: <id> for $from..$head: run the review again"
       fi
@@ -212,7 +225,7 @@ case "$action" in
     if [[ -n "$warn" ]]; then warn="$warn; the review did not run on the configured model"; echo "landspec: warning: $warn" >&2; fi
     map="$(grep -oE '^- (deep|proven): [^ ]+' "$report" || true)"
     # A task's map reaches the PR body, so only paths of the diff are kept; a plan's never does.
-    if ! $plan; then map="$(awk 'NR == FNR { p[$0]; next } $3 in p' <(landspec_diff --name-only "$(diff_base)" HEAD) <(cat <<<"$map"))"; fi
+    if ! $plan; then map="$(awk 'NR == FNR { p[$0]; next } $3 in p' <(landspec_diff --name-only "$(db)" "$tip") <(cat <<<"$map"))"; fi
     {
       echo "state: $st"; echo "assessment: $verdict"
       if ! $plan; then echo "head: $head"; if $delta; then echo "round: delta"; else echo "round: full"; fi; fi
@@ -223,7 +236,7 @@ case "$action" in
       elif [[ -n "$map" ]]; then sed 's/^/map-full: /' <<<"$map"; fi
       echo; cat "$report"
     } > "$record.tmp" && mv "$record.tmp" "$record"
-    remove_copy "$report" "${head:-$(git rev-parse HEAD)}"
+    remove_copy "$report" "${head:-$(git rev-parse "$tip")}"
     if ! $plan; then echo "REVIEWED=$head"; fi
     echo "REVIEW=$verdict" ;;
   check|report)
@@ -242,7 +255,7 @@ case "$action" in
     m="$(hdr map-full)"; [[ -z "$m" ]] || printf 'Risk map (round 1)\n%s\n' "$m"
     m="$(hdr map-fix)"; [[ -z "$m" ]] || printf 'Risk map (fix round)\n%s\n' "$m" ;;
   risk)
-    from="${1:-$(diff_base)}"; c="$(commit "$from")"; [[ -n "$c" ]] || die "usage: review.sh risk [<from>] (no commit '$from')"
+    from="${1:-$(db)}"; c="$(commit "$from")"; [[ -n "$c" ]] || die "usage: review.sh risk [<from>] (no commit '$from')"
     risk "$c" ;;
   *) die "usage: review.sh record [--plan|--delta] <report-file> | review.sh check|report [--plan] | review.sh risk [<from>]" ;;
 esac
