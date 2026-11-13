@@ -42,7 +42,8 @@ argument-hint: "[feature]"
    claims its task on origin before the next one runs. If a line fails (a leftover folder, a
    parent folder that is not writable, scripts not committed on the base branch), show its message
    as is and skip that task. A line that exits 3 (`… was claimed elsewhere`) lost the race to
-   another clone: say "started elsewhere, skipped". A refused claim (`landspec: warning: could not claim …`) only warns: the
+   another clone: remove the worktree it made (`git worktree remove <path after --detach>`) and say
+   "started elsewhere, skipped". A refused claim (`landspec: warning: could not claim …`) only warns: the
    task started, but other clones may start it too; say so. Then list, per started task: open a
    Claude Code session in the path after `--detach` and run `/speckit-implement <feature> <id>`
    (install dependencies there first: a new worktree has no git-ignored files).
