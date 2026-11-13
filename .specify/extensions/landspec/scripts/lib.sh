@@ -320,3 +320,25 @@ add_meta() {
     fi
   done
 }
+
+# pr_branches <workflow>: the patterns of on.pull_request.branches, one per line; none = every branch.
+# shortcut: branches-ignore and a one-line `pull_request: {branches: [...]}` are not read, so those workflows get no warning; read them when a repo needs it
+pr_branches() {
+  awk '
+    /^[[:space:]]*(#|$)/ { next }
+    { sub(/[[:space:]]+#.*/, ""); match($0, /^ */); i = RLENGTH }
+    !pr { if (/^ *pull_request:/) { pr = 1; top = i }; next }
+    i <= top { exit }
+    list && i >= key && /^ *- / { sub(/^ *- */, ""); print; next }
+    { list = 0 }
+    /^ *branches:/ { key = i; sub(/^ *branches: */, ""); if ($0 == "") list = 1; gsub(/[][]/, ""); gsub(/, */, "\n"); if ($0 != "") print }
+  ' "$1" | tr -d "\"' "
+}
+pr_skips_base() { # pr_skips_base <workflow> [<branch>]: its pull_request filter has no pattern for <branch> (default: the base)
+  local p b list; b="${2:-$(base_branch)}"; list="$(pr_branches "$1")"
+  [[ -n "$list" ]] || return 1
+  while IFS= read -r p; do
+    # shellcheck disable=SC2053  # the pattern is a glob on purpose
+    if [[ "$b" == $p ]]; then return 1; fi
+  done <<<"$list"
+}

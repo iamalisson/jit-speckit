@@ -68,7 +68,8 @@ case "$1 $2" in
              if [[ "$*" == *headRefName* ]]; then cat "$GH_OPEN" 2>/dev/null
              elif [[ -n "$h" ]]; then if [[ -f "$GH_PR" && "$(cat "$GH_PR.head" 2>/dev/null)" == "$h" ]]; then cat "$GH_PR"; fi
              elif [[ -f "$GH_PR" ]]; then cat "$GH_PR"; fi; exit 0 ;;
-  "pr create") h=""; a=("$@"); for ((i = 0; i < ${#a[@]}; i++)); do if [[ "${a[i]}" == --head ]]; then h="${a[i+1]:-}"; fi; done
+  "pr create") if [[ -n "${GH_NO_DRAFT:-}" && "$*" == *--draft* ]]; then echo "GraphQL: Draft pull requests are not supported in this repository" >&2; exit 1; fi
+               h=""; a=("$@"); for ((i = 0; i < ${#a[@]}; i++)); do if [[ "${a[i]}" == --head ]]; then h="${a[i+1]:-}"; fi; done
                echo "$h" > "$GH_PR.head"; echo "https://github.com/acme/app/pull/99" | tee "$GH_PR" ;;
   "issue list") if [[ -n "${GH_FAIL_ISSUE_LIST:-}" ]]; then echo "HTTP 502: Bad Gateway" >&2; exit 1; fi
                 cat "$GH_CLOSED" 2>/dev/null; exit 0 ;;

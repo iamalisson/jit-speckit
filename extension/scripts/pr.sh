@@ -33,7 +33,17 @@ open_pr() { # open_pr <title> <body> [body-file]
   url="$(gh pr list --head "$(git branch --show-current)" --state open --json url --jq '.[0].url // empty')" \
     || die "could not check for an open PR"
   if [[ -z "$url" ]]; then
-    url="$(gh pr create --base "$base" --head "$(git branch --show-current)" --title "$1" --body "$2")"
+    # A stacked PR opens as a draft: GitHub cannot merge a draft, so it never lands in its parent.
+    if [[ -n "${parent:-}" ]]; then
+      local ef; ef="$(mktemp)"
+      if ! url="$(gh pr create --draft --base "$base" --head "$(git branch --show-current)" --title "$1" --body "$2" 2>"$ef")"; then
+        grep -qi draft "$ef" || { cat "$ef" >&2; die "could not open the PR"; }
+        echo "landspec: warning: drafts are not available: merge #$parent_pr first, and only after this PR's review is current" >&2
+        url="$(gh pr create --base "$base" --head "$(git branch --show-current)" --title "$1" --body "$2")"
+      fi
+      rm -f "$ef"
+    else url="$(gh pr create --base "$base" --head "$(git branch --show-current)" --title "$1" --body "$2")"
+    fi
     add_meta pr "$url"
   elif [[ -n "${3:-}" ]]; then
     err="$(gh pr edit "$url" --body "$2" 2>&1 >/dev/null)" || die "could not update the body of $url: ${err%%$'\n'*}"
@@ -64,8 +74,21 @@ case "$mode" in
     fi
     # A reviewer's copy (Claude Code puts it under .claude/worktrees) is not the author's work.
     [[ -z "$(git status --porcelain -- . ':(exclude).claude/worktrees')" ]] || die "uncommitted changes; commit the work first"
+    # A task stacked on another task's branch (branch.sh --from) opens its PR into that branch.
+    parent=""; parent_pr=""
+    if [[ "$mode" == task ]]; then parent="$(git config --get "branch.$branch.landspec-parent" || true)"; fi
+    if [[ -n "$parent" ]]; then
+      parent_pr="$(gh pr list --head "$parent" --state all --json url,state --jq '[.[] | select(.state != "CLOSED")][0].url // empty')" \
+        || die "could not look up the PR of $parent"
+      [[ -n "$parent_pr" ]] || die "open the PR of $parent first"
+      parent_pr="${parent_pr##*/}"; base="$parent"
+      for w in .github/workflows/*.y*ml; do
+        [[ -f "$w" ]] && grep -qE '^[[:space:]]*pull_request:' "$w" || continue
+        if pr_skips_base "$w" "$parent"; then echo "landspec: warning: $w never runs on a PR into $parent: its pull_request branches filter it out" >&2; fi
+      done
+    fi
     git fetch --quiet origin "$base" 2>/dev/null || true
-    [[ -n "$(git log --oneline "origin/$base..HEAD" 2>/dev/null || git log --oneline -1)" ]] || die "no commits ahead of $base"
+    [[ -n "$(git log --oneline "$(base_ref)..HEAD" 2>/dev/null || git log --oneline -1)" ]] || die "no commits ahead of $base"
 
     body=""; [[ -n "$body_file" ]] && body="$(cat "$body_file")"
     if [[ "$(landspec_level)" == full ]] && ! grep -qE '^## Evidence' <<<"$body"; then
@@ -125,6 +148,7 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
       echo "landspec: tests not run before the PR (no test command in the constitution)" >&2
     fi
     body+=$'\n\n<details><summary>Independent review</summary>\n\n'"$review"$'\n\n</details>'
+    if [[ -n "$parent_pr" ]]; then body+=$'\n\n'"Stacked on #$parent_pr (merge it first)"; fi
     if [[ -n "$issue" ]] && ! grep -qiE "(close[sd]?|fix(e[sd])?|resolve[sd]?) #$issue([^0-9]|$)" <<<"$body"; then body+=$'\n\n'"Closes #$issue"; fi
     git push --quiet -u origin "$branch"
     open_pr "$title" "$body" "$body_file"
