@@ -155,4 +155,31 @@ check "when a tracked file has an uncommitted edit, then switching to a task bra
   'fails_with "uncommitted changes" "$b" 001 T001'
 git checkout --quiet -- tracked.txt; rm -rf .claude
 
+# ── Spec 004 T001: the claim is exclusive across clones ──
+cd "$TMP"; rm -rf "$TMP/origin.git" "$TMP/repo" "$TMP/b"
+new_repo standard
+commit_tasks '- [ ] T001 Add search in `src/search.ts` — #5
+- [ ] T002 [P] Add filters in `src/filters.ts` — #6'
+git clone --quiet -b main "$TMP/origin.git" "$TMP/b"; cp -a .specify "$TMP/b/"
+cd "$TMP/b"; git config user.email t@t; git config user.name t; git config commit.gpgsign false
+# The race: clone A claims T001 after B's fetch and before B's push (B's branch checkout runs it, once).
+printf '#!/bin/sh\n[ -e "%s/raced" ] && exit 0; touch "%s/raced"\nunset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE\ncd "%s/repo" && "%s" T001 >/dev/null 2>&1\nexit 0\n' "$TMP" "$TMP" "$TMP" "$b" > .git/hooks/post-checkout
+chmod +x .git/hooks/post-checkout
+brc=0; out="$("$b" T001 2>&1)" || brc=$?
+rm .git/hooks/post-checkout
+check "when clone A claims the task between clone B's fetch and B's claim push, then B exits 3 with the claimed-elsewhere message" \
+  '[[ $brc == 3 ]] && grep -qxF "landspec: T001 was claimed elsewhere (feat/001-t001-add-search is on origin)" <<<"$out"'
+check "then B is back on its starting branch with no local task branch" \
+  '[[ "$(git branch --show-current)" == main ]] && ! git show-ref --verify --quiet refs/heads/feat/001-t001-add-search'
+git fetch --quiet
+brc=0; "$b" T001 >/dev/null 2>&1 || brc=$?
+check "when the branch exists only on origin, then branch.sh switches to it with --track and exits 0" \
+  '[[ $brc == 0 && "$(git branch --show-current)" == feat/001-t001-add-search && "$(git rev-parse --abbrev-ref @{u})" == origin/feat/001-t001-add-search ]]'
+git switch --quiet main
+git remote set-url origin "$TMP/nowhere.git"
+brc=0; out="$("$b" T002 2>&1)" || brc=$?
+check "when origin is unreachable, then the warning is printed and the branch kept" \
+  '[[ $brc == 0 && "$(git branch --show-current)" == feat/001-t002-add-filters ]] && grep -q "landspec: warning: could not claim feat/001-t002-add-filters on origin" <<<"$out"'
+cd "$TMP/repo"
+
 exit "$FAIL"
