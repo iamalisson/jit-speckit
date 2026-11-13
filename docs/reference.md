@@ -180,6 +180,7 @@ the source. landspec's reviewer runs in its own copy of the reviewed commit (`is
 | `milestone` | *(empty)* | milestone for task issues and PRs, by name; empty means none |
 | `project` | *(empty)* | GitHub project (title) to add task issues and PRs to; needs `gh auth refresh -s project` |
 | `review_model` | *(empty: `sonnet`)* | the model of the independent and plan reviews, run in the plugin's `landspec:reviewer` agent: `sonnet`, `opus` or `fable`; never `haiku`, any other value is refused. It is passed on every launch, so on a cheap session the review costs more than the session. `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` overrides it (the record then warns). The plugin's hook that blocks a review launch on a model outside `sonnet`, `opus` and `fable`, in a fork, or without `isolation: "worktree"`, exists only where the plugin is installed. A project whose landspec copy predates that rule is refused until `/landspec:init` updates it |
+| `parallel_tasks` | `4` | how many tasks `/landspec:implement` runs at once (`implement.sh status` puts at most this many, minus the running ones, in `START=`): a number from `1` to `16`, any other value is refused |
 
 ### The reviewer's copy
 

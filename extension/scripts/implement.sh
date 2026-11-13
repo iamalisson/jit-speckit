@@ -1,0 +1,180 @@
+#!/usr/bin/env bash
+# The state of every task of a feature, for /landspec:implement, and the one record per task it keeps.
+#   implement.sh [feature] status [--running T001,T002]
+#       One "TASK=<id> STATE=<state> PR=<n|-> BRANCH=<b|-> PARENT=<b|-> [REASON=<why>]" line per
+#       task, then START= REVIEW= FIX= OPEN= ORDER= DONE=. States, checked in this order: merged,
+#       elsewhere, failed, running, pr, reviewed, fix, implemented, resume, startable, waiting.
+#       Reads by branch name and never switches; its one write fast-forwards a task branch that is
+#       behind its origin branch and checked out nowhere.
+#   implement.sh [feature] mark <task> implemented|changes|ready|pr [<report>]
+#   implement.sh [feature] fail <task> <reason>
+#   implement.sh [feature] retry <task>
+# The record is <git common dir>/landspec-run/<feature>/<task>: phase=, head=, round=, report=, failed=.
+set -euo pipefail
+# shellcheck source=lib.sh
+source "$(dirname "$0")/lib.sh"
+landspec_cd_root
+
+feature=""
+case "${1:-}" in status|mark|fail|retry|"") ;; *) feature="$1"; shift ;; esac
+action="${1:-}"; shift || true
+if [[ -n "$feature" ]]; then fdir="$(resolve_feature "$feature")"; else fdir="$(feature_dir)"; fi
+[[ -f "$fdir/tasks.md" ]] || die "$fdir/tasks.md not found; run /speckit-tasks first"
+num="$(feature_key "$fdir")"
+rdir="$(git rev-parse --git-common-dir)/landspec-run/$(basename "$fdir")"
+MAX_ROUNDS=3
+
+# task_branch <id> [refs/heads|refs/remotes/origin]: the task's branch there, by its name's key.
+task_branch() {
+  local key; key="/$num-$(tr '[:upper:]' '[:lower:]' <<<"$1")-"
+  git for-each-ref --format='%(refname)' "${2:-refs/heads}/" | sed "s#^${2:-refs/heads}/##" | grep -F -- "$key" | grep -v '^HEAD$' | head -1 || true
+}
+# rec <task> <key>: a field of the task's record, or nothing.
+rec() { [[ -f "$rdir/$1" ]] || return 0; sed -n "s/^$2=//p" "$rdir/$1" | tail -1; }
+# write_rec <task> <key=value>...: replace those fields, keep the others.
+write_rec() {
+  local t="$1" f k; shift; mkdir -p "$rdir"; f="$rdir/$t"; touch "$f"
+  for k in "$@"; do grep -v "^${k%%=*}=" "$f" > "$f.tmp" || true; echo "$k" >> "$f.tmp"; mv "$f.tmp" "$f"; done
+}
+valid_task() { [[ "$1" =~ ^T[0-9]{3,}$ && -n "$(task_line "$fdir" "$1")" ]] || die "$1 is not a task of $fdir"; }
+
+case "$action" in
+  mark)
+    t="${1:-}"; phase="${2:-}"; report="${3:-}"; valid_task "$t"
+    [[ "$phase" =~ ^(implemented|changes|ready|pr)$ ]] || die "usage: implement.sh mark <task> implemented|changes|ready|pr [<report>]"
+    b="$(task_branch "$t")"; [[ -n "$b" ]] || die "$t has no branch in this clone"
+    head="$(git rev-parse "refs/heads/$b")"; round="$(rec "$t" round)"; round="${round:-0}"
+    # A failure a new commit lifted (its head is not this one) is gone, its rounds with it; one
+    # recorded before the branch existed (empty head) stays until retry.
+    oldh="$(rec "$t" head)"
+    if [[ -n "$(rec "$t" failed)" && -n "$oldh" && "$oldh" != "$head" ]]; then
+      grep -vE '^(failed|round)=' "$rdir/$t" > "$rdir/$t.tmp" || true; mv "$rdir/$t.tmp" "$rdir/$t"; round=0
+    fi
+    set -- "phase=$phase" "head=$head"
+    if [[ "$phase" == changes ]]; then
+      [[ -f "$report" ]] || die "usage: implement.sh mark <task> changes <report> (the review that asked for them)"
+      round=$((round + 1)); mkdir -p "$rdir"; cp "$report" "$rdir/$t.report"
+      set -- "$@" "report=$rdir/$t.report"
+      if ((round >= MAX_ROUNDS)); then set -- "$@" "failed=review rounds"; fi
+    fi
+    write_rec "$t" "$@" "round=$round"
+    echo "MARKED=$t PHASE=$phase ROUND=$round" ;;
+  fail)
+    t="${1:-}"; why="${2:-}"; valid_task "$t"; [[ -n "$why" ]] || die "usage: implement.sh fail <task> <reason>"
+    b="$(task_branch "$t")"; head=""; [[ -z "$b" ]] || head="$(git rev-parse "refs/heads/$b")"
+    write_rec "$t" "head=$head" "failed=$why"; echo "FAILED=$t" ;;
+  retry)
+    t="${1:-}"; valid_task "$t"
+    if [[ -f "$rdir/$t" ]]; then grep -vE '^(failed|round)=' "$rdir/$t" > "$rdir/$t.tmp" || true; mv "$rdir/$t.tmp" "$rdir/$t"; fi
+    echo "RETRY=$t" ;;
+  status)
+    running_list=""
+    if [[ "${1:-}" == --running ]]; then running_list=" $(tr ',' ' ' <<<"${2:-}") "; fi
+    base="$(base_branch)"
+    par="$(cfg parallel_tasks 4)"
+    [[ "$par" =~ ^[0-9]+$ ]] && ((10#$par >= 1 && 10#$par <= 16)) || die "parallel_tasks must be a number from 1 to 16"
+    par=$((10#$par))
+    command -v gh >/dev/null || die "the GitHub CLI (gh) is required: https://cli.github.com"
+    git fetch --quiet origin || die "cannot fetch origin, so tasks claimed in other clones cannot be seen; fix the error above"
+    # The same refusals as branch.sh: a run starts tasks, and each starts from the base.
+    git cat-file -e "origin/$base:$fdir/tasks.md" 2>/dev/null \
+      || die "$fdir/tasks.md is not on '$base' yet; merge the spec PR first"
+    if [[ "$(landspec_level)" == full ]]; then
+      marker="$(git rev-parse --git-common-dir)/landspec-analyzed/$(basename "$fdir")"
+      [[ -f "$marker" && "$(cat "$marker")" == "$(git show "origin/$base:$fdir/tasks.md" | sha256)" ]] \
+        || die "level 'full' requires /speckit-analyze on the current tasks.md before implementing"
+    fi
+    # The tasks, their issues and dependencies come from the base's tasks.md, the one checked above.
+    tasks="$(git show "origin/$base:$fdir/tasks.md" | grep -E '^- \[.\] T[0-9]{3,} ' || true)"
+    closed="$(closed_issues "$fdir")" || die "cannot read the state of feature $num's task issues; fix gh's error above"
+    prs="$(gh pr list --state open --limit 500 --json number,headRefName,headRefOid,baseRefName,isDraft \
+      --jq '.[] | [.number, .headRefName, .headRefOid, .baseRefName, .isDraft] | @tsv')" \
+      || die "cannot list the open pull requests; fix gh's error above"
+    # Worktrees: "<branch>\t<path>\t<locked 0|1>" per checked-out branch.
+    wts="$(git worktree list --porcelain | awk '
+      /^worktree / { if (b != "") print b "\t" p "\t" l; p = substr($0, 10); b = ""; l = 0 }
+      /^branch refs\/heads\// { b = substr($0, 19) } /^locked/ { l = 1 }
+      END { if (b != "") print b "\t" p "\t" l }')"
+    # Per task: ST_<id> BR_<id> PA_<id> PRN_<id> WHY_<id> (bash 3.2 has no associative arrays).
+    ids=""
+    put() { printf -v "$1_$2" '%s' "$3"; }
+    get() { local v="$1_$2"; printf '%s' "${!v-}"; }
+    while IFS= read -r line; do
+      t="$(sed -E 's/^- \[.\] (T[0-9]{3,}) .*/\1/' <<<"$line")"; ids+=" $t"
+      issue="$(task_issue "$line")"; b="$(task_branch "$t")"; rb="$(task_branch "$t" refs/remotes/origin)"
+      st=""; why=""; p=""; pr="-"
+      [[ -z "$b" ]] || p="$(git config --get "branch.$b.landspec-parent" || true)"
+      wt=""; [[ -z "$b" ]] || wt="$(awk -F'\t' -v b="$b" '$1 == b { print $2 "\t" $3; exit }' <<<"$wts")"
+      if [[ -n "$issue" && "$closed" == *" $issue "* ]]; then st=merged
+      elif [[ -z "$b" && -n "$rb" ]]; then st=elsewhere; b="$rb"
+      elif [[ -n "$b" && -n "$rb" ]] && [[ "$(git rev-parse "refs/heads/$b")" != "$(git rev-parse "refs/remotes/origin/$rb")" ]] \
+           && ! git merge-base --is-ancestor "refs/remotes/origin/$rb" "refs/heads/$b"; then
+        # Someone pushed to it: behind is caught up when no checkout would be left behind.
+        if git merge-base --is-ancestor "refs/heads/$b" "refs/remotes/origin/$rb"; then
+          if [[ -z "$wt" ]]; then git update-ref "refs/heads/$b" "refs/remotes/origin/$rb" "refs/heads/$b"
+          else st=elsewhere; why="checked out in ${wt%%$'\t'*}"; fi
+        else st=elsewhere; why="diverged from origin"; fi
+      fi
+      if [[ -z "$st" ]]; then
+        head=""; [[ -z "$b" ]] || head="$(git rev-parse "refs/heads/$b")"
+        f="$(rec "$t" failed)"; fh="$(rec "$t" head)"; phase="$(rec "$t" phase)"; round="$(rec "$t" round)"
+        prl=""; [[ -z "$b" ]] || prl="$(awk -F'\t' -v b="$b" '$2 == b { print; exit }' <<<"$prs")"
+        [[ -z "$prl" ]] || pr="$(cut -f1 <<<"$prl")"
+        if [[ -n "$f" && ( -z "$fh" || "$fh" == "$head" ) ]]; then st=failed; why="$f"
+        elif [[ "$running_list" == *" $t "* ]]; then st=running
+        elif [[ -n "$wt" && "${wt##*$'\t'}" == 1 ]]; then st=running; why="locked worktree ${wt%%$'\t'*}"
+        elif [[ -n "$prl" && "$(cut -f3 <<<"$prl")" == "$head" && "$phase" == pr \
+                && ( "$(cut -f4 <<<"$prl")" != "$base" || "$(cut -f5 <<<"$prl")" == false ) ]]; then
+          st="pr" # open into its parent (a draft until restack), or ready on the base; a draft on the base is "reviewed"
+        elif [[ -n "$prl" && "$(cut -f5 <<<"$prl")" == true && "$(cut -f4 <<<"$prl")" == "$base" && -n "$p" ]]; then
+          # GitHub retargets a child onto the base when its parent's branch goes (so its review cannot
+          # even be read against that parent): until restack moves it, it waits.
+          st=waiting; why="restack pending"
+        elif [[ -n "$b" ]] && bash "$(dirname "$0")/review.sh" check --branch "$b" >/dev/null 2>&1; then st=reviewed
+        elif [[ "$phase" == changes && "$fh" == "$head" && -n "$head" && "${round:-0}" -lt "$MAX_ROUNDS" ]]; then st=fix
+        elif [[ "$phase" == implemented && "$fh" == "$head" && -n "$head" ]]; then st=implemented
+        elif [[ -n "$b" ]]; then st=resume
+        fi
+      fi
+      put ST "$t" "$st"; put BR "$t" "${b:--}"; put PA "$t" "${p:--}"; put PRN "$t" "$pr"; put WHY "$t" "$why"
+    done <<<"$tasks"
+    # No branch yet: startable when every dependency is reviewed, in a PR or merged, with at most one
+    # unmerged (a branch stacks on one parent only); otherwise waiting.
+    for t in $ids; do
+      [[ -z "$(get ST "$t")" ]] || continue
+      ok=true; unmerged=0
+      for d in $(grep -oiE 'depends on T[0-9]{3,}([, ]+(and )?T[0-9]{3,})*' <<<"$(grep -m1 -E "^- \[.\] $t " <<<"$tasks")" | grep -oE 'T[0-9]{3,}'); do
+        case "$(get ST "$d")" in merged) ;; reviewed|pr) unmerged=$((unmerged + 1)) ;; *) ok=false ;; esac
+      done
+      if $ok && ((unmerged <= 1)); then put ST "$t" startable; else put ST "$t" waiting; fi
+    done
+    running=0; done_n=0; total=0
+    for t in $ids; do
+      total=$((total + 1))
+      case "$(get ST "$t")" in running) running=$((running + 1)) ;; merged) done_n=$((done_n + 1)) ;; esac
+    done
+    slots=$((par - running)); n_start=0; start=""; review=""; fix=""; open=""
+    for t in $ids; do
+      w="$(get WHY "$t")"
+      echo "TASK=$t STATE=$(get ST "$t") PR=$(get PRN "$t") BRANCH=$(get BR "$t") PARENT=$(get PA "$t")${w:+ REASON=$w}"
+      case "$(get ST "$t")" in
+        startable|resume) if ((n_start < slots)); then start+=" $t"; n_start=$((n_start + 1)); fi ;;
+        implemented) review+=" $t" ;; fix) fix+=" $t" ;; reviewed) open+=" $t" ;;
+      esac
+    done
+    # ORDER: every task with a PR or a branch, parents before children, then by ID.
+    left=""; order=""
+    for t in $ids; do [[ "$(get BR "$t")" == - && "$(get PRN "$t")" == - ]] || left+=" $t"; done
+    while [[ -n "${left// /}" ]]; do
+      next=""; moved=false
+      for t in $left; do
+        pt=""; for u in $left; do if [[ "$u" != "$t" && "$(get PA "$t")" == "$(get BR "$u")" ]]; then pt="$u"; fi; done
+        if [[ -z "$pt" ]]; then order+=" $t"; moved=true; else next+=" $t"; fi
+      done
+      if ! $moved; then order+="$next"; break; fi # a cycle cannot happen; never loop on one
+      left="$next"
+    done
+    echo "START=${start# }"; echo "REVIEW=${review# }"; echo "FIX=${fix# }"; echo "OPEN=${open# }"
+    echo "ORDER=${order# }"; echo "DONE=$done_n/$total" ;;
+  *) die "usage: implement.sh [feature] status [--running T001,T002] | mark <task> <phase> [<report>] | fail <task> <reason> | retry <task>" ;;
+esac
