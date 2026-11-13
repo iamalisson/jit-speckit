@@ -102,6 +102,17 @@ the parent first. A workflow whose `pull_request` branches leave out the parent 
 PR, and `pr.sh` warns about each one (landspec's generated CI has no such filter). `security-scan.sh
 --changed` scans only the stacked branch's own files.
 
+Merge stacked PRs **parents first**. Once a parent's PR is merged, `implement.sh [feature] restack` moves
+each stacked branch, in `ORDER`, onto the base (or onto its next unmerged ancestor), and a child whose
+parent got new commits onto the parent's new head. It works in its own worktree `<repo>-<feature>-run`,
+pushes with a lease, retargets the PR, and marks it ready only when it now targets the base and its
+review still holds (`REVIEW=kept`: the diff is unchanged); a move that changes the diff needs a new
+review (`REVIEW=needed`) and the PR stays a draft until then. It leaves alone a branch checked out in
+any worktree, a running task, one moved on GitHub, and one with unpushed commits
+(`RESTACK_SKIPPED=<task> (<why>)`); a conflict is aborted and reported (`RESTACK_CONFLICT=<task>`).
+`implement.sh [feature] stack <task> <onto-task>` stacks a started task onto another's branch the same
+way.
+
 A task is **claimed** the moment it starts: its branch is pushed to origin, empty. From then on
 `next` in every clone and worktree shows it as in progress and never picks it; the clone that
 started it sees it as `resume` and picks it first. When origin refuses that push (no network, no

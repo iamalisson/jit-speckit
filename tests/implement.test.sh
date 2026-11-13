@@ -142,5 +142,142 @@ printf '12\t%s\t%s\tdevelop\tfalse\n13\t%s\t%s\t%s\ttrue\n' "$B1" "$(git rev-par
 check "when a stacked draft PR into its parent is marked pr, then the task is pr, not in OPEN" \
   '[[ "$(state_of T003)" == pr ]] && ! grep -q "^OPEN=.*T003" <<<"$out"'
 
+# ── Spec 004 T005: restack moves stacked branches; stack stacks one task on another ──
+# rs_setup: a lite repo (base main) with T001, T002 (depends on T001), T003 (depends on T002).
+rs_setup() {
+  cd "$TMP"; rm -rf "$TMP/origin.git" "$TMP/repo" "$TMP/repo-001-run" "$TMP/w" "$TMP/c"; : > "$GH_CLOSED"; : > "$GH_OPEN"; : > "$GH_ALL"; : > "$GH_LOG"
+  new_repo lite; commit_tasks '- [ ] T001 Add search in `a` — #1
+- [ ] T002 Add filters in `b` (depends on T001) — #2
+- [ ] T003 Add ranking in `c` (depends on T002) — #3'
+  DEV="$(git rev-parse HEAD)"; HEAD0="$DEV"; git worktree add --quiet --detach "$TMP/w" origin/main
+}
+# mkb <branch> <from> <file> [<parent branch>]: a pushed task branch with one file of its own.
+mkb() {
+  git -C "$TMP/w" switch --quiet -c "$1" "$2"; printf 'l1\nl2\nl3\nl4\nl5\n' > "$TMP/w/$3"
+  git -C "$TMP/w" add -A; git -C "$TMP/w" commit --quiet -m "feat: $1"; git -C "$TMP/w" push --quiet origin "$1"; git -C "$TMP/w" switch --quiet --detach
+  if [[ -n "${4:-}" ]]; then
+    git config "branch.$1.landspec-parent" "$4"; mkdir -p .git/landspec-review
+    git rev-parse "refs/heads/$4" > ".git/landspec-review/parent-head-${1//\//__}"
+  fi
+}
+# edit <branch> <file> <sed>: a pushed commit editing that file.
+edit() {
+  git -C "$TMP/w" switch --quiet "$1"; sed -i.bak "$3" "$TMP/w/$2"; rm -f "$TMP/w/$2.bak"
+  git -C "$TMP/w" commit --quiet -am "fix: $1"; git -C "$TMP/w" push --quiet origin "$1"; git -C "$TMP/w" switch --quiet --detach
+}
+# prs: lines "<n> <branch> <base> <draft> <state>" on stdin become the fake gh's PR lists.
+prs() {
+  : > "$GH_ALL"; : > "$GH_OPEN"
+  while read -r n b bs d s; do
+    h="$(git rev-parse "refs/remotes/origin/$b")"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$n" "$b" "$h" "$bs" "$d" "$s" >> "$GH_ALL"
+    if [[ "$s" == OPEN ]]; then printf '%s\t%s\t%s\t%s\t%s\n' "$n" "$b" "$h" "$bs" "$d" >> "$GH_OPEN"; fi
+  done
+}
+squash() { # squash <branch> <issue>: squash-merge it into main on origin, as GitHub does
+  git -C "$TMP/w" switch --quiet --detach origin/main; git -C "$TMP/w" merge --quiet --squash "refs/heads/$1" >/dev/null
+  git -C "$TMP/w" commit --quiet -m "squash $1"; git -C "$TMP/w" push --quiet origin HEAD:refs/heads/main; git -C "$TMP/w" switch --quiet --detach
+  git fetch --quiet origin; echo "$2" >> "$GH_CLOSED"
+}
+own() { git diff --name-only "$(git merge-base "refs/heads/$1" "$2")" "refs/heads/$1" | tr '\n' ' ' | sed 's/ $//'; } # own <branch> <against>
+rs() { out="$("$I" restack 2>&1)" || true; }
+run_ok() { # the run's worktree is detached and every task branch can still be checked out elsewhere
+  [[ -z "$(git -C "$TMP/repo-001-run" branch --show-current)" ]] && git worktree add --quiet "$TMP/c" "$1" && git worktree remove --force "$TMP/c" \
+    && [[ "$(git rev-parse HEAD)" == "$DEV" && "$(git branch --show-current)" == main ]]
+}
+B1=feat/001-t001-add-search-in-a; B2=feat/001-t002-add-filters-in-b; B3=feat/001-t003-add-ranking-in-c
+
+rs_setup
+mkb "$B1" origin/main a; mkb "$B2" "$B1" b "$B1"; ready "$B2"
+printf '11 %s main false OPEN\n12 %s %s true OPEN\n' "$B1" "$B2" "$B1" | prs
+squash "$B1" 1
+printf '11 %s main false MERGED\n12 %s %s true OPEN\n' "$B1" "$B2" "$B1" | prs; : > "$GH_LOG"; rs
+check "when T001 is squash-merged, then restack moves T002 onto main, keeps its review and marks its PR ready" \
+  'grep -qx "RESTACKED=T002 REVIEW=kept" <<<"$out" && [[ "$(own "$B2" origin/main)" == b ]] && ! git config --get "branch.$B2.landspec-parent" \
+   && grep -q "^pr edit 12 --base main" "$GH_LOG" && grep -q "^pr ready 12$" "$GH_LOG"'
+check "then the run's worktree is detached, the branch can be checked out, the developer's checkout is unchanged" 'run_ok "$B2"'
+rs
+check "when restack runs again, then it prints nothing" '[[ -z "$out" ]]'
+
+rs_setup
+mkb "$B1" origin/main a; mkb "$B2" "$B1" b "$B1"; ready "$B2"
+printf '11 %s main false OPEN\n12 %s %s true OPEN\n' "$B1" "$B2" "$B1" | prs
+edit "$B1" a 's/l1/L1/'; printf '11 %s main false OPEN\n12 %s %s true OPEN\n' "$B1" "$B2" "$B1" | prs; : > "$GH_LOG"; rs
+check "when the parent moved (a fix round) and is still open, then the child is moved onto its new head with no pr ready" \
+  'grep -qx "RESTACKED=T002 REVIEW=kept" <<<"$out" && git merge-base --is-ancestor "refs/heads/$B1" "refs/heads/$B2" && [[ "$(own "$B2" "refs/heads/$B1")" == b ]] \
+   && ! grep -q "^pr ready 12$" "$GH_LOG" && [[ "$(cat ".git/landspec-review/parent-head-${B2//\//__}")" == "$(git rev-parse "refs/heads/$B1")" ]] && run_ok "$B2"'
+squash "$B1" 1; printf '11 %s main false MERGED\n12 %s %s true OPEN\n' "$B1" "$B2" "$B1" | prs; rs
+check "when that fixed parent is then squash-merged, then the child holds only its own file, with no conflict" \
+  'grep -qx "RESTACKED=T002 REVIEW=kept" <<<"$out" && [[ "$(own "$B2" origin/main)" == b ]]'
+
+# Chain T001 -> T002 -> T003, T001 merged: one restack moves both.
+rs_setup
+mkb "$B1" origin/main a; mkb "$B2" "$B1" b "$B1"; mkb "$B3" "$B2" c "$B2"
+squash "$B1" 1; printf '11 %s main false MERGED\n' "$B1" | prs; : > "$GH_LOG"; rs
+check "in a chain with T001 merged, then one restack leaves T003 against T002 holding only its own file" \
+  'grep -qx "RESTACKED=T002 REVIEW=none" <<<"$out" && grep -qx "RESTACKED=T003 REVIEW=none" <<<"$out" && [[ "$(own "$B3" "refs/heads/$B2")" == c && "$(own "$B2" origin/main)" == b ]]'
+check "then a task with no PR is moved with no gh call but the PR list" '! grep -qE "^pr (edit|ready)" "$GH_LOG"'
+
+# The review needs redoing when the move changes the diff (here, its context lines), and the PR stays a draft.
+rs_setup
+mkb "$B1" origin/main a; mkb "$B2" "$B1" b "$B1"; edit "$B2" a 's/l3/X3/'; ready "$B2"
+edit "$B1" a 's/l1/Y1/'; squash "$B1" 1
+printf '11 %s main false MERGED\n12 %s %s true OPEN\n' "$B1" "$B2" "$B1" | prs; : > "$GH_LOG"; rs; rsout="$out"; st
+check "then restack said REVIEW=needed" 'grep -qx "RESTACKED=T002 REVIEW=needed" <<<"$rsout"'
+check "when the move changes the child's diff, then REVIEW=needed, no pr ready, and the task is implemented" \
+  '[[ "$(state_of T002)" == implemented ]] && ! grep -q "^pr ready 12$" "$GH_LOG" && grep -q "^pr edit 12 --base main" "$GH_LOG"'
+
+# A child that touches the parent's fixed lines conflicts and keeps its head.
+rs_setup
+mkb "$B1" origin/main a; mkb "$B2" "$B1" b "$B1"; edit "$B2" a 's/l1/C1/'; edit "$B1" a 's/l1/P1/'
+printf '11 %s main false OPEN\n' "$B1" | prs; h="$(git rev-parse "refs/heads/$B2")"; rs
+check "when the child touches the parent's fixed lines, then RESTACK_CONFLICT and its head is kept" \
+  'grep -qx "RESTACK_CONFLICT=T002" <<<"$out" && [[ "$(git rev-parse "refs/heads/$B2")" == "$h" ]] && run_ok "$B2"'
+
+# Skips: checked out, origin moved, local commits not on origin.
+rs_setup
+mkb "$B1" origin/main a; mkb "$B2" "$B1" b "$B1"; squash "$B1" 1
+printf '11 %s main false MERGED\n12 %s %s true OPEN\n' "$B1" "$B2" "$B1" | prs
+git worktree add --quiet "$TMP/c" "$B2"; rs
+check "when the child is checked out in a worktree, then it is skipped, saying so" 'grep -q "^RESTACK_SKIPPED=T002 (checked out in " <<<"$out"'
+git worktree remove --force "$TMP/c"
+edit "$B2" b 's/l2/O2/'; git -C "$TMP/w" push --quiet origin ":refs/heads/__x" 2>/dev/null || true
+printf '11 %s main false MERGED\n12 %s %s true OPEN\n' "$B1" "$B2" "$B1" | prs
+git -C "$TMP/w" switch --quiet --detach "$B2"; echo z > "$TMP/w/z"; git -C "$TMP/w" add -A; git -C "$TMP/w" commit --quiet -m z
+git -C "$TMP/w" push --quiet origin "HEAD:refs/heads/$B2"; git -C "$TMP/w" switch --quiet --detach; git fetch --quiet origin
+git update-ref "refs/heads/$B2" "refs/remotes/origin/$B2"; rs
+check "when origin's head differs from the PR's head, then it is skipped (origin moved)" 'grep -qx "RESTACK_SKIPPED=T002 (origin moved)" <<<"$out"'
+printf '11 %s main false MERGED\n12 %s %s true OPEN\n' "$B1" "$B2" "$B1" | prs
+git -C "$TMP/w" switch --quiet "$B2"; echo y > "$TMP/w/y"; git -C "$TMP/w" add -A; git -C "$TMP/w" commit --quiet -m y; git -C "$TMP/w" switch --quiet --detach; rs
+check "when it has local commits not on origin, then it is skipped, saying so" 'grep -qx "RESTACK_SKIPPED=T002 (local commits not on origin)" <<<"$out"'
+
+# A move keeps the record's state: implemented, fix and failed stay so, and none is in START.
+for ph in implemented changes failed; do
+  rs_setup
+  mkb "$B1" origin/main a; mkb "$B2" "$B1" b "$B1"; echo r > "$TMP/rep.md"
+  case "$ph" in failed) "$I" fail T002 "tests red" >/dev/null ;; *) "$I" mark T002 "$ph" "$TMP/rep.md" >/dev/null ;; esac
+  squash "$B1" 1; printf '11 %s main false MERGED\n' "$B1" | prs; rs; rsout="$out"; st
+  want="$ph"; [[ "$ph" != changes ]] || want=fix
+  check "when a $want stacked task is moved, then it is still $want and not in START" \
+    'grep -q "^RESTACKED=T002" <<<"$rsout" && [[ "$(state_of T002)" == "$want" ]] && ! grep -q "^START=.*T002" <<<"$out"'
+done
+
+# pr ready refused: the task stays reviewed, a draft on the base, in OPEN.
+rs_setup
+mkb "$B1" origin/main a; mkb "$B2" "$B1" b "$B1"; ready "$B2"; squash "$B1" 1
+printf '11 %s main false MERGED\n12 %s %s true OPEN\n' "$B1" "$B2" "$B1" | prs
+out="$(GH_FAIL_READY=1 "$I" restack 2>&1)" || true
+check "when gh pr ready fails, then RESTACK_NOT_READY" 'grep -qx "RESTACK_NOT_READY=T002" <<<"$out"'
+printf '11 %s main false MERGED\n12 %s main true OPEN\n' "$B1" "$B2" | prs; st
+check "then the task is reviewed, in OPEN" '[[ "$(state_of T002)" == reviewed ]] && grep -q "^OPEN=.*T002" <<<"$out"'
+
+# stack: T003 (unstacked, from main) onto T002.
+rs_setup
+mkb "$B1" origin/main a; mkb "$B2" origin/main b; mkb "$B3" origin/main c
+out="$("$I" stack T003 T002 2>&1)" || true
+check "when stack T003 T002 runs, then T003's diff against T002 holds only its own file and T002 is its parent" \
+  'grep -q "^RESTACKED=T003" <<<"$out" && [[ "$(own "$B3" "refs/heads/$B2")" == c && "$(git config --get "branch.$B3.landspec-parent")" == "$B2" ]] && run_ok "$B3"'
+check "then a second stack refuses" 'fails_with "already stacked" "$I" stack T003 T001'
+
 check "then the current HEAD is the same after every call" '[[ ! -e "$TMP/head.moved" ]]'
 exit "$FAIL"
