@@ -417,6 +417,9 @@ check "when every task on origin/main starts with Fix, then it is a patch: bump 
 set_tasks "$tk0"$'\n''- [ ] T005 Add a late task — #99'; rp
 check "when a task with an open issue was added on origin/main and this checkout is stale, then release-plan refuses naming it" \
   'grep -q "T005 (#99) is still open" <<<"$out" && ! grep -q "^RELEASE=" <<<"$out" && ! grep -q "T005" specs/001-demo/tasks.md'
+set_tasks '# Tasks'; rp
+check "when tasks.md on origin/main has no task lines, then release-plan refuses saying so, and prints no RELEASE=" \
+  'grep -q "tasks.md on .main. has no tasks" <<<"$out" && ! grep -q "^RELEASE=" <<<"$out"'
 set_tasks "$tk0"
 sed -i.bak '/^3$/d' "$GH_CLOSED"; rm -f "$GH_CLOSED.bak"; rp
 check "when one task issue is open, then release-plan refuses naming the task" 'grep -q "T003 (#3) is still open" <<<"$out" && ! grep -q "^RELEASE=" <<<"$out"'
