@@ -26,7 +26,8 @@ Each pass:
    implementers take `parallel_tasks:` slots, and a task under review is kept from a second review by
    `in flight`, not by `status`. It prints one `TASK=` line per task, then `START=`, `REVIEW=`, `FIX=`, `OPEN=`,
    `ORDER=` and `DONE=`.
-3. One step per listed task, in the order printed:
+3. One step per listed task, in the order printed, skipping any task that is in `in flight` (a task
+   under review is listed in `REVIEW=` again until its reviewer returns):
    - **`START`** → launch an implementer: the Agent tool with `subagent_type: "landspec:implementer"`,
      `isolation: "worktree"`, `run_in_background: true`, and `model` from `implement_model:` in
      `.specify/extensions/landspec/landspec-config.yml` (`sonnet`, `opus` or `fable`; left out when
@@ -150,8 +151,9 @@ the repository. In that copy, run the project's test command before anything els
 
 - green: `I mark <task> implemented` (it clears `red=`), then remove it from `in flight`;
 - red: `I mark <task> red`. At `RED=2` (it said done twice and the tests are still red):
-  `I fail <task> "tests red twice"`, then remove it from `in flight`. At `RED=1`, back to its
-  implementer with the test output, as a fix round (`FIX`); it stays in flight.
+  `I fail <task> "tests red twice"`, then remove it from `in flight`. At `RED=1`, SendMessage its
+  implementer the test output; if SendMessage is not available, or the agent is gone, launch a new
+  implementer as in `START`, on the existing branch, with that output. It stays in flight.
 
 Otherwise:
 

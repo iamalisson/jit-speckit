@@ -305,6 +305,10 @@ check "then a returning implementer's tests run first in its copy: green marks i
 check "then only implementers take parallel_tasks slots (status --running), while every task in flight is kept from restack" \
   'grep -qF "\`I status --running <the implementers in flight, comma separated>\`" <<<"$im" && grep -qF "\`I restack --running <every task in flight, implementers and reviewers, comma separated>\`" <<<"$im" \
    && grep -qF "reviewers take no slot" docs/reference.md'
+check "then a listed task already in flight is skipped, so a task under review never gets a second reviewer" \
+  'grep -qF "skipping any task that is in \`in flight\`" <<<"$im"'
+check "then red once goes back to its implementer with the test output, not through FIX's review report" \
+  'r="$(sed -n "/^## When an implementer returns/,/^## End/p" <<<"$im")"; grep -qF "At \`RED=1\`, SendMessage its" <<<"$r" && grep -qF "with that output. It stays in flight." <<<"$r"'
 check "then the PR step switches to the branch first, runs gh pr ready after pr.sh task on a draft that targets the base, and detaches last" \
   'o="$(sed -n "/\*\*\`OPEN\`\*\*/,/^4\. /p" <<<"$im" | tr "\n" " ")"; [[ "$o" =~ git\ switch\ \<branch\>.*pr\.sh\ task.*gh\ pr\ ready.*git\ switch\ +--detach ]] && grep -qF "never while \`landspec-parent\` is set" <<<"$o"'
 check "then nothing in the skill or the implementer merges a PR" '! grep -qF "gh pr merge" skills/implement/SKILL.md agents/implementer.md'

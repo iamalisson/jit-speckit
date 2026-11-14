@@ -145,7 +145,7 @@ case "$action" in
     # recorded before the branch existed (empty head) stays until retry.
     oldh="$(rec "$t" head)"
     if [[ -n "$(rec "$t" failed)" && -n "$oldh" && "$oldh" != "$head" ]]; then
-      grep -vE '^(failed|round|red)=' "$rdir/$t" > "$rdir/$t.tmp" || true; mv "$rdir/$t.tmp" "$rdir/$t"; round=0
+      grep -vE '^(failed|round)=' "$rdir/$t" > "$rdir/$t.tmp" || true; mv "$rdir/$t.tmp" "$rdir/$t"; round=0
     fi
     if [[ -f "$rdir/$t" ]]; then grep -v '^red=' "$rdir/$t" > "$rdir/$t.tmp" || true; mv "$rdir/$t.tmp" "$rdir/$t"; fi # green again
     set -- "phase=$phase" "head=$head"
