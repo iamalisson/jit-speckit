@@ -21,8 +21,10 @@ argument-hint: "[quick|full|deep|<report>]"
   the checkout it names. Ask nothing; change no file in the working tree (the scanners' reports in
   `REPORT_DIR`, inside `.git`, are fine), commit nothing, open no issue, advisory or PR,
   post nothing. Write the report where the prompt says (not `REPORT_DIR`), and end with one line
-  `HOLD=<n>`: the number of findings marked `confirmed` with severity critical or high. Step 7 is for
-  the developer, through `/landspec:security <report>`.
+  `HOLD=<n>`: the number of findings marked `confirmed` with severity critical or high. Step 4 takes
+  the `/code-review high` and `/security-review` output from the files the prompt names (the main
+  session ran them); one the prompt says was not available is named in the report's coverage, as a
+  missing scanner is. Step 7 is for the developer, through `/landspec:security <report>`.
 
 **Rules for the whole audit**
 - Read code; don't guess. Every finding cites `file:line` and a concrete way to exploit or
@@ -94,7 +96,7 @@ Write `REPORT_DIR/report.md`, which stays inside `.git` and is never committed. 
 summary to the user:
 
 - one line on overall risk, then the counts by severity;
-- a table with severity, category, `file:line` and a one-line title;
+- a table with severity, category, `file:line`, a one-line title, and `confirmed` or `plausible`;
 - for each finding, most severe first:
   - **What:** the code and why it's exploitable;
   - **Exploit:** concrete steps or a request;
