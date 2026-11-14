@@ -121,7 +121,8 @@ next run reads where it stands from git and GitHub:
   only on `CHECKED=`, or a green run and a `ready` feature review; then the audit (below); only on `AUDIT=done`, in the run's worktree `<repo>-<feature>-run`
   (`git fetch origin`, `git switch -c chore/release-X.Y.Z origin/<base>`): `I release-bump X.Y.Z`
   there, then write the notes to `<path>`: grouped by user story, one line per PR in `PRS=` (its
-  title and number), and an "Upgrading" section when a task changed a config key or a command. Commit
+  title and number), an "Upgrading" section when a task changed a config key or a command, and the
+  "Known issues" of the audit (below). Commit
   them by name (`chore(release): X.Y.Z`), push, then the review and `pr.sh fix "chore(release): X.Y.Z"
   <body>` as `pr.md` says for a PR that is not a task, then `git switch --detach origin/<base>` there.
   `NOTES=-` (no `release_notes:`): put the notes first in the release PR's body, before its
@@ -143,13 +144,23 @@ next run reads where it stands from git and GitHub:
 On `RELEASE=bump` and on `RELEASE=none`, once the whole-feature check on the base passed and before anything else, run `I audit-plan` and act on the **one** `AUDIT=` line it
 prints. The base is audited once per commit: a later run reuses the recorded result.
 
-- `AUDIT=needed COMMIT=<sha>`: in the run's worktree `<repo>-<feature>-run`, `git switch --detach <sha>`,
-  then launch one background subagent (`general-purpose`) with this prompt: "In `<that path>`, run the
+- `AUDIT=needed COMMIT=<sha>`: in the run's worktree `<repo>-<feature>-run`, `git switch --detach <sha>`.
+  There the main session runs `/code-review high` and `/security-review` (a subagent cannot run them)
+  and writes each one's output to a `mktemp` file; one that is not available here gets a file saying so.
+  Then launch one background subagent (`general-purpose`) with this prompt: "In `<that path>`, run the
   `full` security audit of `${CLAUDE_PLUGIN_ROOT}/skills/security/SKILL.md` unattended, as its
-  'Unattended' mode says. Write the report to `<a mktemp file>`." When it returns, take the `HOLD=<n>`
+  'Unattended' mode says. Step 4's `/code-review high` output is in `<code-review file>` and
+  `/security-review`'s in `<security-review file>`. Write the report to `<a mktemp file>`." When it returns, take the `HOLD=<n>`
   of its last line (no such line: record nothing, say the audit did not finish, and stop the
   release), run `I audit-record <sha> <file> <n>`, then `I audit-plan` again.
-- `AUDIT=done COMMIT=… REPORT=… HOLD=0`: go on with the bump (or, on `RELEASE=none`, the notes).
+- `AUDIT=done COMMIT=… REPORT=… HOLD=0`: go on with the bump (or, on `RELEASE=none`, the notes). The
+  notes get a "Known issues" section from the report's findings table (severity and `confirmed` or
+  `plausible` per row), by the repository's visibility (`gh repo view --json visibility -q
+  .visibility`; a failed call stops the release here): on a `PUBLIC` one, only a count per severity
+  and a neutral category for each (such as "input validation"); on a private or internal one, each
+  confirmed medium or low and each plausible finding, with its title and category, the title
+  rewritten if it carries more than what is affected. Never an exploit detail, a `file:line` or a
+  request, on either. No findings: no section.
 - `AUDIT=hold COMMIT=… REPORT=<path> HOLD=<n>`: the release **holds**: no bump, no release PR, and
   nothing filed or posted about the findings (no issue, advisory, PR or comment: the run report gives
   only their count and the report's path, never what they are). `/landspec:security <path>` tracks
@@ -190,7 +201,8 @@ Show the run report, then only what is left for the developer:
   skipped task;
 - the gap tasks filed, with their issues and the spec PR;
 - the release: the `RELEASE=` line and what was done for it (the release PR to merge, the tag, the
-  published release), and the `AUDIT=` line when there was one.
+  published release), and the `AUDIT=` line when there was one, with the scanners and reviews the
+  report's coverage names as missing (they do not hold the release; installing them widens the next audit).
 
 Last line, when gaps were filed: `merge the PRs in ORDER and <spec PR>, then run /landspec:implement
 again`. When the release holds: `release held: <n> confirmed critical or high; run /landspec:security

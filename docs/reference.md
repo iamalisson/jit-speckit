@@ -137,7 +137,11 @@ it, the tag `vX.Y.Z` on its merge commit; then the published release with those 
 Before the bump it runs the `full` security audit unattended on `origin/<base>`, once per commit
 (`implement.sh audit-plan`, `audit-record`; the report is kept in `.git/landspec-security/`). A
 confirmed critical or high finding holds the release: no bump, nothing filed or posted, and the last
-line is `run /landspec:security <report>`, which tracks and fixes it.
+line is `run /landspec:security <report>`, which tracks and fixes it. The main session runs
+`/code-review high` and `/security-review` for it and hands their output to the audit. With nothing
+held, the release notes get a "Known issues" section: on a public repository only a count per severity
+and a neutral category, on a private one each remaining finding's title and category; never an
+exploit detail. The run's last report names the scanners that were missing.
 
 `/landspec:implement` is the default after `/speckit-tasks`: the spec PR's last line names it, and
 `next.sh` prints `RUN=/landspec:implement <feature>` before `FEATURE=` when two or more tasks can start.

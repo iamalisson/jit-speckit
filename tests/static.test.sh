@@ -375,6 +375,17 @@ check "when the skill reaches a bump, then it acts on the one AUDIT= line, for n
    && for k in needed done hold; do grep -qF -- "- \`AUDIT=$k" <<<"$au" || exit 1; done'
 check "then a hold files and posts nothing and the last line names /landspec:security with the report" \
   'grep -qF "nothing filed or posted about the findings" <<<"$au" && grep -qF "release held: <n> confirmed critical or high; run /landspec:security" skills/implement/SKILL.md'
+check "then the main session runs /code-review high and /security-review for the audit, and the unattended audit takes them from its prompt and names a missing one" \
+  'grep -qF "There the main session runs \`/code-review high\` and \`/security-review\`" <<<"$au" && grep -qF "one that is not available here gets a file saying so" <<<"$au" \
+   && grep -qF "the \`/code-review high\` and \`/security-review\` output from the files the prompt names" skills/security/SKILL.md \
+   && grep -qF "is named in the report'"'"'s coverage, as a" skills/security/SKILL.md && grep -qF "\`confirmed\` or \`plausible\`;" skills/security/SKILL.md'
+check "then with HOLD=0 the notes get Known issues by visibility, counts only on a public repository, never an exploit detail" \
+  'grep -qF "\"Known issues\" section from the report" <<<"$au" && grep -qF "gh repo view --json visibility -q" <<<"$au" && grep -qF "a failed call stops the release here" <<<"$au" \
+   && grep -qF "on a \`PUBLIC\` one, only a count per severity" <<<"$au" && grep -qF "on a private or internal one, each" <<<"$au" \
+   && grep -qF "confirmed medium or low and each plausible finding, with its title and category" <<<"$au" && grep -qF "the title" <<<"$au" && grep -qF "rewritten if it carries more than what is affected. Never an exploit detail" <<<"$au" && grep -qF "<code-review file>" <<<"$au" && grep -qF "<security-review file>" <<<"$au" \
+   && grep -qF "\"Known issues\" of the audit (below)" skills/implement/SKILL.md'
+check "then the run report names the missing scanners, which do not hold the release" \
+  'e="$(sed -n "/^## End/,\$p" skills/implement/SKILL.md)"; grep -qF "report'"'"'s coverage names as missing (they do not hold the release" <<<"$e"'
 check "then /landspec:security has the unattended mode (steps 1 to 6, HOLD=) and takes a report for step 7" \
   'grep -qF "**Unattended**" skills/security/SKILL.md && grep -qF "steps 1 to 6 only" skills/security/SKILL.md && grep -qF "\`HOLD=<n>\`" skills/security/SKILL.md \
    && grep -qF "Read it, show its summary as step 6 says, then step 7" skills/security/SKILL.md'
