@@ -440,7 +440,11 @@ check "when the release PR is merged and not tagged, then tag 1.4.2 with its mer
 git -C "$TMP/w" tag v1.4.2 "$r"; git -C "$TMP/w" push --quiet origin v1.4.2; rp
 check "when it is tagged and not published, then publish 1.4.2, naming the notes on the base" '[[ "$out" == "RELEASE=publish 1.4.2 NOTES=docs/releases/1.4.2.md" ]]'
 sed -i.bak '/^release_notes:/d' .specify/extensions/landspec/landspec-config.yml; rm -f .specify/extensions/landspec/landspec-config.yml.bak; rp
-check "then without release_notes: the publish line says NOTES=-" '[[ "$out" == "RELEASE=publish 1.4.2 NOTES=-" ]]'
+check "then without release_notes: the publish line names the release PR, whose body holds the notes" '[[ "$out" == "RELEASE=publish 1.4.2 NOTES=pr:21" ]]'
+cp "$GH_REL" "$TMP/rel.bak"; awk -F'\t' '$1 != 21' "$TMP/rel.bak" > "$GH_REL"; rp
+check "then with no merged release PR to take the notes from, it refuses saying so, and prints no RELEASE=" \
+  'grep -qF "v1.4.2 has no merged PR titled '"'"'chore(release): 1.4.2'"'"'" <<<"$out" && ! grep -q "^RELEASE=" <<<"$out"'
+cp "$TMP/rel.bak" "$GH_REL"
 echo 'release_notes: docs/releases' >> .specify/extensions/landspec/landspec-config.yml
 echo v1.4.2 > "$GH_RELEASES"; rp
 check "when it is published, then done 1.4.2" '[[ "$out" == "RELEASE=done 1.4.2" ]]'
