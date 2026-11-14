@@ -149,8 +149,8 @@ prints. The base is audited once per commit: a later run reuses the recorded res
   and writes each one's output to a `mktemp` file; one that is not available here gets a file saying so.
   Then launch one background subagent (`general-purpose`) with this prompt: "In `<that path>`, run the
   `full` security audit of `${CLAUDE_PLUGIN_ROOT}/skills/security/SKILL.md` unattended, as its
-  'Unattended' mode says. Step 4's `/code-review high` output is in `<file>` and `/security-review`'s
-  in `<file>`. Write the report to `<a mktemp file>`." When it returns, take the `HOLD=<n>`
+  'Unattended' mode says. Step 4's `/code-review high` output is in `<code-review file>` and
+  `/security-review`'s in `<security-review file>`. Write the report to `<a mktemp file>`." When it returns, take the `HOLD=<n>`
   of its last line (no such line: record nothing, say the audit did not finish, and stop the
   release), run `I audit-record <sha> <file> <n>`, then `I audit-plan` again.
 - `AUDIT=done COMMIT=… REPORT=… HOLD=0`: go on with the bump (or, on `RELEASE=none`, the notes). The
@@ -158,8 +158,9 @@ prints. The base is audited once per commit: a later run reuses the recorded res
   `plausible` per row), by the repository's visibility (`gh repo view --json visibility -q
   .visibility`; a failed call stops the release here): on a `PUBLIC` one, only a count per severity
   and a neutral category for each (such as "input validation"); on a private or internal one, each
-  confirmed medium or low and each plausible finding, with its title and category. Never an exploit
-  detail, a `file:line` or a request, on either. No findings: no section.
+  confirmed medium or low and each plausible finding, with its title and category, the title
+  rewritten if it carries more than what is affected. Never an exploit detail, a `file:line` or a
+  request, on either. No findings: no section.
 - `AUDIT=hold COMMIT=… REPORT=<path> HOLD=<n>`: the release **holds**: no bump, no release PR, and
   nothing filed or posted about the findings (no issue, advisory, PR or comment: the run report gives
   only their count and the report's path, never what they are). `/landspec:security <path>` tracks

@@ -382,7 +382,7 @@ check "then the main session runs /code-review high and /security-review for the
 check "then with HOLD=0 the notes get Known issues by visibility, counts only on a public repository, never an exploit detail" \
   'grep -qF "\"Known issues\" section from the report" <<<"$au" && grep -qF "gh repo view --json visibility -q" <<<"$au" && grep -qF "a failed call stops the release here" <<<"$au" \
    && grep -qF "on a \`PUBLIC\` one, only a count per severity" <<<"$au" && grep -qF "on a private or internal one, each" <<<"$au" \
-   && grep -qF "confirmed medium or low and each plausible finding, with its title and category" <<<"$au" && grep -qF "Never an exploit" <<<"$au" \
+   && grep -qF "confirmed medium or low and each plausible finding, with its title and category" <<<"$au" && grep -qF "the title" <<<"$au" && grep -qF "rewritten if it carries more than what is affected. Never an exploit detail" <<<"$au" && grep -qF "<code-review file>" <<<"$au" && grep -qF "<security-review file>" <<<"$au" \
    && grep -qF "\"Known issues\" of the audit (below)" skills/implement/SKILL.md'
 check "then the run report names the missing scanners, which do not hold the release" \
   'e="$(sed -n "/^## End/,\$p" skills/implement/SKILL.md)"; grep -qF "report'"'"'s coverage names as missing (they do not hold the release" <<<"$e"'
