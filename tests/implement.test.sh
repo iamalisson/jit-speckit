@@ -43,13 +43,18 @@ setup
 st
 check "before anything starts, then START is T001 T002 and T003, T004 wait" \
   'grep -qx "START=T001 T002" <<<"$out" && [[ "$(state_of T003)" == waiting && "$(state_of T004)" == waiting ]]'
+check "then each waiting line says which dependency it waits for" \
+  'line_of T003 | grep -q " REASON=waits for T001$" && line_of T004 | grep -q " REASON=waits for T002$"'
 mk "$B1"; ready "$B1"; st
 check "when T001 is reviewed, then it is reviewed, in OPEN, and T003 becomes startable" \
   '[[ "$(state_of T001)" == reviewed && "$(state_of T003)" == startable ]] && grep -qx "OPEN=T001" <<<"$out" && grep -qx "START=T002 T003" <<<"$out"'
 check "then T003 stacks on T001: its startable line names T001's branch as PARENT, and T002 (no dependency) has none" \
   'line_of T003 | grep -qF "STATE=startable" && line_of T003 | grep -qF " PARENT=$B1" && line_of T002 | grep -qF " PARENT=-"'
-mk "$B2"; ready "$B2"; mk "$B3" "$B1"; git config "branch.$B3.landspec-parent" "$B1"; ready "$B3"; st
-check "when T002 and T003 are both reviewed and unmerged, then T004 still waits" '[[ "$(state_of T004)" == waiting ]]'
+mk "$B2"; ready "$B2"; st
+check "when one dependency is reviewed and the other not started, then it waits for the unstarted one" 'line_of T004 | grep -q " REASON=waits for T003$"'
+mk "$B3" "$B1"; git config "branch.$B3.landspec-parent" "$B1"; ready "$B3"; st
+check "when T002 and T003 are both reviewed and unmerged, then T004 still waits, for one of their merges" \
+  '[[ "$(state_of T004)" == waiting ]] && line_of T004 | grep -q " REASON=merge T002 or T003 first$"'
 check "then ORDER lists the parent before its child" 'grep -qx "ORDER=T001 T002 T003" <<<"$out"'
 echo 2 >> "$GH_CLOSED"; st
 check "when T002 is merged, then T004 becomes startable" '[[ "$(state_of T002)" == merged && "$(state_of T004)" == startable ]]'

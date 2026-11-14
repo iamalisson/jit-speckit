@@ -235,12 +235,16 @@ case "$action" in
     # unmerged (a branch stacks on one parent only); otherwise waiting.
     for t in $ids; do
       [[ -z "$(get ST "$t")" ]] || continue
-      ok=true; unmerged=0; pb=""
+      ok=true; unmerged=0; pb=""; wf=""; um=""
       for d in $(grep -oiE 'depends on T[0-9]{3,}([, ]+(and )?T[0-9]{3,})*' <<<"$(grep -m1 -E "^- \[.\] $t " <<<"$tasks")" | grep -oE 'T[0-9]{3,}'); do
-        case "$(get ST "$d")" in merged) ;; reviewed|pr) unmerged=$((unmerged + 1)); pb="$(get BR "$d")" ;; *) ok=false ;; esac
+        case "$(get ST "$d")" in merged) ;; reviewed|pr) unmerged=$((unmerged + 1)); pb="$(get BR "$d")"; um+=" $d" ;; *) ok=false; wf="${wf:-$d}" ;; esac
       done
       # its one unmerged dependency is the branch it stacks on (the skill passes it as --from)
-      if $ok && ((unmerged <= 1)); then put ST "$t" startable; [[ -z "$pb" ]] || put PA "$t" "$pb"; else put ST "$t" waiting; fi
+      if $ok && ((unmerged <= 1)); then put ST "$t" startable; [[ -z "$pb" ]] || put PA "$t" "$pb"
+      else # what it waits for: a dependency not reviewed yet, else one of its unmerged parents' merges
+        put ST "$t" waiting; um="${um# }"
+        if [[ -n "$wf" ]]; then put WHY "$t" "waits for $wf"; else put WHY "$t" "merge ${um// / or } first"; fi
+      fi
     done
     running=0; done_n=0; total=0
     for t in $ids; do

@@ -351,6 +351,10 @@ check "then nothing in the skill merges a PR" '! grep -qF "gh pr merge" skills/i
 check "then landspec's own config names its four version files and docs/releases" \
   'c=.specify/extensions/landspec/landspec-config.yml; for f in .claude-plugin/plugin.json extension/extension.yml preset/preset.yml .specify/extensions/landspec/extension.yml; do grep "^version_files:" $c | grep -qF "$f" || exit 1; done; grep -qx "release_notes: docs/releases" $c'
 
+# The run report (spec 004 T013): why a task waits, and how to free a locked worktree.
+check "when the run ends, then the report gives each waiting task's reason and the unlock and remove commands for a locked worktree" \
+  'e="$(sed -n "/^## End/,\$p" skills/implement/SKILL.md)"; grep -qF "each \`waiting\` task with its \`REASON=\`" <<<"$e" && grep -qF "\`git worktree unlock <path>\`, then \`git worktree remove <path>\`" <<<"$e"'
+
 # The audit before the release (spec 004 T010): once per base commit, unattended, holding on a confirmed critical or high.
 au="$(sed -n "/^## The audit before the bump/,/^## When an implementer returns/p" skills/implement/SKILL.md)"
 check "when the skill reaches a bump, then it acts on the one AUDIT= line, for needed, done and hold" \
