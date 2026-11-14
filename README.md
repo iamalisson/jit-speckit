@@ -17,7 +17,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/flow-dark.svg">
-    <img src="assets/flow-light.svg" width="880" alt="spec and tasks once per feature; then, once per task and automatically: issue, branch, pull request, merged and issue closed">
+    <img src="assets/flow-light.svg" width="880" alt="spec and tasks once per feature; then, for every task, in parallel and automatically: issue, branch, pull request, merged and issue closed">
   </picture>
 </p>
 
