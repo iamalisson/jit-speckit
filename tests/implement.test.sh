@@ -459,6 +459,11 @@ check "when audit-record gets a short sha, a missing report or a hold that is no
    && fails_with "usage: implement.sh audit-record" "$I" audit-record "$c1" "$TMP/none.md" 0 \
    && fails_with "usage: implement.sh audit-record" "$I" audit-record "$c1" "$TMP/audit.md" x'
 check "when the commit is not in the repository, then it refuses" 'fails_with "is not a commit in this repository" "$I" audit-record "$(printf "%040d" 1)" "$TMP/audit.md" 0'
+side="$(git commit-tree -p "$c1" -m side "$(git rev-parse "$c1^{tree}")")"; a0="$(cat "$(git rev-parse --git-common-dir)/landspec-security/audit")"
+printf '# report\n' > "$TMP/audit.md"
+check "when the commit is on a side branch, not on origin/main, then it refuses and the audit record is unchanged" \
+  'fails_with "$side is not on origin/main" "$I" audit-record "$side" "$TMP/audit.md" 0 && [[ "$(cat "$(git rev-parse --git-common-dir)/landspec-security/audit")" == "$a0" ]]'
+rm -f "$TMP/audit.md"
 
 check "then the current HEAD is the same after every call" '[[ ! -e "$TMP/head.moved" ]]'
 exit "$FAIL"

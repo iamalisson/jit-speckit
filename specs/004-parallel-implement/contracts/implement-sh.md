@@ -40,7 +40,10 @@ making a copy, `UNCHANGED=<n>` (same heads as the last `conflict`, `red` or unre
 `implement.sh check-copy --remove` removes it.
 
 `implement.sh [feature] release-plan` / `release-bump X.Y.Z` — T009.
-`implement.sh audit-plan` / `audit-record <commit> <report> <hold>` — T010, data-model "Audit record".
+`implement.sh audit-plan` prints `AUDIT=needed COMMIT=<sha>` when origin/<base>'s commit has no audit,
+else `AUDIT=done|hold COMMIT=<sha> REPORT=<kept copy> HOLD=<n>` (hold when `<n>` > 0).
+`implement.sh audit-record <commit> <report> <hold>` refuses a commit that is not on origin/<base> — T010,
+data-model "Audit record".
 
 ## Changes to existing scripts
 

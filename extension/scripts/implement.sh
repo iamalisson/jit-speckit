@@ -439,6 +439,9 @@ case "$action" in
     c="${1:-}"; r="${2:-}"; h="${3:-}"
     [[ "$c" =~ ^[0-9a-f]{40}$ && -f "$r" && "$h" =~ ^[0-9]+$ ]] || die "usage: implement.sh audit-record <commit (full sha)> <report file> <hold (confirmed critical or high)>"
     git cat-file -e "$c^{commit}" 2>/dev/null || die "$c is not a commit in this repository"
+    base="$(base_branch)" # the audit is of what is released: a commit on origin's base
+    git fetch --quiet origin "+refs/heads/$base:refs/remotes/origin/$base" || die "cannot fetch origin; fix the error above"
+    git merge-base --is-ancestor "$c" "refs/remotes/origin/$base" || die "$c is not on origin/$base"
     ad="$(cd "$(git rev-parse --git-common-dir)" && pwd -P)/landspec-security"; mkdir -p "$ad"
     [[ "$r" -ef "$ad/audit-$c.md" ]] || cp "$r" "$ad/audit-$c.md" # a copy: the audit's report may be a temp file
     printf 'commit=%s\nreport=%s\nhold=%s\n' "$c" "$ad/audit-$c.md" "$h" > "$ad/audit"
