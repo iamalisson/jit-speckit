@@ -299,8 +299,12 @@ check "then a task under review is in flight, so a second reviewer never starts 
   'r="$(sed -n "/\*\*\`REVIEW\`\*\*/,/\*\*\`FIX\`\*\*/p" <<<"$im")"; grep -qF "Add the task to \`in flight\`" <<<"$r" && grep -qF "remove it from \`in flight\`" <<<"$r" && grep -qF "no implementer and no reviewer" <<<"$im"'
 check "then a fix round reads the review from the <task>.report file of the run record, and every review is a full one" \
   'grep -qF "landspec-run/<feature dir name>/<task>.report" <<<"$im" && grep -qF "never \`--delta\`" <<<"$im"'
-check "then a returning implementer is marked implemented before anything else" \
-  'grep -qF "Run \`I mark <task> implemented\` before anything else" <<<"$im"'
+check "then a returning implementer's tests run first in its copy: green marks it implemented, red marks it red, failed at RED=2" \
+  'r="$(sed -n "/^## When an implementer returns/,/^## End/p" <<<"$im")"; grep -qF "run the project'"'"'s test command before anything else" <<<"$r" \
+   && grep -qF "green: \`I mark <task> implemented\`" <<<"$r" && grep -qF "red: \`I mark <task> red\`. At \`RED=2\`" <<<"$r" && grep -qF "\`I fail <task> \"tests red twice\"\`" <<<"$r"'
+check "then only implementers take parallel_tasks slots (status --running), while every task in flight is kept from restack" \
+  'grep -qF "\`I status --running <the implementers in flight, comma separated>\`" <<<"$im" && grep -qF "\`I restack --running <every task in flight, implementers and reviewers, comma separated>\`" <<<"$im" \
+   && grep -qF "reviewers take no slot" docs/reference.md'
 check "then the PR step switches to the branch first, runs gh pr ready after pr.sh task on a draft that targets the base, and detaches last" \
   'o="$(sed -n "/\*\*\`OPEN\`\*\*/,/^4\. /p" <<<"$im" | tr "\n" " ")"; [[ "$o" =~ git\ switch\ \<branch\>.*pr\.sh\ task.*gh\ pr\ ready.*git\ switch\ +--detach ]] && grep -qF "never while \`landspec-parent\` is set" <<<"$o"'
 check "then nothing in the skill or the implementer merges a PR" '! grep -qF "gh pr merge" skills/implement/SKILL.md agents/implementer.md'

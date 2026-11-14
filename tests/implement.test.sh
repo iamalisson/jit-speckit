@@ -94,6 +94,14 @@ setup
 mk "$B1"; "$I" mark T001 implemented >/dev/null; st
 check "when T001 is marked implemented, then it is implemented, in REVIEW, not in START" \
   '[[ "$(state_of T001)" == implemented ]] && grep -qx "REVIEW=T001" <<<"$out" && ! grep -q "^START=.*T001" <<<"$out"'
+rec1() { sed -n "s/^$1=//p" "$(git rev-parse --git-common-dir)/landspec-run/001-demo/T001"; }
+ph0="$(rec1 phase)"; h0="$(rec1 head)"; r0="$(rec1 round)"; "$I" mark T001 red >/dev/null; o2="$("$I" mark T001 red 2>&1)" || true; st
+check "when T001's tests are red twice after it said done, then red=2, with phase, head and round unchanged, and it is still implemented" \
+  '[[ "$o2" == "MARKED=T001 PHASE=red RED=2" && "$(rec1 red)" == 2 && "$(rec1 phase)" == "$ph0" && "$(rec1 head)" == "$h0" && "$(rec1 round)" == "$r0" && "$(state_of T001)" == implemented ]]'
+"$I" mark T001 implemented >/dev/null
+check "when T001 is then marked implemented, then red= is gone" '[[ -z "$(rec1 red)" ]]'
+"$I" mark T001 red >/dev/null; "$I" retry T001 >/dev/null
+check "when T001 is red and then retried, then red= is gone" '[[ -z "$(rec1 red)" ]]'
 commit_on "$B1"; st
 check "when a new commit lands on it, then it is resume" '[[ "$(state_of T001)" == resume ]]'
 echo "findings" > "$TMP/rep1.md"; "$I" mark T001 changes "$TMP/rep1.md" >/dev/null; st

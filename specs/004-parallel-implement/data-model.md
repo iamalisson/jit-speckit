@@ -11,6 +11,7 @@ only in the session. So each task started by a run has one small record,
 phase=implemented|changes|ready|pr     head=<sha the phase is for>
 round=<n>                              report=<path of the last review report, kept beside it>
 failed=<reason>                        (optional; with head= empty when there was no branch yet)
+red=<n>                                (optional; times its tests were red after its implementer said done)
 ```
 
 Everything else stays derived: claims, PRs, merges, locks, the review records.

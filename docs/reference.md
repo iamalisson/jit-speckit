@@ -230,7 +230,7 @@ the source. landspec's reviewer runs in its own copy of the reviewed commit (`is
 | `feature_rounds` | `3` | how many whole-feature check attempts `/landspec:implement` makes (a conflict, a red run or a `changes needed` feature review each count once per new combination of task heads) before it stops and asks: a number from `1` to `9` |
 | `version_files` | *(empty)* | the files that carry the version (`version: "X.Y.Z"` or `"version": "X.Y.Z"`), comma separated, the first one read as the current version; `/landspec:implement` bumps them for the release (minor; patch when every task is a `Fix`). Empty: no release step, only notes |
 | `release_notes` | *(empty)* | the folder for each release's notes, `<folder>/X.Y.Z.md`; they are also the published release's body |
-| `parallel_tasks` | `4` | how many tasks `/landspec:implement` runs at once (`implement.sh status` puts at most this many, minus the running ones, in `START=`): a number from `1` to `16`, any other value is refused |
+| `parallel_tasks` | `4` | how many implementers `/landspec:implement` runs at once (`implement.sh status` puts at most this many, minus the running ones, in `START=`); reviewers take no slot: a number from `1` to `16`, any other value is refused |
 
 ### The reviewer's copy
 
