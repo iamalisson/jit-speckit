@@ -81,8 +81,8 @@ run_wt() {
 }
 # all_prs: "<n>\t<head branch>\t<head sha>\t<base branch>\t<draft>\t<state>" for every PR.
 all_prs() {
-  gh pr list --state all --limit 500 --json number,headRefName,headRefOid,baseRefName,isDraft,state \
-    --jq '.[] | [.number, .headRefName, .headRefOid, .baseRefName, .isDraft, .state] | @tsv'
+  gh pr list --state all --limit 500 --json number,headRefName,headRefOid,baseRefName,isDraft,state,isCrossRepository \
+    --jq '.[] | select(.isCrossRepository | not) | [.number, .headRefName, .headRefOid, .baseRefName, .isDraft, .state] | @tsv'
 }
 # why_not <task> <branch> <status line> <PR line|"">: why that branch must not be moved now, or nothing.
 why_not() {
@@ -187,8 +187,8 @@ case "$action" in
     # The tasks, their issues and dependencies come from the base's tasks.md, the one checked above.
     tasks="$(git show "origin/$base:$fdir/tasks.md" | grep -E '^- \[.\] T[0-9]{3,} ' || true)"
     closed="$(closed_issues "$fdir")" || die "cannot read the state of feature $num's task issues; fix gh's error above"
-    prs="$(gh pr list --state open --limit 500 --json number,headRefName,headRefOid,baseRefName,isDraft \
-      --jq '.[] | [.number, .headRefName, .headRefOid, .baseRefName, .isDraft] | @tsv')" \
+    prs="$(gh pr list --state open --limit 500 --json number,headRefName,headRefOid,baseRefName,isDraft,isCrossRepository \
+      --jq '.[] | select(.isCrossRepository | not) | [.number, .headRefName, .headRefOid, .baseRefName, .isDraft] | @tsv')" \
       || die "cannot list the open pull requests; fix gh's error above"
     # Worktrees: "<branch>\t<path>\t<locked 0|1>" per checked-out branch.
     wts="$(git worktree list --porcelain | awk '
@@ -335,7 +335,7 @@ case "$action" in
     if [[ "${1:-}" == --remove ]]; then drop; exit 0; fi
     max="$(cfg feature_rounds 3)"
     [[ "$max" =~ ^[1-9]$ ]] || die "feature_rounds must be a number from 1 to 9"
-    sp="$(gh pr list --head "spec/$fname" --state open --json url --jq '.[0].url // empty')" \
+    sp="$(gh pr list --head "spec/$fname" --state open --json url,isCrossRepository --jq '[.[] | select(.isCrossRepository | not)][0].url // empty')" \
       || die "cannot look up the open spec PR of $fname; fix gh's error above"
     if [[ -n "$sp" ]]; then echo "SPEC_PR=$sp"; exit 0; fi
     base="$(base_branch)"
@@ -350,8 +350,8 @@ case "$action" in
         echo "CHECKED=$bh"; exit 0
       fi
       # FROM: where the feature starts, the first parent of its earliest merged task PR's merge commit
-      prs="$(gh pr list --state all --limit 500 --json number,title,headRefName,state,mergeCommit,mergedAt \
-        --jq '.[] | [.number, .title, .headRefName, .state, (.mergeCommit.oid // ""), (.mergedAt // "")] | @tsv')" \
+      prs="$(gh pr list --state all --limit 500 --json number,title,headRefName,state,mergeCommit,mergedAt,isCrossRepository \
+        --jq '.[] | select(.isCrossRepository | not) | [.number, .title, .headRefName, .state, (.mergeCommit.oid // ""), (.mergedAt // "")] | @tsv')" \
         || die "cannot list the pull requests; fix gh's error above"
       mc="$(awk -F'\t' -v k="/$num-t" '$4 == "MERGED" && index($3, k) { print $6 "\t" $5 }' <<<"$prs" | sort | sed -n 1p | cut -f2)" # sed reads to the end: no SIGPIPE on sort
       [[ -n "$mc" ]] && from="$(git rev-parse --verify --quiet "$mc^1")" \
@@ -409,8 +409,8 @@ case "$action" in
     [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "$f1 on origin/$base has no version line (version: \"X.Y.Z\" or \"version\": \"X.Y.Z\")"
     # Every PR: number, title, head branch, state, merge commit, merged at.
     # shortcut: the last 500 PRs; a release PR older than that is not seen, raise the limit if a repo ever needs it
-    prs="$(gh pr list --state all --limit 500 --json number,title,headRefName,state,mergeCommit,mergedAt \
-      --jq '.[] | [.number, .title, .headRefName, .state, (.mergeCommit.oid // ""), (.mergedAt // "")] | @tsv')" \
+    prs="$(gh pr list --state all --limit 500 --json number,title,headRefName,state,mergeCommit,mergedAt,isCrossRepository \
+      --jq '.[] | select(.isCrossRepository | not) | [.number, .title, .headRefName, .state, (.mergeCommit.oid // ""), (.mergedAt // "")] | @tsv')" \
       || die "cannot list the pull requests; fix gh's error above"
     key="/$num-t"
     tprs="$(awk -F'\t' -v k="$key" '$4 == "MERGED" && index($3, k) { print $6 "\t" $1 "\t" $5 }' <<<"$prs" | sort)"
@@ -432,7 +432,7 @@ case "$action" in
       rc="$(awk -F'\t' -v t="chore(release): $v" '$2 == t && $4 == "MERGED" { print $5; exit }' <<<"$prs")"
       if [[ -n "$rc" ]]; then echo "RELEASE=tag $v COMMIT=$rc"; exit 0; fi
     fi
-    op="$(awk -F'\t' '$4 == "OPEN" && index($2, "chore(release): ") == 1 { print $1 "\t" substr($2, 17); exit }' <<<"$prs")"
+    op="$(awk -F'\t' '$4 == "OPEN" && $2 ~ /^chore[(]release[)]: [0-9]+[.][0-9]+[.][0-9]+$/ { print $1 "\t" substr($2, 17); exit }' <<<"$prs")"
     if [[ -n "$op" ]]; then echo "RELEASE=pending $(cut -f2 <<<"$op") PR=$(cut -f1 <<<"$op")"; exit 0; fi
     closed="$(closed_issues "$fdir")" || die "cannot read the state of $(basename "$fdir")'s task issues; fix gh's error above"
     # The tasks come from the base's tasks.md, as in status: this checkout's copy may be behind it.

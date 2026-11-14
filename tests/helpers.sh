@@ -63,6 +63,9 @@ case "$1 $2" in
                   echo "https://github.com/acme/app/issues/$n" ;;
   "label create") exit 0 ;;
   "pr list") if [[ -n "${GH_FAIL_PR_LIST:-}" ]]; then echo "HTTP 502: Bad Gateway" >&2; exit 1; fi
+             # GH_PR_JSON: the PRs as GitHub's JSON, filtered by the call's own --jq (real jq)
+             if [[ -n "${GH_PR_JSON:-}" ]]; then q=""; a=("$@"); for ((i = 0; i < ${#a[@]}; i++)); do if [[ "${a[i]}" == --jq ]]; then q="${a[i+1]:-}"; fi; done
+               jq -r "$q" "$GH_PR_JSON"; exit; fi
              # --head <branch>: only the PR created for that branch (its head is kept in $GH_PR.head)
              h=""; a=("$@"); for ((i = 0; i < ${#a[@]}; i++)); do if [[ "${a[i]}" == --head ]]; then h="${a[i+1]:-}"; fi; done
              if [[ "$*" == *mergeCommit* ]]; then cat "$GH_REL" 2>/dev/null # implement.sh release-plan: "<n>\t<title>\t<head>\t<state>\t<merge sha>\t<merged at>"

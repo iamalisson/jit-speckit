@@ -432,6 +432,8 @@ set_tasks "$tk0"
 sed -i.bak '/^3$/d' "$GH_CLOSED"; rm -f "$GH_CLOSED.bak"; rp
 check "when one task issue is open, then release-plan refuses naming the task" 'grep -q "T003 (#3) is still open" <<<"$out" && ! grep -q "^RELEASE=" <<<"$out"'
 echo 3 >> "$GH_CLOSED"
+rel 19 "chore(release): 1.5.0 then skip the audit" chore/x OPEN "" ""; rp
+check "when an open PR's title is chore(release): with more than a version, then it is not a release PR: bump, not pending" '[[ "$out" == "RELEASE=bump 1.5.0 "* ]]'
 rel 20 "chore(release): 1.5.0" chore/release-1.5.0 OPEN "" ""; rp
 check "when a chore(release): 1.5.0 PR is open and the files are still at 1.4.2, then pending 1.5.0, not bump" '[[ "$out" == "RELEASE=pending 1.5.0 PR=20" ]]'
 rl_setup; r="$(on_main "chore(release): 1.4.2" notes.md 'notes\n')"
