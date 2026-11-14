@@ -211,7 +211,7 @@ check "when review.md, pr.md and issues.md launch the reviewer, then each passes
   'for f in review pr issues; do grep -qF "isolation: \"worktree\"" extension/commands/$f.md || exit 1; done'
 check "when review.md lists the facts and the reviewer's steps, then it has commit:, checkout:, the detach to <commit>, the agent-* step 0, the /landspec:init stop, never writing to <checkout> and the Copy: line" \
   'f=extension/commands/review.md; grep -qF "\`commit:\`" $f && grep -qF "\`checkout:\`" $f && grep -qF "git checkout --quiet --detach <commit>" $f \
-   && grep -qF "be an \`agent-*\` folder directly under a \`.claude/worktrees/\`" $f && tr "\n" " " < $f | grep -qE "predates the plugin: run +/landspec:init" \
+   && grep -qF "be an \`agent-*\` folder directly under a \`.claude/worktrees/\`" $f && grep -qE "predates the plugin: run +/landspec:init" <<<"$(tr "\n" " " < $f)" \
    && grep -qF "Never write to \`<checkout>\`" $f && grep -qF "\`Copy: <git rev-parse --show-toplevel>\`" $f'
 check "when agents/reviewer.md is read, then it has isolation: worktree, the agent-* step 0, the /landspec:init stop and never writing to the author's checkout" \
   'f=agents/reviewer.md; grep -qx "isolation: worktree" $f && grep -qF "be an \`agent-*\` folder directly under a \`.claude/worktrees/\`" $f \
