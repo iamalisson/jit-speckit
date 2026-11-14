@@ -119,8 +119,8 @@ check "then gh issue close 3 is still called" 'grep -q "^issue close 3 " "$TMP/c
 
 # F3.1/F4.3: a security finding reaches the PR as one line, never its detail: both prompts say so.
 check "the review prompt's Report section and pr.md step 5 say a security finding is one 'Security: reported privately (<id>)' line" \
-  'sed -n "/^## Report/,\$p" extension/commands/review.md | grep -qF "Security: reported privately (<id>)" \
-   && sed -n "/^5\. /,/^6\. /p" extension/commands/pr.md | grep -qF "Security: reported privately (<id>)"'
+  'r="$(sed -n "/^## Report/,\$p" extension/commands/review.md)"; p="$(sed -n "/^5\. /,/^6\. /p" extension/commands/pr.md)" \
+   && [[ "$r" == *"Security: reported privately (<id>)"* && "$p" == *"Security: reported privately (<id>)"* ]]'
 
 # F4.2: the audit's advisory call sends the JSON body GitHub accepts, after looking for an existing one.
 adv="$(sed -n '/^- \*\*Public repository:\*\*/,/^- \*\*A real secret/p' skills/security/SKILL.md)"
