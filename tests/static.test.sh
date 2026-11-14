@@ -343,6 +343,9 @@ check "when agents/implementer.md is read, then it is named implementer, isolate
    && grep -qF "Last, \`git switch --detach\`" <<<"$ag" && grep -qF "branch.sh <feature> <task> [--from <parent>]\`, first" <<<"$ag"'
 check "then it runs worktree_setup, stays in its copy, and returns Copy: and BRANCH=" \
   'grep -qF "worktree_setup:" <<<"$ag" && grep -qF "never touch a path outside it" <<<"$ag" && grep -qF "\`Copy: <git rev-parse --show-toplevel>\` and \`BRANCH=<branch>\`" <<<"$ag"'
+check "then without worktree_setup it prepares its own copy from the README, and returns Failed: setup: when the tests still cannot run" \
+  'grep -qF "When it is not set, prepare your copy as the project'"'"'s README says" <<<"$ag" && grep -qF "in your copy only, never in the developer'"'"'s checkout" <<<"$ag" \
+   && grep -qF "return \`Failed: setup: <what is missing>\` and stop" <<<"$ag"'
 check "then README, help and the reference list /landspec:implement, worktree_setup and implement_model" \
   'grep -qF "/landspec:implement" README.md && grep -qF "\`implement\`" skills/help/SKILL.md && grep -q "^| \`worktree_setup\` |" docs/reference.md && grep -q "^| \`implement_model\` |" docs/reference.md'
 
