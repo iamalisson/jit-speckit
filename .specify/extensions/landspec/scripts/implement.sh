@@ -412,13 +412,17 @@ case "$action" in
     op="$(awk -F'\t' '$4 == "OPEN" && index($2, "chore(release): ") == 1 { print $1 "\t" substr($2, 17); exit }' <<<"$prs")"
     if [[ -n "$op" ]]; then echo "RELEASE=pending $(cut -f2 <<<"$op") PR=$(cut -f1 <<<"$op")"; exit 0; fi
     closed="$(closed_issues "$fdir")" || die "cannot read the state of $(basename "$fdir")'s task issues; fix gh's error above"
+    # The tasks come from the base's tasks.md, as in status: this checkout's copy may be behind it.
+    tasks="$(git show "origin/$base:$fdir/tasks.md" 2>/dev/null | grep -E '^- \[.\] T[0-9]{3,} ' || true)"
+    [[ -n "$tasks" ]] || die "$fdir/tasks.md on '$base' has no tasks"
     while IFS= read -r l; do
       n="$(task_issue "$l")"; [[ -n "$n" ]] || continue
       [[ "$closed" == *" $n "* ]] || die "$(sed -E 's/^- \[.\] (T[0-9]+).*/\1/' <<<"$l") (#$n) is still open: merge its PR first"
-    done < <(grep -E '^- \[.\] T[0-9]{3,} ' "$fdir/tasks.md")
+    done <<<"$tasks"
     IFS=. read -r ma mi pa <<<"$v"
     # A patch only when every task is a fix (its description, after the id and any [tags], starts with Fix).
-    if grep -E '^- \[.\] T[0-9]{3,} ' "$fdir/tasks.md" | sed -E 's/^- \[.\] T[0-9]+ (\[[^]]*\] )*//' | grep -qv '^Fix'; then
+    descs="$(sed -E 's/^- \[.\] T[0-9]+ (\[[^]]*\] )*//' <<<"$tasks")" # a variable, not a pipe into grep -q (SIGPIPE under pipefail)
+    if grep -qv '^Fix' <<<"$descs"; then
       nv="$ma.$((mi + 1)).0"; else nv="$ma.$mi.$((pa + 1))"; fi
     rn="$(cfg release_notes "")"; notes="-"; [[ -z "$rn" ]] || notes="${rn%/}/$nv.md"
     echo "RELEASE=bump $nv FILES=$(paste -sd, - <<<"$vf") NOTES=$notes PRS=$(cut -f2 <<<"$tprs" | sort -n | paste -sd, -)" ;;

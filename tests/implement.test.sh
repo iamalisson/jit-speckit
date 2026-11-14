@@ -416,8 +416,19 @@ rel() { printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$@" >> "$GH_REL"; } # rel <n> <title>
 rl_setup; rp
 check "when every task issue is closed, then release-plan prints bump 1.5.0 with the files, the notes path and the merged task PRs" \
   '[[ "$out" == "RELEASE=bump 1.5.0 FILES=package.json,extension.yml NOTES=docs/releases/1.5.0.md PRS=11,12,13" ]] && [[ "$(git rev-parse HEAD)" == "$DEV" && -z "$(git status --porcelain --untracked-files=no)" ]]'
-sed -i.bak 's/^\(- \[ \] T00[0-9]\) Add /\1 Fix /' specs/001-demo/tasks.md; rm -f specs/001-demo/tasks.md.bak; rp; git checkout --quiet -- specs/001-demo/tasks.md
-check "when every task starts with Fix, then it is a patch: bump 1.4.3" '[[ "$out" == "RELEASE=bump 1.4.3 "* ]]'
+# set_tasks <content>: specs/001-demo/tasks.md on origin's main only; this checkout's copy stays as it was.
+set_tasks() { local c="${1//\\/\\\\}"; on_main tasks specs/001-demo/tasks.md "${c//%/%%}\n" >/dev/null; }
+tk0="$(git show origin/main:specs/001-demo/tasks.md)"
+set_tasks "$(sed 's/^\(- \[ \] T00[0-9]\) Add /\1 Fix /' <<<"$tk0")"; rp
+check "when every task on origin/main starts with Fix, then it is a patch: bump 1.4.3, whatever this checkout's copy says" \
+  '[[ "$out" == "RELEASE=bump 1.4.3 "* ]] && grep -q "^- \[ \] T001 Add " specs/001-demo/tasks.md'
+set_tasks "$tk0"$'\n''- [ ] T005 Add a late task — #99'; rp
+check "when a task with an open issue was added on origin/main and this checkout is stale, then release-plan refuses naming it" \
+  'grep -q "T005 (#99) is still open" <<<"$out" && ! grep -q "^RELEASE=" <<<"$out" && ! grep -q "T005" specs/001-demo/tasks.md'
+set_tasks '# Tasks'; rp
+check "when tasks.md on origin/main has no task lines, then release-plan refuses saying so, and prints no RELEASE=" \
+  'grep -q "tasks.md on .main. has no tasks" <<<"$out" && ! grep -q "^RELEASE=" <<<"$out"'
+set_tasks "$tk0"
 sed -i.bak '/^3$/d' "$GH_CLOSED"; rm -f "$GH_CLOSED.bak"; rp
 check "when one task issue is open, then release-plan refuses naming the task" 'grep -q "T003 (#3) is still open" <<<"$out" && ! grep -q "^RELEASE=" <<<"$out"'
 echo 3 >> "$GH_CLOSED"
