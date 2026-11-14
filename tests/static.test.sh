@@ -119,8 +119,8 @@ check "then gh issue close 3 is still called" 'grep -q "^issue close 3 " "$TMP/c
 
 # F3.1/F4.3: a security finding reaches the PR as one line, never its detail: both prompts say so.
 check "the review prompt's Report section and pr.md step 5 say a security finding is one 'Security: reported privately (<id>)' line" \
-  'sed -n "/^## Report/,\$p" extension/commands/review.md | grep -qF "Security: reported privately (<id>)" \
-   && sed -n "/^5\. /,/^6\. /p" extension/commands/pr.md | grep -qF "Security: reported privately (<id>)"'
+  'r="$(sed -n "/^## Report/,\$p" extension/commands/review.md)"; p="$(sed -n "/^5\. /,/^6\. /p" extension/commands/pr.md)" \
+   && [[ "$r" == *"Security: reported privately (<id>)"* && "$p" == *"Security: reported privately (<id>)"* ]]'
 
 # F4.2: the audit's advisory call sends the JSON body GitHub accepts, after looking for an existing one.
 adv="$(sed -n '/^- \*\*Public repository:\*\*/,/^- \*\*A real secret/p' skills/security/SKILL.md)"
@@ -211,7 +211,7 @@ check "when review.md, pr.md and issues.md launch the reviewer, then each passes
   'for f in review pr issues; do grep -qF "isolation: \"worktree\"" extension/commands/$f.md || exit 1; done'
 check "when review.md lists the facts and the reviewer's steps, then it has commit:, checkout:, the detach to <commit>, the agent-* step 0, the /landspec:init stop, never writing to <checkout> and the Copy: line" \
   'f=extension/commands/review.md; grep -qF "\`commit:\`" $f && grep -qF "\`checkout:\`" $f && grep -qF "git checkout --quiet --detach <commit>" $f \
-   && grep -qF "be an \`agent-*\` folder directly under a \`.claude/worktrees/\`" $f && tr "\n" " " < $f | grep -qE "predates the plugin: run +/landspec:init" \
+   && grep -qF "be an \`agent-*\` folder directly under a \`.claude/worktrees/\`" $f && grep -qE "predates the plugin: run +/landspec:init" <<<"$(tr "\n" " " < $f)" \
    && grep -qF "Never write to \`<checkout>\`" $f && grep -qF "\`Copy: <git rev-parse --show-toplevel>\`" $f'
 check "when agents/reviewer.md is read, then it has isolation: worktree, the agent-* step 0, the /landspec:init stop and never writing to the author's checkout" \
   'f=agents/reviewer.md; grep -qx "isolation: worktree" $f && grep -qF "be an \`agent-*\` folder directly under a \`.claude/worktrees/\`" $f \
