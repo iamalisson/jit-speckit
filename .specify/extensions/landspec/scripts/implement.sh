@@ -28,7 +28,7 @@
 #   implement.sh [feature] release-plan
 #       The release's one next step, from git and GitHub (V: the version in the first of version_files:
 #       on origin/<base>; M: the merge commit of the feature's last merged task PR): RELEASE=done V,
-#       RELEASE=publish V NOTES=<path on origin/<base>|->, RELEASE=tag V COMMIT=<sha>, RELEASE=pending X.Y.Z PR=<n>,
+#       RELEASE=publish V NOTES=<path on origin/<base>|pr:<n> (the release PR, whose body holds the notes)>, RELEASE=tag V COMMIT=<sha>, RELEASE=pending X.Y.Z PR=<n>,
 #       RELEASE=bump X.Y.Z FILES=<a,b> NOTES=<path|-> PRS=<n,m>, or RELEASE=none (no version_files:).
 #   implement.sh [feature] release-bump X.Y.Z   rewrites the version line of each of version_files:
 #   implement.sh [feature] audit-plan
@@ -422,7 +422,11 @@ case "$action" in
       if git merge-base --is-ancestor "$m" "$tag" 2>/dev/null; then
         if rv="$(gh release view "v$v" --json tagName 2>&1)"; then echo "RELEASE=done $v"; exit 0; fi
         grep -qi 'not found' <<<"$rv" || { echo "$rv" >&2; die "cannot read the release v$v; fix gh's error above"; }
-        rn="$(cfg release_notes "")"; echo "RELEASE=publish $v NOTES=$([[ -n "$rn" ]] && echo "${rn%/}/$v.md" || echo -)"; exit 0
+        rn="$(cfg release_notes "")"; [[ -z "$rn" ]] || { echo "RELEASE=publish $v NOTES=${rn%/}/$v.md"; exit 0; }
+        # no release_notes: the notes are in the release PR's body
+        pn="$(awk -F'\t' -v t="chore(release): $v" '$2 == t && $4 == "MERGED" { print $1; exit }' <<<"$prs")"
+        [[ -n "$pn" ]] || die "v$v has no merged PR titled 'chore(release): $v' to take the notes from; set release_notes: or publish it by hand"
+        echo "RELEASE=publish $v NOTES=pr:$pn"; exit 0
       fi
     else
       rc="$(awk -F'\t' -v t="chore(release): $v" '$2 == t && $4 == "MERGED" { print $5; exit }' <<<"$prs")"

@@ -124,12 +124,14 @@ next run reads where it stands from git and GitHub:
   title and number), and an "Upgrading" section when a task changed a config key or a command. Commit
   them by name (`chore(release): X.Y.Z`), push, then the review and `pr.sh fix "chore(release): X.Y.Z"
   <body>` as `pr.md` says for a PR that is not a task, then `git switch --detach origin/<base>` there.
-  `NOTES=-` (no `release_notes:`): put the notes in the release PR's body instead (nothing is
-  committed for them).
+  `NOTES=-` (no `release_notes:`): put the notes first in the release PR's body, before its
+  `## Review` and `## Evidence` sections (nothing is committed for them; publish reads them there).
 - `RELEASE=tag V COMMIT=<sha>`: `git tag vV <sha>` and `git push origin vV`.
 - `RELEASE=publish V NOTES=<path>`: `git fetch origin`, `git show origin/<base>:<path> > "$(mktemp)"`
   (the merged notes, never the checkout's copy), then `gh release create vV --title "<project> V"
-  --notes-file <that file>`. `NOTES=-`: `gh release create vV --title "<project> V" --generate-notes`.
+  --notes-file <that file>`. `NOTES=pr:<n>`: `gh pr view <n> --json body -q .body`, keep its text
+  before the first line that starts `## Evidence` or `## Review`, whichever comes first (the notes),
+  write it to a `mktemp` file, then `gh release create vV --title "<project> V" --notes-file <that file>`.
 - `RELEASE=pending X.Y.Z PR=<n>`: the release PR waits for its merge; say so.
 - `RELEASE=done V`: the feature is released; say so.
 - `RELEASE=none (no version_files:)`: first the whole-feature check on the base, as for `bump`; then the audit (below); only on `AUDIT=done`, write the notes to a `mktemp` file and say the project has no
