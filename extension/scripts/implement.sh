@@ -7,6 +7,7 @@
 #       Reads by branch name and never switches; its one write fast-forwards a task branch that is
 #       behind its origin branch and checked out nowhere.
 #   implement.sh [feature] mark <task> implemented|changes|ready|pr [<report>]
+#   implement.sh [feature] mark <task> red   adds 1 to red= (tests red after its implementer said done), prints RED=<n>
 #   implement.sh [feature] fail <task> <reason>
 #   implement.sh [feature] retry <task>
 #   implement.sh [feature] restack [--running T001,T002]
@@ -34,7 +35,7 @@
 #   implement.sh [feature] audit-record <commit> <report> <hold>
 #       Keeps a copy of the report and records it: <git common dir>/landspec-security/audit (commit=,
 #       report=, hold=, the number of confirmed critical or high findings).
-# The record is <git common dir>/landspec-run/<feature>/<task>: phase=, head=, round=, report=, failed=.
+# The record is <git common dir>/landspec-run/<feature>/<task>: phase=, head=, round=, report=, failed=, red=.
 set -euo pipefail
 # shellcheck source=lib.sh
 source "$(dirname "$0")/lib.sh"
@@ -134,8 +135,11 @@ move() {
 case "$action" in
   mark)
     t="${1:-}"; phase="${2:-}"; report="${3:-}"; valid_task "$t"
-    [[ "$phase" =~ ^(implemented|changes|ready|pr)$ ]] || die "usage: implement.sh mark <task> implemented|changes|ready|pr [<report>]"
+    [[ "$phase" =~ ^(implemented|changes|ready|pr|red)$ ]] || die "usage: implement.sh mark <task> implemented|changes|ready|pr|red [<report>]"
     b="$(task_branch "$t")"; [[ -n "$b" ]] || die "$t has no branch in this clone"
+    if [[ "$phase" == red ]]; then # phase, head and round stay: the task is not implemented yet
+      red="$(rec "$t" red)"; red=$((${red:-0} + 1)); write_rec "$t" "red=$red"; echo "MARKED=$t PHASE=red RED=$red"; exit 0
+    fi
     head="$(git rev-parse "refs/heads/$b")"; round="$(rec "$t" round)"; round="${round:-0}"
     # A failure a new commit lifted (its head is not this one) is gone, its rounds with it; one
     # recorded before the branch existed (empty head) stays until retry.
@@ -143,6 +147,7 @@ case "$action" in
     if [[ -n "$(rec "$t" failed)" && -n "$oldh" && "$oldh" != "$head" ]]; then
       grep -vE '^(failed|round)=' "$rdir/$t" > "$rdir/$t.tmp" || true; mv "$rdir/$t.tmp" "$rdir/$t"; round=0
     fi
+    if [[ -f "$rdir/$t" ]]; then grep -v '^red=' "$rdir/$t" > "$rdir/$t.tmp" || true; mv "$rdir/$t.tmp" "$rdir/$t"; fi # green again
     set -- "phase=$phase" "head=$head"
     if [[ "$phase" == changes ]]; then
       [[ -f "$report" ]] || die "usage: implement.sh mark <task> changes <report> (the review that asked for them)"
@@ -158,7 +163,7 @@ case "$action" in
     write_rec "$t" "head=$head" "failed=$why"; echo "FAILED=$t" ;;
   retry)
     t="${1:-}"; valid_task "$t"
-    if [[ -f "$rdir/$t" ]]; then grep -vE '^(failed|round)=' "$rdir/$t" > "$rdir/$t.tmp" || true; mv "$rdir/$t.tmp" "$rdir/$t"; fi
+    if [[ -f "$rdir/$t" ]]; then grep -vE '^(failed|round|red)=' "$rdir/$t" > "$rdir/$t.tmp" || true; mv "$rdir/$t.tmp" "$rdir/$t"; fi
     echo "RETRY=$t" ;;
   status)
     running_list=""
@@ -446,5 +451,5 @@ case "$action" in
     [[ "$r" -ef "$ad/audit-$c.md" ]] || cp "$r" "$ad/audit-$c.md" # a copy: the audit's report may be a temp file
     printf 'commit=%s\nreport=%s\nhold=%s\n' "$c" "$ad/audit-$c.md" "$h" > "$ad/audit"
     echo "AUDITED=$c REPORT=$ad/audit-$c.md HOLD=$h" ;;
-  *) die "usage: implement.sh [feature] status [--running T001,T002] | mark <task> <phase> [<report>] | fail <task> <reason> | retry <task> | restack | stack <task> <onto-task> | check-copy [--remove] | check-result red|green | release-plan | release-bump X.Y.Z | audit-plan | audit-record <commit> <report> <hold>" ;;
+  *) die "usage: implement.sh [feature] status [--running T001,T002] | mark <task> implemented|changes|ready|pr|red [<report>] | fail <task> <reason> | retry <task> | restack | stack <task> <onto-task> | check-copy [--remove] | check-result red|green | release-plan | release-bump X.Y.Z | audit-plan | audit-record <commit> <report> <hold>" ;;
 esac

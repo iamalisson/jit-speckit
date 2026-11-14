@@ -19,12 +19,15 @@ copy (`Copy:`) and branch (`BRANCH=`).
 
 Each pass:
 
-1. `I restack`. Show its `RESTACKED=`, `RESTACK_SKIPPED=`, `RESTACK_CONFLICT=`, `RESTACK_NOT_READY=` and
+1. `I restack --running <every task in flight, implementers and reviewers, comma separated>` (left out
+   when nothing is in flight), so a stacked task under review is never moved mid-review. Show its `RESTACKED=`, `RESTACK_SKIPPED=`, `RESTACK_CONFLICT=`, `RESTACK_NOT_READY=` and
    `RETARGETED=` lines as they come; a conflict waits for the end (step "End").
-2. `I status --running <the in-flight tasks, comma separated>` (`--running` with nothing in flight
-   is left out). It prints one `TASK=` line per task, then `START=`, `REVIEW=`, `FIX=`, `OPEN=`,
+2. `I status --running <the implementers in flight, comma separated>` (left out when none is): only
+   implementers take `parallel_tasks:` slots, and a task under review is kept from a second review by
+   `in flight`, not by `status`. It prints one `TASK=` line per task, then `START=`, `REVIEW=`, `FIX=`, `OPEN=`,
    `ORDER=` and `DONE=`.
-3. One step per listed task, in the order printed:
+3. One step per listed task, in the order printed, skipping any task that is in `in flight` (a task
+   under review is listed in `REVIEW=` again until its reviewer returns):
    - **`START`** → launch an implementer: the Agent tool with `subagent_type: "landspec:implementer"`,
      `isolation: "worktree"`, `run_in_background: true`, and `model` from `implement_model:` in
      `.specify/extensions/landspec/landspec-config.yml` (`sonnet`, `opus` or `fable`; left out when
@@ -142,10 +145,18 @@ prints. The base is audited once per commit: a later run reuses the recorded res
 
 ## When an implementer returns
 
-Run `I mark <task> implemented` before anything else, then remove it from `in flight`.
+When it says it is done: its `Copy: <path>` is the task's copy from now on. A missing `Copy:` (or a
+path that is gone) is recreated: `git worktree add --detach <repo>-<feature>-<task> <branch>`, beside
+the repository. In that copy, run the project's test command before anything else:
 
-- Its `Copy: <path>` is the task's copy from now on. A missing `Copy:` (or a path that is gone) is
-  recreated: `git worktree add --detach <repo>-<feature>-<task> <branch>`, beside the repository.
+- green: `I mark <task> implemented` (it clears `red=`), then remove it from `in flight`;
+- red: `I mark <task> red`. At `RED=2` (it said done twice and the tests are still red):
+  `I fail <task> "tests red twice"`, then remove it from `in flight`. At `RED=1`, SendMessage its
+  implementer the test output; if SendMessage is not available, or the agent is gone, launch a new
+  implementer as in `START`, on the existing branch, with that output. It stays in flight.
+
+Otherwise:
+
 - `branch.sh` exit 3 (it says the task was claimed elsewhere): the task is `elsewhere`; leave it,
   and start the next one.
 - `worktree_setup` failed: `I fail <task> "worktree_setup: <its output>"`, and go on with the

@@ -21,9 +21,10 @@ DONE=1/5
 a branch, parents before children, then by ID. Stacked PRs are drafts until `restack` moves them
 onto the base.
 
-`implement.sh [feature] mark <task> implemented|changes|ready|pr [<report>]` — writes the task record
+`implement.sh [feature] mark <task> implemented|changes|ready|pr|red [<report>]` — writes the task record
 (data-model "Task record"); `changes` increases `round` and keeps the report; the third writes
-`failed=review rounds`.
+`failed=review rounds`; `red` adds 1 to `red=` and leaves the rest (`implemented`, `retry` and a
+lifted failure clear it).
 `implement.sh [feature] fail <task> <reason>` / `retry <task>` — as the data model.
 
 `implement.sh [feature] restack` — in the run's worktree, parents first; the skips, moves, push,
