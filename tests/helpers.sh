@@ -78,6 +78,7 @@ case "$1 $2" in
   "repo view") exit 1 ;;
   "issue view") printf '%s\n%s\n' "${GH_VIEW_STATE:-OPEN}" "${GH_VIEW_BODY:-an older body}"; exit 0 ;; # as --jq '.state + "\n" + .body
   "release view") if grep -qxF "$3" "$GH_RELEASES" 2>/dev/null; then echo "{\"tagName\":\"$3\"}"; else echo "release not found" >&2; exit 1; fi ;;
+  "pr view") echo "${GH_PR_DRAFT:-false}"; exit 0 ;; # as --json isDraft --jq .isDraft
   "pr ready") if [[ -n "${GH_FAIL_READY:-}" ]]; then echo "GraphQL: Pull request is in clean status" >&2; exit 1; fi ;;
   "issue edit"|"pr edit") if [[ -n "${GH_FAIL_EDIT:-}" ]]; then echo "GraphQL: Could not resolve to a ProjectV2" >&2; exit 1; fi ;;
   *) exit 0 ;;

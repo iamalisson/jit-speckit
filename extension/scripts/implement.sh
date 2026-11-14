@@ -128,6 +128,10 @@ move() {
   fi
   if [[ "$pr" != - ]]; then
     gh pr edit "$pr" --base "$nb" >/dev/null || die "could not move PR #$pr onto $nb; fix gh's error above, then run restack again"
+    # onto a task branch a PR is a draft, so it can never be merged into its parent
+    if [[ -n "$np" && "$(gh pr view "$pr" --json isDraft --jq .isDraft)" != true ]]; then
+      gh pr ready "$pr" --undo >/dev/null || die "could not turn PR #$pr back into a draft; do it by hand (gh pr ready $pr --undo)"
+    fi
     # only a PR now on the base with its review kept is ready; a stacked one stays a draft
     if [[ -z "$np" && "$rv" == kept ]] && ! gh pr ready "$pr" >/dev/null; then echo "RESTACK_NOT_READY=$t"; fi
   fi
@@ -456,7 +460,9 @@ case "$action" in
       [[ -f "$f" ]] && grep -qE "$VER_RE" "$f" || die "$f has no version line (version: \"X.Y.Z\" or \"version\": \"X.Y.Z\"); nothing was changed"
     done <<<"$vf"
     while IFS= read -r f; do
-      sed -E -i.bak "/$VER_RE/ s/\"[^\"]*\"([^\"]*)\$/\"$nv\"\1/" "$f"; rm -f "$f.bak"
+      # the first version line only, the one release-plan reads: a nested "version" stays as it is
+      awk -v re="$VER_RE" -v nv="$nv" '!d && $0 ~ re { match($0, /"[^"]*"[^"]*$/); m = substr($0, RSTART)
+        $0 = substr($0, 1, RSTART - 1) "\"" nv "\"" substr(m, index(substr(m, 2), "\"") + 2); d = 1 } { print }' "$f" > "$f.new" && cat "$f.new" > "$f" && rm -f "$f.new" || die "could not bump $f"
     done <<<"$vf"
     echo "BUMPED=$nv" ;;
   audit-plan)
