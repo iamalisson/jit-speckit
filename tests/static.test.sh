@@ -358,7 +358,7 @@ check "then the bump goes through pr.sh fix in the run worktree, which is detach
   'grep -qF "<repo>-<feature>-run" <<<"$rl" && grep -qF "pr.sh fix \"chore(release): X.Y.Z\"" <<<"$rl" && grep -qF "git switch --detach origin/<base>\` there" <<<"$rl"'
 check "then publish reads the notes from the base, or from the release PR's body cut at the first ## Evidence or ## Review, never --generate-notes" \
   'grep -qF "git show origin/<base>:<path>" <<<"$rl" && grep -qF "gh pr view <n> --json body -q .body" <<<"$rl" \
-   && grep -qF "before the first line that starts \`## Evidence\` or \`## Review\`, whichever comes first" <<<"$rl" \
+   && grep -qF "before the first line that is exactly \`## Evidence\` or \`## Review\`, whichever comes first" <<<"$rl" && grep -qF "stop and say the release PR has no notes" <<<"$rl" \
    && grep -qF "put the notes first in the release PR'"'"'s body, before its" <<<"$rl" && ! grep -qF -- "--generate-notes" <<<"$rl"'
 check "then nothing in the skill merges a PR" '! grep -qF "gh pr merge" skills/implement/SKILL.md'
 check "then landspec's own config names its four version files and docs/releases" \

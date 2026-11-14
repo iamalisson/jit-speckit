@@ -130,8 +130,9 @@ next run reads where it stands from git and GitHub:
 - `RELEASE=publish V NOTES=<path>`: `git fetch origin`, `git show origin/<base>:<path> > "$(mktemp)"`
   (the merged notes, never the checkout's copy), then `gh release create vV --title "<project> V"
   --notes-file <that file>`. `NOTES=pr:<n>`: `gh pr view <n> --json body -q .body`, keep its text
-  before the first line that starts `## Evidence` or `## Review`, whichever comes first (the notes),
-  write it to a `mktemp` file, then `gh release create vV --title "<project> V" --notes-file <that file>`.
+  before the first line that is exactly `## Evidence` or `## Review`, whichever comes first (the notes);
+  if nothing but blank lines is left, stop and say the release PR has no notes; else write it to a
+  `mktemp` file, then `gh release create vV --title "<project> V" --notes-file <that file>`.
 - `RELEASE=pending X.Y.Z PR=<n>`: the release PR waits for its merge; say so.
 - `RELEASE=done V`: the feature is released; say so.
 - `RELEASE=none (no version_files:)`: first the whole-feature check on the base, as for `bump`; then the audit (below); only on `AUDIT=done`, write the notes to a `mktemp` file and say the project has no
