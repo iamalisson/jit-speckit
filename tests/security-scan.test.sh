@@ -11,6 +11,7 @@ for t in gitleaks osv-scanner semgrep zizmor; do
 #!/usr/bin/env bash
 echo "\$*" >> "$TMP/$t.log"
 [[ " \${FAKE_FIND:-} " == *" $t "* ]] && exit 1
+[[ " \${FAKE_CRASH:-} " == *" $t "* ]] && exit 2
 exit 0
 EOF
   chmod +x "$TMP/tools/$t"
@@ -36,6 +37,10 @@ check "then trivy is skipped when there is no infrastructure code" 'grep -q "^tr
 out="$(FAKE_FIND="semgrep gitleaks" PATH="$TMP/tools:$PATH" bash "$scan")"
 check "when a scanner finds something, then it reports findings with the report path" \
   'grep -q "^semgrep *findings .*semgrep.json" <<<"$out" && grep -q "^gitleaks *findings" <<<"$out"'
+
+out="$(FAKE_CRASH=semgrep PATH="$TMP/tools:$PATH" bash "$scan")"
+check "when semgrep exits with an error (not findings), then it is reported failed, never findings" \
+  'grep -q "^semgrep *failed *exit 2 .*code patterns not scanned" <<<"$out" && ! grep -q "^semgrep *findings" <<<"$out"'
 
 git switch --quiet -c feat/x; echo "x = 1" > app.py; git add app.py; git commit --quiet -m app
 : > "$TMP/semgrep.log"

@@ -332,6 +332,13 @@ out="$("$I" stack T003 T002 2>&1)" || true
 check "when stack T003 T002 runs, then T003's diff against T002 holds only its own file and T002 is its parent" \
   'grep -q "^RESTACKED=T003" <<<"$out" && [[ "$(own "$B3" "refs/heads/$B2")" == c && "$(git config --get "branch.$B3.landspec-parent")" == "$B2" ]] && run_ok "$B3"'
 check "then a second stack refuses" 'fails_with "already stacked" "$I" stack T003 T001'
+rs_setup; mkb "$B1" origin/main a; mkb "$B2" origin/main b; mkb "$B3" origin/main c
+printf '13 %s main false OPEN\n' "$B3" | prs; : > "$GH_LOG"; out="$("$I" stack T003 T002 2>&1)" || true
+check "when stack moves a ready PR onto a task branch, then it turns it back into a draft" \
+  'grep -q "^RESTACKED=T003" <<<"$out" && grep -q "^pr edit 13 --base $B2" "$GH_LOG" && grep -q "^pr ready 13 --undo" "$GH_LOG"'
+rs_setup; mkb "$B1" origin/main a; mkb "$B2" origin/main b; mkb "$B3" origin/main c
+printf '13 %s main true OPEN\n' "$B3" | prs; : > "$GH_LOG"; out="$(GH_PR_DRAFT=true "$I" stack T003 T002 2>&1)" || true
+check "then a PR that is already a draft is left as it is" 'grep -q "^RESTACKED=T003" <<<"$out" && ! grep -q "^pr ready 13" "$GH_LOG"'
 
 # ── Spec 004 T007: the whole-feature check copy, its rounds, and the feature review ──
 cc() { out="$("$I" check-copy "$@" 2>&1)" || true; }
@@ -460,6 +467,10 @@ out="$("$I" release-bump 1.5.0 2>&1)" || true
 check "when release-bump 1.5.0 runs, then only the version line of each file changes" \
   '[[ "$out" == BUMPED=1.5.0 && "$(git diff --numstat -- package.json extension.yml)" == $'"'"'1\t1\textension.yml\n1\t1\tpackage.json'"'"' ]] \
    && grep -qx "  \"version\": \"1.5.0\"" package.json && grep -qx "  version: \"1.5.0\"" extension.yml && grep -qF "speckit_version: \">=1.0\"" extension.yml'
+git checkout --quiet -- package.json extension.yml
+printf '  "engines": {\n    "version": "9.9.9"\n  }\n' >> package.json; out="$("$I" release-bump 1.5.0 2>&1)" || true
+check "when a version file has a second, nested version line, then release-bump changes only the first" \
+  '[[ "$out" == BUMPED=1.5.0 ]] && grep -qx "  \"version\": \"1.5.0\"" package.json && grep -qx "    \"version\": \"9.9.9\"" package.json'
 git checkout --quiet -- package.json extension.yml; echo plain > notes.txt
 sed -i.bak 's/^version_files:.*/version_files: package.json, notes.txt/' .specify/extensions/landspec/landspec-config.yml; rm -f .specify/extensions/landspec/landspec-config.yml.bak
 check "when a listed file has no version line, then release-bump refuses and changes nothing" \

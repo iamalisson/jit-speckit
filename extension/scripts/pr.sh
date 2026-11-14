@@ -173,7 +173,7 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
       || die "could not check for an open spec PR"
     fresh=false
     if [[ "$(git branch --show-current)" != "$branch" || -z "$open" ]]; then
-      ref="$(base_ref)"
+      ref="$(base_ref "")" # the base itself, never a parent task branch: a spec PR carries no task code
       # The spec folder's current content travels with us; nothing else is touched.
       saved="$(mktemp -d)"; cp -R "$fdir" "$saved/"
       restore() { rm -rf "$fdir"; mkdir -p "$(dirname "$fdir")"; cp -R "$saved/$(basename "$fdir")" "$fdir"; rm -rf "$saved"; }

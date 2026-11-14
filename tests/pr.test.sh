@@ -481,5 +481,11 @@ range() { printf 'Reviewed: %s..%s\nModel: claude-sonnet-4-7\n' "$(git merge-bas
 "$p" task T001 "feat: search" "$TMP/body.md" >/dev/null 2>"$TMP/pr.err" || true
 check "when the branch is not stacked, then its PR goes into the base, not as a draft, with no filter warning and no Stacked line" \
   'grep -q "^pr create --base develop --head $P" "$GH_LOG" && ! grep -q -- "--draft" "$GH_LOG" && ! grep -q "never runs" "$TMP/pr.err" && ! grep -q "Stacked on" "$GH_LOG"'
+git switch --quiet "$C"; rm -f "$GH_PR" "$GH_PR.head"; : > "$GH_LOG"
+f="$(ls -d specs/001-*)"; echo '- [ ] T003 Add sort in `src/sort.ts`' >> "$f/tasks.md"
+printf 'Plan read.\n\nModel: claude-sonnet-4-7\n\nAssessment: ready\n' > "$TMP/plan.md"; "$SCRIPTS/review.sh" record --plan "$TMP/plan.md" >/dev/null 2>&1
+"$p" spec >/dev/null 2>"$TMP/pr.err" || true
+check "when pr.sh spec runs on a stacked task branch, then the spec branch starts from the base, with none of the parent's commits" \
+  's="$(git rev-parse --verify --quiet "refs/heads/spec/$(basename "$f")")" && [[ "$(git merge-base "$s" "$P")" == "$(git merge-base origin/develop "$P")" ]] && ! git merge-base --is-ancestor "$(git rev-parse "$P")" "$s"'
 
 exit "$FAIL"
