@@ -29,7 +29,7 @@ local_b=" $(git for-each-ref --format='%(refname:short)' refs/heads/ | tr '\n' '
 checked_out=" $(git worktree list --porcelain | sed -n 's#^branch refs/heads/##p' | tr '\n' ' ') "
 remote_b=" $(git ls-remote --heads origin | sed 's#.*refs/heads/##' | tr '\n' ' ') " \
   || die "cannot read origin's branches, so tasks claimed in other clones cannot be seen; fix the error above and run next again"
-pr_heads=" $(gh pr list --state open --limit 500 --json headRefName --jq '.[].headRefName' | tr '\n' ' ') " \
+pr_heads=" $(gh pr list --state open --limit 500 --json headRefName,isCrossRepository --jq '.[] | select(.isCrossRepository | not) | .headRefName' | tr '\n' ' ') " \
   || die "cannot list the open pull requests, so tasks with an open PR cannot be seen; fix gh's error above and run next again"
 
 # scan <feature dir> <print>: one line per task when print=true; sets DONE_N TOTAL BUSY NEXT_ID PAR

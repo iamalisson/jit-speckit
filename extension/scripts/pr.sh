@@ -30,7 +30,7 @@ mode="${1:-}"
 # With a body file (a task PR, whose body must describe the new diff), an open PR's body is replaced.
 open_pr() { # open_pr <title> <body> [body-file]
   local url err
-  url="$(gh pr list --head "$(git branch --show-current)" --state open --json url --jq '.[0].url // empty')" \
+  url="$(gh pr list --head "$(git branch --show-current)" --state open --json url,isCrossRepository --jq '[.[] | select(.isCrossRepository | not)][0].url // empty')" \
     || die "could not check for an open PR"
   if [[ -z "$url" ]]; then
     # A stacked PR opens as a draft: GitHub cannot merge a draft, so it never lands in its parent.
@@ -78,7 +78,7 @@ case "$mode" in
     parent=""; parent_pr=""
     if [[ "$mode" == task ]]; then parent="$(git config --get "branch.$branch.landspec-parent" || true)"; fi
     if [[ -n "$parent" ]]; then
-      parent_pr="$(gh pr list --head "$parent" --state all --json url,state --jq '[.[] | select(.state != "CLOSED")][0].url // empty')" \
+      parent_pr="$(gh pr list --head "$parent" --state all --json url,state,isCrossRepository --jq '[.[] | select(.state != "CLOSED") | select(.isCrossRepository | not)][0].url // empty')" \
         || die "could not look up the PR of $parent"
       [[ -n "$parent_pr" ]] || die "open the PR of $parent first"
       parent_pr="${parent_pr##*/}"; base="$parent"
@@ -169,7 +169,7 @@ add a '## Test changes' section to the PR body saying why (spec changed, test wa
     # /speckit-converge, when the old spec PR may have been squash-merged) the branch starts
     # fresh from the base, so the new PR shows only what changed. A failed lookup stops here: taken
     # for "none open", the fresh start would overwrite the open PR's branch, teammates' commits too.
-    open="$(gh pr list --head "$branch" --state open --json url --jq '.[0].url // empty')" \
+    open="$(gh pr list --head "$branch" --state open --json url,isCrossRepository --jq '[.[] | select(.isCrossRepository | not)][0].url // empty')" \
       || die "could not check for an open spec PR"
     fresh=false
     if [[ "$(git branch --show-current)" != "$branch" || -z "$open" ]]; then

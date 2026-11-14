@@ -77,6 +77,16 @@ check "then the user is assigned and no milestone or project is guessed" \
 
 out="$("$p" task T001 "feat(search): add search" "$TMP/body.md")"
 check "when the PR already exists, then it is reused, not duplicated" '[[ "$(grep -c "^pr create" "$GH_LOG")" == 1 ]]'
+if command -v jq >/dev/null; then # GH_PR_JSON runs the script's own --jq
+  printf '[{"url":"https://github.com/acme/app/pull/7","isCrossRepository":true}]' > "$TMP/fork.json"
+  out="$(GH_PR_JSON="$TMP/fork.json" "$p" task T001 "feat(search): add search" "$TMP/body.md")"
+  check "when the only open PR with this branch name is a fork's, then a new PR opens and the fork's is never edited" \
+    '[[ "$(grep -c "^pr create" "$GH_LOG")" == 2 && "$out" == *"PR=https://github.com/acme/app/pull/99" ]] && ! grep -q "pull/7" "$GH_LOG"'
+  printf '[{"url":"https://github.com/acme/app/pull/7","isCrossRepository":false}]' > "$TMP/own.json"
+  out="$(GH_PR_JSON="$TMP/own.json" "$p" task T001 "feat(search): add search" "$TMP/body.md")"
+  check "then the same PR from this repository is reused, with its body replaced" \
+    '[[ "$(grep -c "^pr create" "$GH_LOG")" == 2 && "$out" == *"PR=https://github.com/acme/app/pull/7" ]] && grep -q "^pr edit https://github.com/acme/app/pull/7 --body" "$GH_LOG"'
+fi
 
 sed -i.bak 's/^level: .*/level: full/' .specify/extensions/landspec/landspec-config.yml
 rm -f "$GH_PR"; printf 'No evidence here.\n' > "$TMP/thin.md"
