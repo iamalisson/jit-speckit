@@ -9,7 +9,7 @@
   <path d="M30 52V40H262V52" fill="none" stroke="#9198a1" stroke-width="1.5"/>
   <text x="146" y="30" text-anchor="middle" font-size="13" fill="#9198a1" letter-spacing="1">ONCE PER FEATURE</text>
   <path d="M302 52V40H850V52" fill="none" stroke="#4493f8" stroke-width="1.5"/>
-  <text x="576" y="30" text-anchor="middle" font-size="13" fill="#4493f8" letter-spacing="1" font-weight="600">ONCE PER TASK · AUTOMATIC</text>
+  <text x="576" y="30" text-anchor="middle" font-size="13" fill="#4493f8" letter-spacing="1" font-weight="600">EVERY TASK, IN PARALLEL · AUTOMATIC</text>
   <!-- boxes -->
   <g font-size="15" text-anchor="middle">
     <rect x="30" y="66" width="104" height="64" rx="10" fill="#161b22" stroke="#30363d"/>
@@ -48,8 +48,8 @@
   <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#9198a1">
     <text x="146" y="160" text-anchor="middle">/speckit-specify</text>
     <text x="146" y="178" text-anchor="middle">/speckit-plan · /speckit-tasks</text>
-    <text x="576" y="160" text-anchor="middle">/landspec:next</text>
-    <text x="576" y="178" text-anchor="middle">or /speckit-implement T003</text>
+    <text x="576" y="160" text-anchor="middle">/landspec:implement</text>
+    <text x="576" y="178" text-anchor="middle">or /landspec:next, one task at a time</text>
   </g>
   <text x="440" y="212" text-anchor="middle" font-size="13" fill="#9198a1">Defaults sized to the project: lite · standard · full</text>
 </svg>
