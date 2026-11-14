@@ -461,9 +461,9 @@ check "when a listed file has no version line, then release-bump refuses and cha
 rm -f notes.txt
 
 # ── Spec 004 T012: with every task merged, the whole-feature check runs on the base, once per base commit ──
-# fbase <from>: a ready feature review of the check ref, Reviewed: <from>..<check ref>.
+# fbase <from> [<item line>]: a feature review of the check ref, Reviewed: <from>..<check ref> (ready unless a not met line).
 fbase() {
-  printf -- '- met: FR-001 — a\nCopy: none (test)\nReviewed: %s..%s\nModel: claude-sonnet-4-7\n\nAssessment: ready\n' "$1" "$(git rev-parse "refs/landspec/check/$(fname)")" > "$TMP/f.md"
+  printf -- '%s\nCopy: none (test)\nReviewed: %s..%s\nModel: claude-sonnet-4-7\n\nAssessment: ready\n' "${2:-- met: FR-001 — a}" "$1" "$(git rev-parse "refs/landspec/check/$(fname)")" > "$TMP/f.md"
   "$SCRIPTS/review.sh" record --feature "$TMP/f.md" 2>&1
 }
 rl_setup; m11="$(awk -F'\t' '$1 == 11 { print $5 }' "$GH_REL")"; from="$(git rev-parse "$m11^1")"; cc
@@ -478,6 +478,10 @@ check "when origin/main moves, then the base is checked again: CHECK= at the new
   '[[ "$out" == "CHECK=$(CW) ROUND=1 FROM=$from" && "$(git rev-parse "refs/landspec/check/$(fname)")" == "$(git rev-parse origin/main)" ]]'
 "$I" check-result red >/dev/null; out="$(fbase "$from")"; cc --remove; cc
 check "when the run on that commit was red, then a ready review does not make it CHECKED: the same commit is UNCHANGED" '[[ "$out" == UNCHANGED=1 && ! -d "$(CW)" ]]'
+on_main more2 more2.txt 'y\n' >/dev/null; cc; "$I" check-result green >/dev/null; out="$(fbase "$from" '- not met: FR-002 — nothing does it')"; cc --remove; cc
+check "when the base commit's run was green but its feature review was changes needed, then it is not CHECKED: the copy is made again" \
+  'grep -q "^CHECK=$(CW) ROUND=2 FROM=$from$" <<<"$out"' # round 2: the red run above still counts
+cc --remove
 set_tasks "$(git show origin/main:specs/001-demo/tasks.md)"$'\n''- [ ] T004 Add a late task — #4'; cc
 check "when one task is not started and the others are merged, then there is no check of the base: check-copy refuses, as before" \
   'grep -q "no unmerged task branch in this clone to check" <<<"$out" && ! grep -q "^CHECK" <<<"$out"'
